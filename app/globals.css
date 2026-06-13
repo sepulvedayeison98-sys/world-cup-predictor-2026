@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ───────────────────────────── */
+:root {
+  /* Surface */
+  --bg-base:        #09090b;   /* zinc-950 */
+  --bg-surface:     #111113;   /* card bg */
+  --bg-elevated:    #18181b;   /* zinc-900 */
+  --bg-hover:       #27272a;   /* zinc-800 */
+
+  /* Brand / accent */
+  --accent-primary: #10b981;   /* emerald-500 — win probability */
+  --accent-warning: #f59e0b;   /* amber-500 — draw / doubt */
+  --accent-danger:  #ef4444;   /* red-500 — loss / injured */
+  --accent-info:    #3b82f6;   /* blue-500 — neutral data */
+  --accent-purple:  #8b5cf6;   /* violet-500 — value bets */
+
+  /* Text */
+  --text-primary:   #f4f4f5;   /* zinc-100 */
+  --text-secondary: #a1a1aa;   /* zinc-400 */
+  --text-muted:     #52525b;   /* zinc-600 */
+
+  /* Border */
+  --border-subtle:  #27272a;   /* zinc-800 */
+  --border-default: #3f3f46;   /* zinc-700 */
+
+  /* Chart palette */
+  --chart-win:     #10b981;
+  --chart-draw:    #f59e0b;
+  --chart-loss:    #ef4444;
+  --chart-neutral: #6366f1;
+}
+
+/* ── Base ────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-zinc-800;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-100;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-zinc-700 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-zinc-600; }
+
+  /* Focus ring */
+  [data-radix-focus-guard] { @apply outline-none; }
+  :focus-visible { @apply outline-none ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950; }
+}
+
+/* ── Components ──────────────────────────────── */
+@layer components {
+  /* Card surface */
+  .card {
+    @apply bg-zinc-900 border border-zinc-800 rounded-xl;
+  }
+
+  /* Stat badge */
+  .badge-win   { @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+  .badge-draw  { @apply bg-amber-500/10   text-amber-400   border border-amber-500/20;   }
+  .badge-loss  { @apply bg-red-500/10     text-red-400     border border-red-500/20;     }
+  .badge-info  { @apply bg-blue-500/10    text-blue-400    border border-blue-500/20;    }
+  .badge-value { @apply bg-violet-500/10  text-violet-400  border border-violet-500/20;  }
+
+  /* Probability bar */
+  .prob-bar {
+    @apply h-1.5 rounded-full overflow-hidden bg-zinc-800;
+  }
+  .prob-bar-fill-win  { @apply h-full bg-emerald-500 rounded-full transition-all duration-700; }
+  .prob-bar-fill-draw { @apply h-full bg-amber-500   rounded-full transition-all duration-700; }
+  .prob-bar-fill-loss { @apply h-full bg-red-500     rounded-full transition-all duration-700; }
+
+  /* Form pill */
+  .form-W { @apply w-5 h-5 rounded-sm text-xs font-bold flex items-center justify-center bg-emerald-500/20 text-emerald-400; }
+  .form-D { @apply w-5 h-5 rounded-sm text-xs font-bold flex items-center justify-center bg-amber-500/20  text-amber-400; }
+  .form-L { @apply w-5 h-5 rounded-sm text-xs font-bold flex items-center justify-center bg-red-500/20    text-red-400; }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400
+           hover:bg-zinc-800 hover:text-zinc-100 transition-colors duration-150;
+  }
+  .nav-item-active {
+    @apply bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300;
+  }
+
+  /* KPI card */
+  .kpi-card {
+    @apply card p-4 flex flex-col gap-1 hover:border-zinc-700 transition-colors;
+  }
+
+  /* Table */
+  .data-table th {
+    @apply text-xs font-semibold uppercase tracking-wider text-zinc-500 pb-2 px-3;
+  }
+  .data-table td {
+    @apply px-3 py-3 text-sm text-zinc-300 border-t border-zinc-800/50;
+  }
+  .data-table tr:hover td { @apply bg-zinc-800/30; }
+
+  /* Confidence stars */
+  .confidence-star-active   { @apply text-amber-400; }
+  .confidence-star-inactive { @apply text-zinc-700; }
+
+  /* Value bet grade colors */
+  .grade-high   { @apply text-emerald-400 bg-emerald-500/10 border-emerald-500/20; }
+  .grade-medium { @apply text-amber-400   bg-amber-500/10   border-amber-500/20; }
+  .grade-low    { @apply text-zinc-400    bg-zinc-800       border-zinc-700; }
+  .grade-none   { @apply text-red-400     bg-red-500/10     border-red-500/20; }
+}
+
+/* ── Utilities ───────────────────────────────── */
+@layer utilities {
+  .text-gradient-emerald {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400;
+  }
+
+  .glow-emerald {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+  }
+
+  .mono { font-family: var(--font-mono); }
+
+  .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  /* Live indicator dot */
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-red-500;
+    animation: live-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+  }
+}
