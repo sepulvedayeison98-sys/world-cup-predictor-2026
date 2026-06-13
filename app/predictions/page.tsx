@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { PredictionsTable } from '@/components/predictions/PredictionsTable'
 
 export const metadata: Metadata = {
@@ -11,9 +10,6 @@ const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function PredictionsPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const { data: predictions } = await supabase
     .from('predictions')
     .select(`

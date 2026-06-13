@@ -34,11 +34,11 @@ function kellyFraction(modelProb: number, odds: number): number {
 
 // Simple model probability for secondary markets (based on prediction data)
 function getModelProbForMarket(market: OddsMarket, prediction: any): number {
-  const homeWin = prediction.home_win_probability
-  const draw    = prediction.draw_probability
-  const awayWin = prediction.away_win_probability
-  const predH   = prediction.predicted_home_score ?? 1
-  const predA   = prediction.predicted_away_score ?? 1
+  const homeWin = (prediction as any).home_win_probability
+  const draw    = (prediction as any).draw_probability
+  const awayWin = (prediction as any).away_win_probability
+  const predH   = (prediction as any).predicted_home_score ?? 1
+  const predA   = (prediction as any).predicted_away_score ?? 1
   const totalGoals = predH + predA
 
   switch (market) {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from('users').select('role').eq('id', user.id).single()
-    if (!profile || !['admin', 'analyst'].includes(profile.role)) {
+    if (!profile || !['admin', 'analyst'].includes((profile as any).role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       if (ev > 0) {
         valueBetUpserts.push({
           match_id,
-          prediction_id: prediction.id,
+          prediction_id: (prediction as any).id,
           market,
           bookmaker,
           odds_value,

@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { MatchesTable } from '@/components/matches/MatchesTable'
 import { MatchFiltersBar } from '@/components/matches/MatchFiltersBar'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'Partidos | World Cup Predictor',
@@ -10,9 +9,6 @@ export const metadata: Metadata = {
 
 export default async function MatchesPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   // Fetch groups for filter dropdown (server-side)
   const { data: groups } = await supabase
     .from('groups')

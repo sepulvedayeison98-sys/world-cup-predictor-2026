@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { SimulationEngine } from '@/components/simulation/SimulationEngine'
 
 export const metadata: Metadata = {
@@ -11,9 +10,6 @@ const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function SimulationPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   // Load scheduled matches with predictions (base scenarios)
   const { data: matches } = await supabase
     .from('matches')
@@ -60,7 +56,7 @@ export default async function SimulationPage() {
       <SimulationEngine
         matches={matches ?? []}
         activeInjuries={injuries ?? []}
-        userId={user.id}
+        userId="anonymous"
       />
     </div>
   )

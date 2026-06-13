@@ -6,7 +6,6 @@ import { ValueBetsWidget } from '@/components/dashboard/ValueBetsWidget'
 import { ROIChart } from '@/components/charts/ROIChart'
 import { PredictionAccuracyChart } from '@/components/charts/PredictionAccuracyChart'
 import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidget'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'Dashboard | World Cup Predictor',
@@ -16,15 +15,6 @@ export const metadata: Metadata = {
 // This page is a Server Component — data is fetched server-side
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
   // Fetch KPI data server-side for initial render
   const [
     { count: totalMatches },

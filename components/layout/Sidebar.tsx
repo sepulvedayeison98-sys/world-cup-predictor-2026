@@ -1,9 +1,9 @@
 'use client'
 
-import { FlaskConical, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { FlaskConical, usePathname } from 'next/navigation'
-import { FlaskConical,
+import { usePathname } from 'next/navigation'
+import {
   LayoutDashboard,
   Calendar,
   Users,
@@ -15,8 +15,9 @@ import { FlaskConical,
   ChevronLeft,
   ChevronRight,
   Trophy,
+  FlaskConical,
 } from 'lucide-react'
-import { FlaskConical, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
@@ -27,7 +28,7 @@ const NAV_ITEMS = [
   { href: '/simulation',   label: 'Simulador',      icon: FlaskConical },
   { href: '/teams',        label: 'Equipos',       icon: Users },
   { href: '/players',      label: 'Jugadores',     icon: User },
-  { href: '/settings',     label: 'Configuración', icon: Settings },
+  { href: '/settings',     label: 'Información', icon: Settings },
 ]
 
 export function Sidebar() {

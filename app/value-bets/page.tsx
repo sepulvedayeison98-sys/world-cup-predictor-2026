@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 
 export const metadata: Metadata = {
@@ -9,9 +8,6 @@ export const metadata: Metadata = {
 
 export default async function ValueBetsPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const { data: bets } = await supabase
     .from('value_bets')
     .select(`

@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from('users').select('role').eq('id', user.id).single()
-    if (!profile || !['admin', 'analyst'].includes(profile.role)) {
+    if (!profile || !['admin', 'analyst'].includes((profile as any).role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await supabase
       .from('predictions').select('id').eq('match_id', match_id).single()
 
-    let prediction
+    let prediction: any
     if (existing) {
       const { data, error } = await supabase
         .from('predictions')
