@@ -48,7 +48,9 @@ export default async function MatchDetailPage({ params }: Props) {
   if (!match) notFound()
 
   const m = match as any
-  const prediction = Array.isArray(m.predictions) ? m.predictions[0] : null
+  // PostgREST devuelve `predictions` como objeto (relacion 1-a-1 por
+  // UNIQUE(match_id)); manejamos tambien el caso array por robustez.
+  const prediction = Array.isArray(m.predictions) ? m.predictions[0] : (m.predictions ?? null)
   const homeStats = m.home_team?.team_statistics?.[0] ?? null
   const awayStats = m.away_team?.team_statistics?.[0] ?? null
   const matchStats = (m.match_statistics ?? []) as any[]

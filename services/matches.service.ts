@@ -35,7 +35,9 @@ export const matchesService = {
 
     const rows = (data ?? []).map((m: any) => ({
       ...m,
-      prediction: Array.isArray(m.predictions) ? (m.predictions[0] ?? null) : null,
+      // PostgREST devuelve `predictions` como OBJETO (relacion 1-a-1 por
+      // UNIQUE(match_id)), no como array. Manejamos ambos casos.
+      prediction: Array.isArray(m.predictions) ? (m.predictions[0] ?? null) : (m.predictions ?? null),
     }))
 
     const filtered = filters.min_confidence
