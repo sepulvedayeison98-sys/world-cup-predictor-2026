@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Calendar,
-  Users,
   User,
   TrendingUp,
   Zap,
@@ -27,7 +26,6 @@ const NAV_ITEMS = [
   { href: '/predictions',  label: 'Predicciones',  icon: TrendingUp },
   { href: '/value-bets',   label: 'Apuestas Valor', icon: Zap },
   { href: '/simulation',   label: 'Simulador',      icon: FlaskConical },
-  { href: '/teams',        label: 'Equipos',       icon: Users },
   { href: '/players',      label: 'Jugadores',     icon: User },
   { href: '/settings',     label: 'Información', icon: Settings },
 ]

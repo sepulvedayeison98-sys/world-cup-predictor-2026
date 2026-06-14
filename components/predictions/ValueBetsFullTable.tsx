@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -41,6 +41,14 @@ export function ValueBetsFullTable({ bets }: Props) {
   })
 
   const uniqueMarkets = [...new Set(bets.map((b) => b.market))]
+
+  // Paginacion: solo se renderizan PAGE_SIZE filas a la vez (evita pintar
+  // cientos de filas de golpe). El filtrado sigue sobre el set completo.
+  const PAGE_SIZE = 25
+  const [page, setPage] = useState(1)
+  useEffect(() => { setPage(1) }, [gradeFilter, marketFilter])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="card overflow-hidden">
@@ -104,7 +112,7 @@ export function ValueBetsFullTable({ bets }: Props) {
                 </td>
               </tr>
             ) : (
-              filtered.map((bet: any) => {
+              paged.map((bet: any) => {
                 const grade = GRADE_CONFIG[bet.grade as keyof typeof GRADE_CONFIG] ?? GRADE_CONFIG.none
                 const ev = bet.expected_value ?? 0
                 const edge = (bet.edge ?? 0) * 100
@@ -225,6 +233,29 @@ export function ValueBetsFullTable({ bets }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* Paginacion */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-zinc-800 px-3 py-2">
+          <span className="text-xs text-zinc-500">Página {page} de {totalPages}</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-600 disabled:opacity-40 disabled:hover:border-zinc-700"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-600 disabled:opacity-40 disabled:hover:border-zinc-700"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
