@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { QueryProvider } from '@/components/layout/QueryProvider'
+import { MobileNavProvider } from '@/components/layout/MobileNavContext'
 import { Toaster } from '@/components/ui/sonner'
 
 const inter = Inter({
@@ -42,15 +43,17 @@ export default function RootLayout({
       <body className="bg-zinc-950 text-zinc-100 antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <QueryProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <Topbar />
-                <main className="flex-1 overflow-y-auto bg-zinc-950">
-                  {children}
-                </main>
+            <MobileNavProvider>
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar />
+                <div className="flex flex-1 flex-col overflow-hidden">
+                  <Topbar />
+                  <main className="flex-1 overflow-y-auto bg-zinc-950">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
+            </MobileNavProvider>
             <Toaster />
           </QueryProvider>
         </ThemeProvider>
