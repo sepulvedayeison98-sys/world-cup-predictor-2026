@@ -3,6 +3,8 @@
 Plataforma profesional de análisis y predicción para el Mundial FIFA 2026.  
 Inspirada en TradingView · Sofascore · Bloomberg Terminal.
 
+**🌐 En vivo:** https://world-cup-predictor-2026-flax.vercel.app
+
 ---
 
 ## Stack
