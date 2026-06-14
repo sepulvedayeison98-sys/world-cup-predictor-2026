@@ -20,6 +20,7 @@ export interface ModelInput {
   homeXg: number; awayXg: number
   homeGoals: number; awayGoals: number
   homeInjuryImpact: number; awayInjuryImpact: number
+  marketProbabilities?: Probabilities; // Probabilidades del mercado (devigged)
 }
 
 export interface Probabilities { home: number; draw: number; away: number }
@@ -51,6 +52,22 @@ export function computeConfidenceLevel(score: number): 1 | 2 | 3 | 4 | 5 {
   return 1
 }
 
+/**
+ * Calcula la probabilidad de Poisson P(k, lambda) = (lambda^k * e^(-lambda)) / k!
+ */
+function poissonPMF(k: number, lambda: number): number {
+  if (k < 0 || !Number.isInteger(k)) return 0;
+  if (lambda < 0) return 0;
+  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
+}
+
+function factorial(n: number): number {
+  if (n === 0) return 1;
+  let res = 1;
+  for (let i = 2; i <= n; i++) res *= i;
+  return res;
+}
+
 /** Probabilidad "modelo" (sin mercado): ELO + forma + xG + lesiones. */
 export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT_WEIGHTS): ModelResult {
   const normElo = normalizeELO(i.homeElo, i.awayElo)
@@ -72,7 +89,15 @@ export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT
   const draw = Math.round(drawBase * 10000) / 10000
   const away = Math.round((1 - home - draw) * 10000) / 10000
 
-  return finalizeResult({ home, draw, away }, i.homeGoals, i.awayGoals, i.homeInjuryImpact + i.awayInjuryImpact)
+  // Si hay probabilidades de mercado, las mezclamos con el modelo
+  let finalProbs = { home, draw, away };
+  if (i.marketProbabilities) {
+    // Usamos un peso fijo para el mercado por ahora, esto podría ser calibrado
+    const marketWeight = 0.5; 
+    finalProbs = blend(finalProbs, i.marketProbabilities, marketWeight);
+  }
+
+  return finalizeResult(finalProbs, i.homeGoals, i.awayGoals, i.homeInjuryImpact + i.awayInjuryImpact)
 }
 
 /** Quita el margen de la casa de las cuotas 1X2 -> probabilidades de mercado. */
@@ -106,23 +131,50 @@ export function finalizeResult(
   return { ...p, predictedHome, predictedAway, confidenceScore: Math.round(confidenceScore * 100) / 100 }
 }
 
-/** Top-10 marcadores exactos a partir de probabilidades + marcador previsto. */
+/**
+ * Genera top-10 marcadores exactos usando una aproximación de Poisson.
+ * Se asume que predHome y predAway son los goles esperados (lambdas).
+ */
 export function generateExactScores(
-  homeWin: number, draw: number, awayWin: number, predHome: number, predAway: number,
+  homeWinProb: number, drawProb: number, awayWinProb: number, predHomeGoals: number, predAwayGoals: number,
 ): { home: number; away: number; prob: number }[] {
   const candidates: { home: number; away: number; prob: number }[] = []
-  for (let h = Math.max(1, predHome - 1); h <= predHome + 2; h++)
-    for (let a = 0; a < h; a++)
-      candidates.push({ home: h, away: a, prob: homeWin * Math.pow(0.55, Math.abs(h - predHome) + Math.abs(a - predAway)) })
-  for (let g = 0; g <= 3; g++)
-    candidates.push({ home: g, away: g, prob: draw * (g === 1 ? 0.45 : g === 0 ? 0.35 : g === 2 ? 0.15 : 0.05) })
-  for (let a = Math.max(1, predAway - 1); a <= predAway + 2; a++)
-    for (let h = 0; h < a; h++)
-      candidates.push({ home: h, away: a, prob: awayWin * Math.pow(0.55, Math.abs(h - predHome) + Math.abs(a - predAway)) })
+  const maxGoals = 5; // Limitar el rango de goles para cálculo
 
-  const total = candidates.reduce((s, c) => s + c.prob, 0) || 1
+  // Generar probabilidades para cada marcador posible (0-maxGoals vs 0-maxGoals)
+  const scoreProbs: { [key: string]: number } = {};
+  let totalProb = 0;
+
+  for (let h = 0; h <= maxGoals; h++) {
+    for (let a = 0; a <= maxGoals; a++) {
+      // Aproximación simplificada de Dixon-Coles: dos distribuciones de Poisson independientes
+      // y luego ajustar para la correlación del empate.
+      // Aquí, usamos lambdas directamente de los goles predichos.
+      const probHome = poissonPMF(h, predHomeGoals);
+      const probAway = poissonPMF(a, predAwayGoals);
+      let prob = probHome * probAway;
+
+      // Ajuste para el empate (factor de correlación, simplificado)
+      if (h === a) {
+        prob *= 0.8; // Reducir ligeramente la probabilidad de empate para no sobreestimar
+      }
+
+      scoreProbs[`${h}-${a}`] = prob;
+      totalProb += prob;
+    }
+  }
+
+  // Normalizar y clasificar los marcadores
+  for (let h = 0; h <= maxGoals; h++) {
+    for (let a = 0; a <= maxGoals; a++) {
+      const prob = scoreProbs[`${h}-${a}`] / totalProb;
+      if (prob > 0.001) { // Solo incluir marcadores con probabilidad significativa
+        candidates.push({ home: h, away: a, prob: Math.round(prob * 10000) / 10000 });
+      }
+    }
+  }
+
   return candidates
-    .map(c => ({ ...c, prob: Math.round((c.prob / total) * 10000) / 10000 }))
     .sort((a, b) => b.prob - a.prob)
-    .slice(0, 10)
+    .slice(0, 10) // Top 10 marcadores
 }

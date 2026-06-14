@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { DashboardKPICards } from '@/components/dashboard/KPICards'
-import { UpcomingMatchesWidget } from '@/components/dashboard/UpcomingMatchesWidget'
-import { ValueBetsWidget } from '@/components/dashboard/ValueBetsWidget'
+import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
+import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
+import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
 import { ROIChart } from '@/components/charts/ROIChart'
 import { PredictionAccuracyChart } from '@/components/charts/PredictionAccuracyChart'
 import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidget'
+import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
 
 export const metadata: Metadata = {
   title: 'Dashboard | World Cup Predictor',
@@ -75,13 +76,13 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <DashboardKPICards kpis={initialKPIs} />
+      <KPICardsRealtime initialKPIs={initialKPIs} />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left column — 2/3 width */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <UpcomingMatchesWidget />
+          <UpcomingMatchesWidgetRealtime />
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <ROIChart />
             <PredictionAccuracyChart />
@@ -90,8 +91,9 @@ export default async function DashboardPage() {
 
         {/* Right column — 1/3 width */}
         <div className="flex flex-col gap-6">
-          <ValueBetsWidget bets={valueBets ?? []} />
+          <ValueBetsWidgetRealtime />
           <GroupStandingsWidget competitionId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" groupLetter="C" />
+          <SimulationResultsWidget />
         </div>
       </div>
     </div>
