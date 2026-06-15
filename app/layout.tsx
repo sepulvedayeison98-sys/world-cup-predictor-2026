@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -27,6 +27,25 @@ export const metadata: Metadata = {
   },
   description: 'Plataforma profesional de análisis y predicción — FIFA World Cup 2026',
   keywords: ['mundial 2026', 'predicciones fútbol', 'análisis deportivo', 'apuestas valor'],
+  manifest: '/manifest.webmanifest',
+  applicationName: 'WC Predictor',
+  appleWebApp: {
+    capable: true,
+    title: 'WC Predictor',
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/apple-touch-icon.png',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0a0a0a',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

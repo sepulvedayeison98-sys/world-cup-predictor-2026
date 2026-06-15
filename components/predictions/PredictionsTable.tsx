@@ -149,11 +149,15 @@ export function PredictionsTable({ predictions }: Props) {
                       <span className="mono text-sm font-bold text-zinc-200">
                         {p.predicted_home_score}–{p.predicted_away_score}
                       </span>
-                      {topScore && (
+                      {m?.status === 'finished' && m?.home_score != null && m?.away_score != null ? (
+                        <p className="text-[9px] mono text-zinc-500">
+                          real <span className="font-bold text-zinc-300">{m.home_score}–{m.away_score}</span>
+                        </p>
+                      ) : topScore ? (
                         <p className="text-[9px] text-zinc-600">
                           ({Math.round(topScore.probability * 100)}%)
                         </p>
-                      )}
+                      ) : null}
                     </td>
                     <td className="text-center">
                       <div className="flex flex-col items-center gap-0.5">
@@ -164,11 +168,11 @@ export function PredictionsTable({ predictions }: Props) {
                     <td className="text-center">
                       {p.was_correct === null ? (
                         <span className="text-[10px] text-amber-400">Pendiente</span>
-                      ) : p.was_correct ? (
-                        <span className="text-[10px] font-bold text-emerald-400">✓ Correcto</span>
                       ) : (
                         <div>
-                          <span className="text-[10px] font-bold text-red-400">✗ Incorrecto</span>
+                          <span className={cn('text-[10px] font-bold', p.was_correct ? 'text-emerald-400' : 'text-red-400')}>
+                            {p.was_correct ? '✓ Correcto' : '✗ Incorrecto'}
+                          </span>
                           {p.actual_outcome && (
                             <p className="text-[9px] text-zinc-600">
                               Ganó: {p.actual_outcome === 'home' ? m?.home_team?.code : p.actual_outcome === 'away' ? m?.away_team?.code : 'Empate'}

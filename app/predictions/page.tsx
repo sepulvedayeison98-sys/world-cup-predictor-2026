@@ -16,7 +16,7 @@ export default async function PredictionsPage() {
     .select(`
       *,
       match:matches(
-        kickoff_time, venue, city, status, phase,
+        kickoff_time, venue, city, status, phase, home_score, away_score,
         home_team:teams!matches_home_team_id_fkey(name, short_name, code, fifa_ranking),
         away_team:teams!matches_away_team_id_fkey(name, short_name, code, fifa_ranking)
       ),
@@ -39,6 +39,10 @@ export default async function PredictionsPage() {
         <h1 className="mt-1 text-2xl font-bold text-white">Predicciones</h1>
         <p className="text-sm text-zinc-400">
           Todas las predicciones del motor ordenadas por fecha
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          El acierto se mide por el resultado (gana local / empate / gana visitante), no por el marcador exacto.
+          El "Pronóstico" es el marcador estimado; en los partidos finalizados se muestra también el marcador real.
         </p>
       </div>
 
