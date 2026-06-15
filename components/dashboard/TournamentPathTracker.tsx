@@ -45,7 +45,7 @@ export function TournamentPathTracker() {
             teams(name, code)
           `)
           .eq('simulation_run_id', latestRun.simulation_run_id)
-          .order('winner_prob', { ascending: false })
+          .order('group_stage_advance_prob', { ascending: false })
           .limit(8)
 
         if (results) {

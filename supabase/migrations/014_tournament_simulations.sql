@@ -27,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_tournament_sim_created ON tournament_simulations(
 
 ALTER TABLE tournament_simulations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tournament_sim_public_read" ON tournament_simulations;
 CREATE POLICY "tournament_sim_public_read" ON tournament_simulations
   FOR SELECT TO anon, authenticated USING (TRUE);
 
@@ -34,4 +35,9 @@ GRANT SELECT ON tournament_simulations TO anon, authenticated;
 GRANT ALL ON tournament_simulations TO service_role;
 
 -- Realtime para que los widgets se actualicen al terminar una corrida
-ALTER PUBLICATION supabase_realtime ADD TABLE tournament_simulations;
+-- (idempotente: ignora si la tabla ya está en la publicación)
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE tournament_simulations;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

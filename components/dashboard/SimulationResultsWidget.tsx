@@ -57,7 +57,7 @@ export function SimulationResultsWidget() {
           teams(name, code)
         `)
         .eq("simulation_run_id", latestRun.simulation_run_id)
-        .order("winner_prob", { ascending: false });
+        .order("group_stage_advance_prob", { ascending: false });
 
       if (error) {
         console.error("Error fetching simulation results:", error);
