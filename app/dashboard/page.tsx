@@ -7,6 +7,7 @@ import { ROIChart } from '@/components/charts/ROIChart'
 import { PredictionAccuracyChart } from '@/components/charts/PredictionAccuracyChart'
 import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidget'
 import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
+import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 
 export const metadata: Metadata = {
   title: 'Dashboard | World Cup Predictor',
@@ -77,6 +78,7 @@ export default async function DashboardPage() {
 
       {/* KPI Cards */}
       <KPICardsRealtime initialKPIs={initialKPIs} />
+      <TournamentPathTracker />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
