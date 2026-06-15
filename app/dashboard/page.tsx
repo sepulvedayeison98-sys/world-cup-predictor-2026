@@ -3,8 +3,6 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
 import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
 import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
-import { ROIChart } from '@/components/charts/ROIChart'
-import { PredictionAccuracyChart } from '@/components/charts/PredictionAccuracyChart'
 import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidget'
 import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
 import { MODEL_VERSION } from '@/lib/constants'
@@ -102,19 +100,17 @@ export default async function DashboardPage() {
         {/* Left column — 2/3 width */}
         <div className="flex flex-col gap-6 lg:col-span-2">
           <UpcomingMatchesWidgetRealtime />
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <ROIChart />
-            <PredictionAccuracyChart />
-          </div>
         </div>
 
         {/* Right column — 1/3 width */}
         <div className="flex flex-col gap-6">
           <ValueBetsWidgetRealtime />
           <GroupStandingsWidget competitionId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" groupLetter="C" />
-          <SimulationResultsWidget />
         </div>
       </div>
+
+      {/* Simulación Monte Carlo a todo el ancho (reemplaza las gráficas fabricadas) */}
+      <SimulationResultsWidget />
     </div>
   )
 }

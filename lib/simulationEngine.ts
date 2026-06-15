@@ -24,246 +24,264 @@ export interface Match {
 
 export interface SimulationResult {
   teamId: string;
-  groupStageAdvanceProb: number;
-  roundOf16Prob: number;
-  quarterFinalProb: number;
-  semiFinalProb: number;
-  finalProb: number;
-  winnerProb: number;
+  groupStageAdvanceProb: number; // Probabilidad de clasificar a la fase final (top 32)
+  roundOf16Prob: number;         // Probabilidad de llegar a octavos (ganar dieciseisavos)
+  quarterFinalProb: number;      // Probabilidad de llegar a cuartos
+  semiFinalProb: number;         // Probabilidad de llegar a semis
+  finalProb: number;             // Probabilidad de llegar a la final
+  winnerProb: number;            // Probabilidad de ser campeón
 }
 
-// Helper para simular un resultado de partido basado en probabilidades 1X2
-function simulateMatchResult(probabilities: Probabilities): 'home_win' | 'draw' | 'away_win' {
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers de simulación de un partido
+// ─────────────────────────────────────────────────────────────────────────
+
+// Probabilidades de un cruce a partir del ELO (para partidos que no tienen
+// predicción precalculada, p. ej. los cruces de eliminatorias que se arman
+// dinámicamente). En eliminatoria no hay localía: campo neutral.
+function knockoutProbabilities(home: Team, away: Team): Probabilities {
+  const input: ModelInput = {
+    homeElo: home.elo,
+    awayElo: away.elo,
+    homeForm: [],
+    awayForm: [],
+    homeXg: 1.5,
+    awayXg: 1.5,
+    homeGoals: 1,
+    awayGoals: 1,
+    homeInjuryImpact: 0,
+    awayInjuryImpact: 0,
+  };
+  return computeModelPrediction(input, DEFAULT_WEIGHTS);
+}
+
+// Resuelve un cruce de eliminatoria (sin empate posible: penaltis si hace falta)
+// y devuelve el id del equipo que avanza.
+function playKnockout(home: Team, away: Team): string {
+  const probs = knockoutProbabilities(home, away);
   const rand = Math.random();
-  if (rand < probabilities.home) {
-    return 'home_win';
-  } else if (rand < probabilities.home + probabilities.draw) {
-    return 'draw';
-  } else {
-    return 'away_win';
-  }
+  if (rand < probs.home) return home.id;
+  if (rand < probs.home + probs.away) return away.id;
+  // Empate en los 90' -> penaltis (50/50)
+  return Math.random() < 0.5 ? home.id : away.id;
 }
 
-// Simula un partido y devuelve el ganador o si fue empate
-function runMatch(match: Match, teamsMap: Map<string, Team>): { winnerId?: string; isDraw: boolean } {
-  if (!match.home_team || !match.away_team) {
-    // Si no hay equipos, no podemos simular. Podríamos lanzar un error o devolver un resultado por defecto.
-    return { isDraw: true }; // Por simplicidad, asumimos empate si faltan datos
-  }
-
-  // Usar las probabilidades precalculadas o calcularlas si no existen
-  let probabilities = match.probabilities;
-  if (!probabilities) {
-    // Esto es una simplificación. En un sistema real, se usaría el predictionEngine completo
-    // con datos de forma, xG, etc. Aquí solo usamos ELO como base si no hay probabilidades.
-    const homeTeam = teamsMap.get(match.home_team_id)!;
-    const awayTeam = teamsMap.get(match.away_team_id)!;
-
-    const modelInput: ModelInput = {
-      homeElo: homeTeam.elo,
-      awayElo: awayTeam.elo,
-      homeForm: [], // Simplificado
-      awayForm: [], // Simplificado
-      homeXg: 1.5, // Simplificado
-      awayXg: 1.5, // Simplificado
-      homeGoals: 1, // Simplificado
-      awayGoals: 1, // Simplificado
-      homeInjuryImpact: 0, // Simplificado
-      awayInjuryImpact: 0, // Simplificado
-    };
-    probabilities = computeModelPrediction(modelInput, DEFAULT_WEIGHTS);
-  }
-
-  const result = simulateMatchResult(probabilities);
-
-  if (result === 'home_win') {
-    return { winnerId: match.home_team_id, isDraw: false };
-  } else if (result === 'away_win') {
-    return { winnerId: match.away_team_id, isDraw: false };
-  } else {
-    return { isDraw: true };
-  }
+interface Standing {
+  teamId: string;
+  points: number;
+  gd: number;
+  gf: number;
+  position: number; // 1, 2, 3, 4 dentro del grupo
 }
 
-// Simula la fase de grupos para un grupo dado
-function simulateGroupStage(groupMatches: Match[], teamsInGroup: Team[]): { advancingTeams: string[]; groupStandings: Map<string, { points: number; gd: number; gf: number }> } {
-  const standings = new Map<string, { points: number; gd: number; gf: number }>();
-  teamsInGroup.forEach(team => standings.set(team.id, { points: 0, gd: 0, gf: 0 }));
+// Simula la fase de grupos de un grupo y devuelve los standings ordenados.
+function simulateGroupStage(groupMatches: Match[], teamsInGroup: Team[]): Standing[] {
+  const table = new Map<string, { points: number; gd: number; gf: number }>();
+  teamsInGroup.forEach((team) => table.set(team.id, { points: 0, gd: 0, gf: 0 }));
 
   for (const match of groupMatches) {
-    const homeTeamId = match.home_team_id;
-    const awayTeamId = match.away_team_id;
+    const home = table.get(match.home_team_id);
+    const away = table.get(match.away_team_id);
+    if (!home || !away) continue;
 
-    // Simular el resultado usando las probabilidades del modelo (ELO+mercado)
-    // si existen; si no, goles aleatorios como fallback.
+    // Marcador simulado: si hay probabilidades del modelo (ELO+mercado) las usamos;
+    // si no, goles aleatorios como fallback.
     let homeGoals: number;
     let awayGoals: number;
     if (match.probabilities) {
-      const outcome = simulateMatchResult(match.probabilities);
-      if (outcome === 'home_win') {
+      const rand = Math.random();
+      const p = match.probabilities;
+      if (rand < p.home) {
         homeGoals = 1 + Math.floor(Math.random() * 2);
         awayGoals = Math.floor(Math.random() * homeGoals);
-      } else if (outcome === 'away_win') {
-        awayGoals = 1 + Math.floor(Math.random() * 2);
-        homeGoals = Math.floor(Math.random() * awayGoals);
-      } else {
+      } else if (rand < p.home + p.draw) {
         homeGoals = Math.floor(Math.random() * 3);
         awayGoals = homeGoals; // empate
+      } else {
+        awayGoals = 1 + Math.floor(Math.random() * 2);
+        homeGoals = Math.floor(Math.random() * awayGoals);
       }
     } else {
       homeGoals = Math.floor(Math.random() * 4);
       awayGoals = Math.floor(Math.random() * 4);
     }
 
-    const homeStandings = standings.get(homeTeamId)!;
-    const awayStandings = standings.get(awayTeamId)!;
+    home.gf += homeGoals;
+    home.gd += homeGoals - awayGoals;
+    away.gf += awayGoals;
+    away.gd += awayGoals - homeGoals;
 
-    homeStandings.gf += homeGoals;
-    homeStandings.gd += (homeGoals - awayGoals);
-    awayStandings.gf += awayGoals;
-    awayStandings.gd += (awayGoals - homeGoals);
-
-    if (homeGoals > awayGoals) {
-      homeStandings.points += 3;
-    } else if (awayGoals > homeGoals) {
-      awayStandings.points += 3;
-    } else {
-      homeStandings.points += 1;
-      awayStandings.points += 1;
+    if (homeGoals > awayGoals) home.points += 3;
+    else if (awayGoals > homeGoals) away.points += 3;
+    else {
+      home.points += 1;
+      away.points += 1;
     }
   }
 
-  // Determinar equipos que avanzan (top 2 por puntos, GD, GF)
-  const sortedStandings = Array.from(standings.entries()).sort(([, a], [, b]) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.gd !== a.gd) return b.gd - a.gd;
-    return b.gf - a.gf;
-  });
+  const sorted = Array.from(table.entries())
+    .map(([teamId, s]) => ({ teamId, ...s }))
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      return b.gf - a.gf;
+    });
 
-  return { advancingTeams: sortedStandings.slice(0, 2).map(([teamId]) => teamId), groupStandings: standings };
+  return sorted.map((s, i) => ({ ...s, position: i + 1 }));
 }
 
-// Simula una fase de eliminación directa
-function simulateKnockoutStage(matches: Match[], teamsMap: Map<string, Team>): string | undefined {
-  let currentRoundWinners: string[] = [];
-  for (const match of matches) {
-    let result = runMatch(match, teamsMap);
-    if (result.isDraw) {
-      // En eliminatoria, si es empate, simular penaltis (aleatorio por ahora)
-      result.winnerId = Math.random() < 0.5 ? match.home_team_id : match.away_team_id;
+// ─────────────────────────────────────────────────────────────────────────
+// Bracket de eliminatorias (32 equipos)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Orden de siembra estándar de un bracket de n equipos (potencia de 2).
+// Devuelve las "semillas" (1 = mejor) en el orden de las posiciones del bracket,
+// de modo que las dos mejores semillas solo puedan cruzarse en la final.
+function seedBracketOrder(n: number): number[] {
+  let order = [1, 2];
+  while (order.length < n) {
+    const sum = order.length * 2 + 1;
+    const next: number[] = [];
+    for (const seed of order) {
+      next.push(seed);
+      next.push(sum - seed);
     }
-    if (result.winnerId) {
-      currentRoundWinners.push(result.winnerId);
-    }
+    order = next;
   }
-  // Si solo queda un ganador, es el campeón de esta fase (o del torneo)
-  return currentRoundWinners.length === 1 ? currentRoundWinners[0] : undefined;
+  return order;
 }
+
+// Métrica de siembra de un clasificado: prioriza la posición de grupo
+// (1º > 2º > 3º), luego puntos, diferencia y goles a favor; ELO como desempate.
+function seedScore(standing: Standing, elo: number): number {
+  return (4 - standing.position) * 1_000_000 + standing.points * 10_000 + standing.gd * 100 + standing.gf + elo / 10_000;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Monte Carlo
+// ─────────────────────────────────────────────────────────────────────────
 
 export function runMonteCarloSimulation(
   allTeams: Team[],
   allMatches: Match[],
   numSimulations: number = 10000
 ): SimulationResult[] {
-  const teamsMap = new Map<string, Team>(allTeams.map(team => [team.id, team]));
-  const teamStats = new Map<string, { groupStageAdvance: number; roundOf16: number; quarterFinal: number; semiFinal: number; final: number; winner: number }>();
-  allTeams.forEach(team => teamStats.set(team.id, { groupStageAdvance: 0, roundOf16: 0, quarterFinal: 0, semiFinal: 0, final: 0, winner: 0 }));
+  const teamsMap = new Map<string, Team>(allTeams.map((t) => [t.id, t]));
 
-  for (let s = 0; s < numSimulations; s++) {
-    const currentTeamsMap = new Map<string, Team>(allTeams.map(team => [team.id, { ...team }]));
-    const currentMatches = allMatches.map(match => ({ ...match }));
+  const stats = new Map<
+    string,
+    { advance: number; r16: number; qf: number; sf: number; final: number; winner: number }
+  >();
+  allTeams.forEach((t) => stats.set(t.id, { advance: 0, r16: 0, qf: 0, sf: 0, final: 0, winner: 0 }));
 
-    // Fase de Grupos
-    const groups = new Map<string, Match[]>();
-    currentMatches.filter(m => m.stage === 'group').forEach(m => {
-      if (m.group_letter) {
-        if (!groups.has(m.group_letter)) groups.set(m.group_letter, []);
-        groups.get(m.group_letter)!.push(m);
-      }
+  // Agrupar partidos de fase de grupos por letra (una sola vez).
+  const groupMatches = new Map<string, Match[]>();
+  allMatches
+    .filter((m) => m.stage === 'group' && m.group_letter)
+    .forEach((m) => {
+      const g = m.group_letter!;
+      if (!groupMatches.has(g)) groupMatches.set(g, []);
+      groupMatches.get(g)!.push(m);
     });
 
-    const knockoutTeams: { [round: string]: string[] } = {
-      'round_of_16': [],
-      'quarter_finals': [],
-      'semi_finals': [],
-      'final': [],
-    };
+  // Equipos por grupo (estable entre simulaciones).
+  const teamsByGroup = new Map<string, Team[]>();
+  allTeams.forEach((t) => {
+    if (!t.group) return;
+    if (!teamsByGroup.has(t.group)) teamsByGroup.set(t.group, []);
+    teamsByGroup.get(t.group)!.push(t);
+  });
 
-    const groupWinners: { [group: string]: string } = {};
-    const groupRunnersUp: { [group: string]: string } = {};
+  const numKnockout = 32; // Mundial de 48: top 2 de cada grupo + 8 mejores terceros
+  const bracketOrder = seedBracketOrder(numKnockout);
 
-    for (const [groupLetter, matches] of groups.entries()) {
-      const teamsInGroup = allTeams.filter(t => t.group === groupLetter);
-      const { advancingTeams } = simulateGroupStage(matches, teamsInGroup);
-      
-      if (advancingTeams.length >= 2) {
-        groupWinners[groupLetter] = advancingTeams[0];
-        groupRunnersUp[groupLetter] = advancingTeams[1];
-      }
+  for (let s = 0; s < numSimulations; s++) {
+    const winners: Standing[] = [];
+    const runnersUp: Standing[] = [];
+    const thirds: Standing[] = [];
 
-      advancingTeams.forEach(teamId => {
-        const stats = teamStats.get(teamId)!;
-        stats.groupStageAdvance++;
-        stats.roundOf16++; // Si avanzan de grupo, llegan a octavos
-      });
+    for (const [groupLetter, matches] of groupMatches.entries()) {
+      const teamsInGroup = teamsByGroup.get(groupLetter) ?? [];
+      const table = simulateGroupStage(matches, teamsInGroup);
+      if (table[0]) winners.push(table[0]);
+      if (table[1]) runnersUp.push(table[1]);
+      if (table[2]) thirds.push(table[2]);
     }
 
-    // Llenar los partidos de octavos de final (simplificado: A1 vs B2, B1 vs A2, etc.)
-    // Esto requiere un mapeo real de cómo se emparejan los grupos en el Mundial
-    // Por ahora, una asignación simple para demostrar la lógica
-    const r16Matches: Match[] = currentMatches.filter(m => m.stage === 'round_of_16');
-    // Asignar equipos a los partidos de octavos de final basándose en groupWinners y groupRunnersUp
-    // Esto es una simplificación y debería ser más robusto para un Mundial real
-    // Ejemplo: r16Matches[0].home_team_id = groupWinners['A']; r16Matches[0].away_team_id = groupRunnersUp['B'];
-    // Para esta demo, simplemente asumimos que los partidos de knockout ya tienen los IDs de equipo correctos
+    // 8 mejores terceros
+    const bestThirds = thirds
+      .slice()
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        return b.gf - a.gf;
+      })
+      .slice(0, 8);
 
-    // Simular Octavos de Final
-    const r16Winners: string[] = [];
-    for (const match of r16Matches) {
-      const result = runMatch(match, currentTeamsMap);
-      if (result.winnerId) r16Winners.push(result.winnerId);
+    const qualified = [...winners, ...runnersUp, ...bestThirds];
+    if (qualified.length < numKnockout) {
+      // Datos incompletos (no están cargados los 12 grupos): solo contamos avance.
+      qualified.forEach((q) => stats.get(q.teamId)!.advance++);
+      continue;
     }
-    r16Winners.forEach(teamId => teamStats.get(teamId)!.quarterFinal++);
 
-    // Simular Cuartos de Final (simplificado)
-    const qfMatches: Match[] = currentMatches.filter(m => m.stage === 'quarter_finals');
-    const qfWinners: string[] = [];
-    for (const match of qfMatches) {
-      const result = runMatch(match, currentTeamsMap);
-      if (result.winnerId) qfWinners.push(result.winnerId);
-    }
-    qfWinners.forEach(teamId => teamStats.get(teamId)!.semiFinal++);
+    // Todos los clasificados avanzan de la fase de grupos.
+    qualified.forEach((q) => stats.get(q.teamId)!.advance++);
 
-    // Simular Semifinales (simplificado)
-    const sfMatches: Match[] = currentMatches.filter(m => m.stage === 'semi_finals');
-    const sfWinners: string[] = [];
-    for (const match of sfMatches) {
-      const result = runMatch(match, currentTeamsMap);
-      if (result.winnerId) sfWinners.push(result.winnerId);
-    }
-    sfWinners.forEach(teamId => teamStats.get(teamId)!.final++);
+    // Sembrar los 32 por fuerza demostrada en grupos.
+    const seeded = qualified
+      .map((q) => ({ standing: q, score: seedScore(q, teamsMap.get(q.teamId)?.elo ?? 1500) }))
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.standing.teamId); // índice 0 = semilla 1 (mejor)
 
-    // Simular Final (simplificado)
-    const finalMatch: Match | undefined = currentMatches.find(m => m.stage === 'final');
-    if (finalMatch) {
-      const finalWinner = simulateKnockoutStage([finalMatch], currentTeamsMap);
-      if (finalWinner) {
-        teamStats.get(finalWinner)!.winner++;
-        // Los finalistas también llegan a la final
-        teamStats.get(finalMatch.home_team_id)!.final++;
-        teamStats.get(finalMatch.away_team_id)!.final++;
-      }
-    }
+    // Colocar en el bracket según el orden de siembra estándar.
+    let round: string[] = bracketOrder.map((seed) => seeded[seed - 1]);
+
+    // Dieciseisavos (32 -> 16): los ganadores LLEGAN A OCTAVOS.
+    round = playRound(round, teamsMap);
+    round.forEach((id) => stats.get(id)!.r16++);
+
+    // Octavos (16 -> 8): ganadores llegan a cuartos.
+    round = playRound(round, teamsMap);
+    round.forEach((id) => stats.get(id)!.qf++);
+
+    // Cuartos (8 -> 4): ganadores llegan a semis.
+    round = playRound(round, teamsMap);
+    round.forEach((id) => stats.get(id)!.sf++);
+
+    // Semis (4 -> 2): ganadores llegan a la final.
+    round = playRound(round, teamsMap);
+    round.forEach((id) => stats.get(id)!.final++);
+
+    // Final (2 -> 1): el ganador es campeón.
+    round = playRound(round, teamsMap);
+    if (round[0]) stats.get(round[0])!.winner++;
   }
 
-  // Consolidar resultados
-  return Array.from(teamStats.entries()).map(([teamId, stats]) => ({
+  return Array.from(stats.entries()).map(([teamId, s]) => ({
     teamId,
-    groupStageAdvanceProb: stats.groupStageAdvance / numSimulations,
-    roundOf16Prob: stats.roundOf16 / numSimulations,
-    quarterFinalProb: stats.quarterFinal / numSimulations,
-    semiFinalProb: stats.semiFinal / numSimulations,
-    finalProb: stats.final / numSimulations,
-    winnerProb: stats.winner / numSimulations,
+    groupStageAdvanceProb: s.advance / numSimulations,
+    roundOf16Prob: s.r16 / numSimulations,
+    quarterFinalProb: s.qf / numSimulations,
+    semiFinalProb: s.sf / numSimulations,
+    finalProb: s.final / numSimulations,
+    winnerProb: s.winner / numSimulations,
   }));
+}
+
+// Juega una ronda de eliminatoria: empareja posiciones consecutivas del bracket
+// y devuelve los ids ganadores (la mitad de equipos), conservando el orden para
+// la siguiente ronda.
+function playRound(teamIds: string[], teamsMap: Map<string, Team>): string[] {
+  const winners: string[] = [];
+  for (let i = 0; i < teamIds.length; i += 2) {
+    const home = teamsMap.get(teamIds[i]);
+    const away = teamsMap.get(teamIds[i + 1]);
+    if (!home || !away) {
+      winners.push(teamIds[i] ?? teamIds[i + 1]);
+      continue;
+    }
+    winners.push(playKnockout(home, away));
+  }
+  return winners;
 }
