@@ -71,7 +71,7 @@ export function useRealtimeKPIs({ initialKPIs, competitionId = 'a1b2c3d4-e5f6-78
 
         const correctPredictions = predictions?.filter(p => p.was_correct).length ?? 0
         const totalPredictions = predictions?.length ?? 0
-        const accuracy = totalPredictions > 0 ? correctPredictions / totalPredictions : 0
+        const accuracy = totalPredictions > 0 ? correctPredictions / totalPredictions : null
 
         setKPIs(prev => ({
           ...prev,

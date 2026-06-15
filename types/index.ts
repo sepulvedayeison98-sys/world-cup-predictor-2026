@@ -390,8 +390,8 @@ export interface DashboardKPIs {
   total_matches: number
   analyzed_matches: number
   active_picks: number
-  historical_accuracy: number // 0–1
-  roi: number // percentage
+  historical_accuracy: number | null // 0–1; null = sin predicciones resueltas
+  roi: number | null // percentage; null = sin apuestas resueltas
   correct_predictions: number
   total_predictions: number
   value_bets_detected: number

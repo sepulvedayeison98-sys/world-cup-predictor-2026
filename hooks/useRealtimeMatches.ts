@@ -1,138 +1,81 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { RealtimeChannel } from '@supabase/supabase-js'
+
+const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+
+interface Options {
+  limit?: number
+  competitionId?: string
+}
 
 /**
  * useRealtimeMatches
  *
- * Subscribes to Supabase Realtime for match updates.
- * Automatically invalidates React Query caches when data changes.
- *
- * Usage:
- *   useRealtimeMatches({ competitionId: 'xxx' })
+ * Trae los próximos partidos (con equipos y predicción embebida) y se mantiene
+ * sincronizado vía Supabase Realtime. Devuelve { matches, isLive, isLoading }.
  */
-interface Options {
-  competitionId: string
-  onMatchUpdate?: (payload: any) => void
-  onPredictionUpdate?: (payload: any) => void
-}
+export function useRealtimeMatches({ limit = 6, competitionId = COMPETITION_ID }: Options = {}) {
+  const supabase = createClient()
+  const [matches, setMatches] = useState<any[]>([])
+  const [isLive, setIsLive] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-export function useRealtimeMatches({
-  competitionId,
-  onMatchUpdate,
-  onPredictionUpdate,
-}: Options) {
-  const queryClient = useQueryClient()
-  const channelRef = useRef<RealtimeChannel | null>(null)
+  const fetchMatches = useCallback(async () => {
+    try {
+      const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+      const { data, error } = await supabase
+        .from('matches')
+        .select(
+          '*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*), predictions(*)'
+        )
+        .eq('competition_id', competitionId)
+        .in('status', ['scheduled', 'live'])
+        .gte('kickoff_time', since)
+        .order('kickoff_time', { ascending: true })
+        .limit(limit)
 
-  const invalidateMatches = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['matches'] })
-    queryClient.invalidateQueries({ queryKey: ['upcoming-matches'] })
-  }, [queryClient])
-
-  const invalidatePredictions = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['prediction'] })
-    queryClient.invalidateQueries({ queryKey: ['prediction-history'] })
-  }, [queryClient])
+      if (error) throw error
+      setMatches(data ?? [])
+    } catch (err) {
+      console.error('Error cargando próximos partidos:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase, competitionId, limit])
 
   useEffect(() => {
-    const supabase = createClient()
+    fetchMatches()
+    setIsLive(true)
 
     const channel = supabase
-      .channel(`realtime:${competitionId}`)
-
-      // Match score / status changes
+      .channel('realtime:upcoming-matches')
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'matches',
-          filter: `competition_id=eq.${competitionId}`,
-        },
-        (payload) => {
-          invalidateMatches()
-          // Invalidate specific match
-          if (payload.new?.id) {
-            queryClient.invalidateQueries({ queryKey: ['match', payload.new.id] })
-          }
-          onMatchUpdate?.(payload)
-        }
+        { event: '*', schema: 'public', table: 'matches', filter: `competition_id=eq.${competitionId}` },
+        () => fetchMatches()
       )
-
-      // Prediction probability updates
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'predictions',
-        },
-        (payload) => {
-          invalidatePredictions()
-          onPredictionUpdate?.(payload)
-        }
+        { event: '*', schema: 'public', table: 'predictions' },
+        () => fetchMatches()
       )
-
-      // New value bets
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'value_bets',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['value-bets'] })
-        }
-      )
-
-      // Injury updates
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'injuries',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['players'] })
-          queryClient.invalidateQueries({ queryKey: ['injuries'] })
-        }
-      )
-
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.debug('[Realtime] Subscribed to competition:', competitionId)
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Channel error — will attempt reconnect')
-        }
-      })
-
-    channelRef.current = channel
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
+      setIsLive(false)
     }
-  }, [competitionId, queryClient, invalidateMatches, invalidatePredictions, onMatchUpdate, onPredictionUpdate])
+  }, [supabase, competitionId, fetchMatches])
 
-  return {
-    unsubscribe: () => {
-      if (channelRef.current) {
-        createClient().removeChannel(channelRef.current)
-      }
-    },
-  }
+  return { matches, isLive, isLoading }
 }
 
 /**
- * useLiveMatch
- *
- * Lightweight hook for subscribing to a single match in real-time.
+ * useLiveMatch — suscripción ligera a un único partido en tiempo real.
+ * Invalida las queries de React Query del partido cuando cambia.
  */
 export function useLiveMatch(matchId: string, onUpdate?: (payload: any) => void) {
   const queryClient = useQueryClient()
@@ -145,12 +88,7 @@ export function useLiveMatch(matchId: string, onUpdate?: (payload: any) => void)
       .channel(`match:${matchId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'matches',
-          filter: `id=eq.${matchId}`,
-        },
+        { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` },
         (payload) => {
           queryClient.invalidateQueries({ queryKey: ['match', matchId] })
           queryClient.invalidateQueries({ queryKey: ['match-stats', matchId] })
@@ -159,15 +97,8 @@ export function useLiveMatch(matchId: string, onUpdate?: (payload: any) => void)
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'match_statistics',
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['match-stats', matchId] })
-        }
+        { event: '*', schema: 'public', table: 'match_statistics', filter: `match_id=eq.${matchId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['match-stats', matchId] })
       )
       .subscribe()
 

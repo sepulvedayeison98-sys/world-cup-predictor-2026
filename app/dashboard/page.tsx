@@ -7,6 +7,7 @@ import { ROIChart } from '@/components/charts/ROIChart'
 import { PredictionAccuracyChart } from '@/components/charts/PredictionAccuracyChart'
 import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidget'
 import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
+import { MODEL_VERSION } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Dashboard | World Cup Predictor',
@@ -20,8 +21,9 @@ export default async function DashboardPage() {
   const [
     { count: totalMatches },
     { count: analyzedMatches },
-    { data: valueBets },
+    { count: activeBetsCount },
     { data: predictions },
+    { data: settledBets },
   ] = await Promise.all([
     supabase.from('matches').select('*', { count: 'exact', head: true }),
     supabase
@@ -30,31 +32,46 @@ export default async function DashboardPage() {
       .eq('is_published', true),
     supabase
       .from('value_bets')
-      .select('*')
-      .eq('is_active', true)
-      .in('grade', ['high', 'medium'])
-      .limit(5),
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true),
     supabase
       .from('predictions')
       .select('was_correct')
       .not('was_correct', 'is', null),
+    supabase
+      .from('value_bets')
+      .select('result, odds_value')
+      .in('result', ['won', 'lost']),
   ])
 
-  const correctPredictions = (predictions ?? []).filter((p) => p.was_correct).length
-  const totalPredictions = predictions?.length ?? 0
-  const accuracy = totalPredictions > 0 ? correctPredictions / totalPredictions : 0
+  const resolved = predictions ?? []
+  const correctPredictions = resolved.filter((p) => p.was_correct === true).length
+  const totalResolved = resolved.length
+  // null = aún no hay predicciones resueltas (no inventamos un 0%)
+  const accuracy = totalResolved > 0 ? correctPredictions / totalResolved : null
 
+  // ROI real con stake plano de 1u; null mientras no haya apuestas resueltas
+  // (antes era un 8.4% fabricado).
+  const settled = settledBets ?? []
+  const betsWon = settled.filter((b: any) => b.result === 'won').length
+  const profit = settled.reduce(
+    (acc: number, b: any) => acc + (b.result === 'won' ? Number(b.odds_value) - 1 : -1),
+    0
+  )
+  const roi = settled.length > 0 ? (profit / settled.length) * 100 : null
+
+  const activeBets = activeBetsCount ?? 0
   const initialKPIs = {
     total_matches: totalMatches ?? 0,
     analyzed_matches: analyzedMatches ?? 0,
-    active_picks: valueBets?.length ?? 0,
+    active_picks: activeBets,
     historical_accuracy: accuracy,
-    roi: 8.4, // Will be computed from bet history
+    roi,
     correct_predictions: correctPredictions,
-    total_predictions: totalPredictions,
-    value_bets_detected: valueBets?.length ?? 0,
-    value_bets_won: 0,
-    value_bets_pending: valueBets?.length ?? 0,
+    total_predictions: totalResolved,
+    value_bets_detected: activeBets,
+    value_bets_won: betsWon,
+    value_bets_pending: activeBets,
   }
 
   return (
@@ -70,7 +87,7 @@ export default async function DashboardPage() {
           Panel de Análisis
         </h1>
         <p className="text-sm text-zinc-400">
-          Motor de predicción activo · Modelo v1.0.0 · Última actualización:{' '}
+          Motor de predicción activo · Modelo v{MODEL_VERSION} · Última actualización:{' '}
           {new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}
         </p>
       </div>

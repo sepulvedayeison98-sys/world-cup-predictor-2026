@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { runMonteCarloSimulation, Team, Match } from '@/lib/simulationEngine';
 
 export async function GET() {
@@ -48,7 +48,7 @@ export async function GET() {
 
     // 4. Guardar los resultados en la base de datos
     const resultsToInsert = simulationResults.map(sr => ({
-      competition_id: allMatches[0]?.competition_id || 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Asumir una competition_id
+      competition_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // competition activa
       team_id: sr.teamId,
       simulation_run_id: simulationRunId,
       group_stage_advance_prob: sr.groupStageAdvanceProb,
