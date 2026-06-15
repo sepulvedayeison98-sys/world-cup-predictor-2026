@@ -27,7 +27,7 @@ export function SimulationResultsWidget() {
       setLoading(true);
       // Obtener los resultados de la última corrida de simulación
       const { data: latestRun, error: runError } = await supabase
-        .from("simulation_results")
+        .from("tournament_simulations")
         .select("simulation_run_id")
         .order("created_at", { ascending: false })
         .limit(1)
@@ -45,7 +45,7 @@ export function SimulationResultsWidget() {
       }
 
       const { data, error } = await supabase
-        .from("simulation_results")
+        .from("tournament_simulations")
         .select(`
           team_id,
           group_stage_advance_prob,
@@ -73,12 +73,12 @@ export function SimulationResultsWidget() {
 
     fetchSimulationResults();
 
-    // Opcional: Suscribirse a cambios en simulation_results para actualizar en tiempo real
+    // Opcional: Suscribirse a cambios en tournament_simulations para actualizar en tiempo real
     const channel = supabase
-      .channel("simulation_results_changes")
+      .channel("tournament_simulations_changes")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "simulation_results" },
+        { event: "INSERT", schema: "public", table: "tournament_simulations" },
         (payload) => {
           console.log("New simulation results available:", payload);
           fetchSimulationResults(); // Re-fetch all results when new simulation is inserted

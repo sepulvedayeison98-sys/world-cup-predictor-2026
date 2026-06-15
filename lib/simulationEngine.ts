@@ -94,9 +94,26 @@ function simulateGroupStage(groupMatches: Match[], teamsInGroup: Team[]): { adva
     const homeTeamId = match.home_team_id;
     const awayTeamId = match.away_team_id;
 
-    // Simular goles para el partido (simplificado, podría ser más sofisticado con Poisson)
-    const homeGoals = Math.floor(Math.random() * 4);
-    const awayGoals = Math.floor(Math.random() * 4);
+    // Simular el resultado usando las probabilidades del modelo (ELO+mercado)
+    // si existen; si no, goles aleatorios como fallback.
+    let homeGoals: number;
+    let awayGoals: number;
+    if (match.probabilities) {
+      const outcome = simulateMatchResult(match.probabilities);
+      if (outcome === 'home_win') {
+        homeGoals = 1 + Math.floor(Math.random() * 2);
+        awayGoals = Math.floor(Math.random() * homeGoals);
+      } else if (outcome === 'away_win') {
+        awayGoals = 1 + Math.floor(Math.random() * 2);
+        homeGoals = Math.floor(Math.random() * awayGoals);
+      } else {
+        homeGoals = Math.floor(Math.random() * 3);
+        awayGoals = homeGoals; // empate
+      }
+    } else {
+      homeGoals = Math.floor(Math.random() * 4);
+      awayGoals = Math.floor(Math.random() * 4);
+    }
 
     const homeStandings = standings.get(homeTeamId)!;
     const awayStandings = standings.get(awayTeamId)!;

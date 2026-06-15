@@ -1,22 +1,30 @@
-name: Sync Data
+name: Sync resultados
+
+# Cada 20 min revisa la "ventana" (gratis, solo consulta la DB) y sincroniza
+# resultados SOLO si hay un partido en juego/por arrancar -> concentra la cuota
+# de The Odds API en las ventanas de partido.
+#
+# Requiere los secrets del repo: APP_URL y CRON_SECRET.
+
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/20 * * * *"
   workflow_dispatch:
+
 jobs:
-  sync:
+  results:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: pnpm install
-      - run: pnpm run build
-      - env:
-          NEXT_PUBLIC_SUPABASE_URL: <LaTex>${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: $</LaTex>{{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: <LaTex>${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ODDS_API_KEY: $</LaTex>{{ secrets.ODDS_API_KEY }}
-          ODDS_API_SPORT: soccer_fifa_world_cup
-        run: node -r dotenv/config ./dist/services/sync/odds.js
+      - name: Revisar ventana y sincronizar resultados si hay partido
+        run: |
+          set -e
+          WINDOW=$(curl -fsS "${{ secrets.APP_URL }}/api/sync/window" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "$WINDOW"
+          if echo "$WINDOW" | grep -q '"shouldSyncResults":true'; then
+            echo "Partido en ventana -> sincronizando resultados"
+            curl -fsS "${{ secrets.APP_URL }}/api/sync/results" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          else
+            echo "Sin partidos activos -> no se gasta cuota"
+          fi

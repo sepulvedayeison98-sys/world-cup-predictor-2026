@@ -25,7 +25,7 @@ export function TournamentPathTracker() {
   useEffect(() => {
     async function fetchData() {
       const { data: latestRun } = await supabase
-        .from('simulation_results')
+        .from('tournament_simulations')
         .select('simulation_run_id')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -33,7 +33,7 @@ export function TournamentPathTracker() {
 
       if (latestRun) {
         const { data: results } = await supabase
-          .from('simulation_results')
+          .from('tournament_simulations')
           .select(`
             team_id,
             group_stage_advance_prob,

@@ -1,0 +1,23 @@
+name: Sync cuotas + recalibracion
+
+# Dos veces al dia: ingesta cuotas (The Odds API) y recalibra las predicciones
+# con el consenso de mercado. Frecuencia conservadora para no agotar la cuota
+# gratis (500/mes). Requiere los secrets del repo: APP_URL y CRON_SECRET.
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar cuotas
+        run: |
+          curl -fsS "${{ secrets.APP_URL }}/api/sync/odds" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Recalibrar predicciones con el mercado
+        run: |
+          curl -fsS "${{ secrets.APP_URL }}/api/sync/recalibrate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

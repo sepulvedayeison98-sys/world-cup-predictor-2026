@@ -1,0 +1,18 @@
+name: Simulacion Monte Carlo
+
+# Corre la simulacion Monte Carlo del torneo una vez al dia y guarda las
+# probabilidades por equipo/fase. Requiere los secrets del repo: APP_URL y CRON_SECRET.
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Correr simulacion del torneo
+        run: |
+          curl -fsS "${{ secrets.APP_URL }}/api/simulate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
