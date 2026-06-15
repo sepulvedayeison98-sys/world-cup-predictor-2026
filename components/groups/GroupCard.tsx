@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { Flag } from '@/components/ui/Flag'
 
 interface Props {
   group: any
@@ -74,6 +75,7 @@ export function GroupCard({ group }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
+                      <Flag code={s.team?.code} />
                       <span className="text-xs font-semibold text-zinc-200">
                         {s.team?.code}
                       </span>

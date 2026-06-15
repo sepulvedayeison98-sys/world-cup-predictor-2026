@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale'
 import { MapPin, Clock, CloudSun, Users, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { Flag } from '@/components/ui/Flag'
 
 interface Props {
   match: any
@@ -55,8 +56,8 @@ export function MatchHeader({ match }: Props) {
 
           {/* Home team */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl">
-              🏴
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl overflow-hidden">
+              <Flag code={match.home_team?.code} className="h-11 w-16 rounded-none" />
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-white">{match.home_team?.name}</p>
@@ -94,8 +95,8 @@ export function MatchHeader({ match }: Props) {
 
           {/* Away team */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl">
-              🏴
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl overflow-hidden">
+              <Flag code={match.away_team?.code} className="h-11 w-16 rounded-none" />
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-white">{match.away_team?.name}</p>

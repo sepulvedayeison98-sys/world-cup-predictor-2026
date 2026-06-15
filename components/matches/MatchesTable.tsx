@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { cn, formatProbability } from '@/lib/utils'
 import { matchesService } from '@/services/matches.service'
+import { Flag } from '@/components/ui/Flag'
 import type { Match } from '@/types'
 
 // ─── Column helper ────────────────────────────────────────────
@@ -120,6 +121,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
         const m = row.original
         return (
           <div className="flex items-center gap-2 min-w-[100px]">
+            <Flag code={m.home_team?.code} />
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-zinc-100">
                 {m.home_team?.short_name ?? m.home_team?.code}
@@ -154,6 +156,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
                 FIFA #{m.away_team?.fifa_ranking}
               </span>
             </div>
+            <Flag code={m.away_team?.code} />
           </div>
         )
       },

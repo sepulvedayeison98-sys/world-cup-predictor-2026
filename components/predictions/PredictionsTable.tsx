@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
+import { Flag } from '@/components/ui/Flag'
 
 interface Props { predictions: any[] }
 
@@ -107,8 +108,10 @@ export function PredictionsTable({ predictions }: Props) {
                   )}>
                     <td>
                       <div>
-                        <p className="text-xs font-semibold text-zinc-200">
+                        <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                          <Flag code={m?.home_team?.code} />
                           {m?.home_team?.code} vs {m?.away_team?.code}
+                          <Flag code={m?.away_team?.code} />
                         </p>
                         <p className="text-[10px] text-zinc-500">
                           {m?.venue}
