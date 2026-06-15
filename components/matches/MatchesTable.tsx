@@ -263,6 +263,24 @@ export function MatchesTable() {
 
   const columns = useMemo(() => buildColumns(), [])
 
+  // Mensaje de "sin resultados" contextual: deja claro que el filtro SÍ se
+  // aplicó y por qué está vacío (ej. no hay partidos en vivo ahora mismo),
+  // en vez de un genérico que parece un error.
+  const activeStatus = filters.status?.[0]
+  const hasOtherFilters = Boolean(
+    filters.search || filters.group_id || filters.team_id || filters.min_confidence
+  )
+  const emptyMessage =
+    hasOtherFilters
+      ? 'No hay partidos que coincidan con los filtros actuales.'
+      : activeStatus === 'live'
+        ? 'No hay partidos en vivo en este momento. Esta vista se llenará automáticamente cuando un partido esté en juego.'
+        : activeStatus === 'finished'
+          ? 'Todavía no hay partidos finalizados.'
+          : activeStatus === 'scheduled'
+            ? 'No hay partidos programados.'
+            : 'No hay partidos con los filtros actuales.'
+
   const table = useReactTable({
     data: (data?.data ?? []) as MatchRow[],
     columns,
@@ -359,8 +377,8 @@ export function MatchesTable() {
 
             {!isLoading && (data?.data ?? []).length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="py-12 text-center text-sm text-zinc-500">
-                  No hay partidos con los filtros actuales
+                <td colSpan={columns.length} className="py-12 text-center">
+                  <p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p>
                 </td>
               </tr>
             )}

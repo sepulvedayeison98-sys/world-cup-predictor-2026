@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { PredictionsTable } from '@/components/predictions/PredictionsTable'
+import { MODEL_VERSION } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Predicciones | World Cup Predictor',
@@ -33,7 +34,7 @@ export default async function PredictionsPage() {
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div>
         <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
-          Modelo v1.0.0 · Activo
+          Modelo v{MODEL_VERSION} · Activo
         </span>
         <h1 className="mt-1 text-2xl font-bold text-white">Predicciones</h1>
         <p className="text-sm text-zinc-400">

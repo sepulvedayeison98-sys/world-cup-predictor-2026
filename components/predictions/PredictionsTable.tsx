@@ -44,6 +44,19 @@ export function PredictionsTable({ predictions }: Props) {
     return true
   })
 
+  // Mensaje contextual cuando una pestaña queda vacía: aclara por qué (las
+  // predicciones se evalúan solas al terminar el partido), en vez de un
+  // genérico que parece un error.
+  const anyResolved = predictions.some((p: any) => p.was_correct !== null)
+  const emptyMessage =
+    filter === 'correct'
+      ? anyResolved ? 'Ninguna predicción acertada todavía.' : 'Aún no hay predicciones resueltas. Se evalúan automáticamente cuando los partidos terminan.'
+      : filter === 'wrong'
+        ? anyResolved ? 'Ninguna predicción fallada todavía.' : 'Aún no hay predicciones resueltas. Se evalúan automáticamente cuando los partidos terminan.'
+        : filter === 'pending'
+          ? 'No hay predicciones pendientes: todas las disponibles ya están resueltas.'
+          : 'No hay predicciones disponibles.'
+
   return (
     <div className="card overflow-hidden">
       {/* Filter tabs */}
@@ -92,8 +105,8 @@ export function PredictionsTable({ predictions }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-10 text-center text-sm text-zinc-500">
-                  No hay predicciones en esta categoría
+                <td colSpan={9} className="py-10 text-center">
+                  <p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p>
                 </td>
               </tr>
             ) : (
