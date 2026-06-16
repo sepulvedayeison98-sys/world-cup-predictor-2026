@@ -3,6 +3,16 @@ import type { Match, MatchFilters, PaginatedResponse, MatchStatistics, Lineup } 
 
 const PAGE_SIZE = 15
 
+// UUID v4 (para validar ids que vienen de la URL antes de usarlos en un filtro).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Limpia texto de búsqueda antes de inyectarlo en un filtro PostgREST `.or()`:
+// quita los caracteres con significado en la sintaxis de filtros (coma,
+// paréntesis, asterisco, dos puntos, %, backslash) y acota la longitud.
+function sanitizeSearch(s: string): string {
+  return s.replace(/[,()*:%\\]/g, ' ').trim().slice(0, 60)
+}
+
 export const matchesService = {
   async getMatchesWithPredictions(
     filters: MatchFilters & { min_confidence?: number } = {},
@@ -27,8 +37,11 @@ export const matchesService = {
     if (filters.group_id) query = query.eq('group_id', filters.group_id)
     if (filters.date_from) query = query.gte('kickoff_time', filters.date_from)
     if (filters.date_to) query = query.lte('kickoff_time', filters.date_to)
-    if (filters.team_id) query = query.or(`home_team_id.eq.${filters.team_id},away_team_id.eq.${filters.team_id}`)
-    if (filters.search) query = query.or(`venue.ilike.%${filters.search}%,city.ilike.%${filters.search}%`)
+    if (filters.team_id && UUID_RE.test(filters.team_id)) query = query.or(`home_team_id.eq.${filters.team_id},away_team_id.eq.${filters.team_id}`)
+    if (filters.search) {
+      const s = sanitizeSearch(filters.search)
+      if (s) query = query.or(`venue.ilike.%${s}%,city.ilike.%${s}%`)
+    }
 
     const { data, count, error } = await query
     if (error) throw error
@@ -60,7 +73,7 @@ export const matchesService = {
 
     if (filters.status?.length) query = query.in('status', filters.status)
     if (filters.group_id) query = query.eq('group_id', filters.group_id)
-    if (filters.team_id) query = query.or(`home_team_id.eq.${filters.team_id},away_team_id.eq.${filters.team_id}`)
+    if (filters.team_id && UUID_RE.test(filters.team_id)) query = query.or(`home_team_id.eq.${filters.team_id},away_team_id.eq.${filters.team_id}`)
 
     const { data, count, error } = await query
     if (error) throw error
