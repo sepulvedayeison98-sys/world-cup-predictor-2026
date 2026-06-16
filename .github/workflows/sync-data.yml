@@ -19,22 +19,13 @@ jobs:
   results:
     runs-on: ubuntu-latest
     steps:
-      - name: Revisar ventana y sincronizar resultados si hay partido
+      - name: Sincronizar resultados si hay partido en ventana
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
           AUTH="Authorization: Bearer $CRON_SECRET"
-          WINDOW=$(curl -fsS --retry 3 --retry-delay 8 --retry-all-errors --max-time 60 \
-            "$APP_URL/api/sync/window" -H "$AUTH") \
-            || { echo "::warning::No se pudo consultar la ventana (transitorio); reintenta el proximo ciclo."; exit 0; }
-          echo "$WINDOW"
-          if echo "$WINDOW" | grep -q '"shouldSyncResults":true'; then
-            echo "Partido en ventana -> sincronizando resultados"
-            curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 120 \
-              "$APP_URL/api/sync/results" -H "$AUTH" \
-              || { echo "::warning::Sync de resultados fallo tras reintentos; se reintenta en 20 min."; exit 0; }
-          else
-            echo "Sin partidos activos -> no se gasta cuota"
-          fi
+          curl -fsS --retry 3 --retry-delay 10 --retry-all-errors --max-time 90 \
+            "$APP_URL/api/sync/auto" -H "$AUTH" \
+            || { echo "::warning::Sync automatico fallo tras reintentos; se reintenta en el proximo ciclo."; exit 0; }

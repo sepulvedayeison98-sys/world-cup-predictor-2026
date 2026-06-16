@@ -1,4 +1,4 @@
-import { Probabilities, computeModelPrediction, ModelInput, DEFAULT_WEIGHTS } from './predictionEngine';
+import { Probabilities, computeModelPrediction, ModelInput } from './predictionEngine';
 
 export interface Team {
   id: string;
@@ -47,12 +47,12 @@ function knockoutProbabilities(home: Team, away: Team): Probabilities {
     awayForm: [],
     homeXg: 1.5,
     awayXg: 1.5,
-    homeGoals: 1,
-    awayGoals: 1,
+    homeXga: 1.2,
+    awayXga: 1.2,
     homeInjuryImpact: 0,
     awayInjuryImpact: 0,
   };
-  return computeModelPrediction(input, DEFAULT_WEIGHTS);
+  return computeModelPrediction(input);
 }
 
 // Resuelve un cruce de eliminatoria (sin empate posible: penaltis si hace falta)

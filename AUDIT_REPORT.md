@@ -119,10 +119,11 @@ Pero **no está listo para producción seria**. Hay un dato fabricado en la pág
 ---
 
 #### 🟡-12 · Lógica duplicada: Kelly/EV (×3) y motor de predicción (×3)
-- **Archivos:** Kelly/EV en `lib/utils.ts:47`, `lib/valueBets.ts:21`, `app/api/odds/route.ts:21` · Motor en `app/api/predictions/route.ts`, `lib/predictionEngine.ts`, `services/predictions.service.ts:132`
-- **Problema:** Hay **tres** copias de `kellyFraction`/`expectedValue`/`gradeEV` y **tres** implementaciones distintas del motor de predicción (con fórmulas ligeramente diferentes entre sí). Es fácil arreglar una y dejar las otras desincronizadas.
+- **Archivos:** Kelly/EV en `lib/utils.ts:47`, `lib/valueBets.ts:21`, `app/api/odds/route.ts:21`
+- **Problema:** Hay **tres** copias de `kellyFraction`/`expectedValue`/`gradeEV`. Es fácil arreglar una y dejar las otras desincronizadas.
 - **Impacto:** Inconsistencias sutiles, doble mantenimiento, bugs difíciles de rastrear.
-- **Solución:** Consolidar en `lib/valueBets.ts` y `lib/predictionEngine.ts` como única fuente de verdad; que las rutas y servicios importen de ahí. Borrar `predictions.service.ts:computePrediction` y los duplicados de `utils.ts` si no se usan.
+- **Solución:** Consolidar en `lib/valueBets.ts` como única fuente de verdad; que las rutas y servicios importen de ahí.
+- **Estado:** ✅ Resuelto para el motor de predicción — ahora hay una sola implementación (modelo híbrido de 5 factores) en `lib/predictionEngine.ts`, usada por `app/api/predictions/route.ts`, `services/sync/recalibrate.ts` y `lib/simulationEngine.ts`. `predictions.service.ts:computePrediction` (duplicado, sin uso) fue eliminado. Pendiente: Kelly/EV.
 
 ---
 

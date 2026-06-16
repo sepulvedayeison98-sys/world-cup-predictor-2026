@@ -17,10 +17,14 @@ de partidos del Mundial FIFA 2026. Genera automáticamente:
 - Tablas de grupos con probabilidad de clasificación
 - Simulador de escenarios (modificar lesiones/clima/alineaciones y recalcular)
 
-El motor de predicción usa **10 variables ponderadas**: forma reciente (20%), calidad
-de plantilla (15%), estado de jugadores (15%), estadísticas avanzadas xG/xGA (15%),
-análisis táctico (10%), ELO (10%), mercado de apuestas (5%), motivación (5%),
-factores externos (3%), historial H2H (2%).
+El motor de predicción usa un **modelo híbrido de 5 factores ponderados**: xG y
+capacidad ofensiva/defensiva (40%), ELO Rating (25%), forma reciente — últimos 10
+partidos (15%), mercado de apuestas — cuotas 1X2 de-vigueadas (10%), noticias/lesiones
+(10%). Las probabilidades 1X2 y el top-10 de marcadores exactos se derivan de una
+distribución de goles esperados (lambda por equipo) resuelta sobre la rejilla de
+Poisson — equivalente al resultado de una simulación de Montecarlo. Única fuente de
+verdad: `lib/predictionEngine.ts` (lo usan `services/sync/recalibrate.ts`,
+`app/api/predictions/route.ts` y `lib/simulationEngine.ts`).
 
 ---
 
