@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default async function ValueBetsPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: bets } = await supabase
+  const { data: betsRaw } = await supabase
     .from('value_bets')
     .select(`
       *,
@@ -19,12 +19,21 @@ export default async function ValueBetsPage() {
       )
     `)
     .eq('is_active', true)
-    .order('expected_value', { ascending: false })
+
+  // Orden cronológico por fecha/hora del partido; dentro del mismo partido,
+  // la mejor apuesta (mayor EV) primero. (PostgREST no ordena el nivel superior
+  // por una columna embebida, así que se ordena aquí.)
+  const bets = (betsRaw ?? []).slice().sort((a: any, b: any) => {
+    const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
+    const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
+    if (ta !== tb) return ta - tb
+    return (b.expected_value ?? 0) - (a.expected_value ?? 0)
+  })
 
   // Summary stats
-  const totalEV = (bets ?? []).reduce((acc, b: any) => acc + (b.expected_value ?? 0), 0)
-  const highValue = (bets ?? []).filter((b: any) => b.grade === 'high').length
-  const mediumValue = (bets ?? []).filter((b: any) => b.grade === 'medium').length
+  const totalEV = bets.reduce((acc, b: any) => acc + (b.expected_value ?? 0), 0)
+  const highValue = bets.filter((b: any) => b.grade === 'high').length
+  const mediumValue = bets.filter((b: any) => b.grade === 'medium').length
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">

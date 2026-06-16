@@ -23,10 +23,18 @@ export default async function PredictionsPage() {
       exact_score_predictions(home_score, away_score, probability, rank)
     `)
     .eq('is_published', true)
-    .order('created_at', { ascending: false })
+
+  // Orden cronológico por fecha y hora del partido (el `.order` de PostgREST no
+  // ordena el nivel superior por una columna de la tabla embebida, así que se
+  // ordena aquí). Ascendente = del más antiguo al más reciente.
+  const ordered = (predictions ?? []).slice().sort((a: any, b: any) => {
+    const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
+    const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
+    return ta - tb
+  })
 
   // Stats
-  const resolved = (predictions ?? []).filter((p: any) => p.was_correct !== null)
+  const resolved = ordered.filter((p: any) => p.was_correct !== null)
   const correct  = resolved.filter((p: any) => p.was_correct === true).length
   const accuracy = resolved.length > 0 ? ((correct / resolved.length) * 100).toFixed(1) : '—'
 
@@ -49,7 +57,7 @@ export default async function PredictionsPage() {
       {/* Accuracy summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total predicciones', value: (predictions ?? []).length.toString(), color: 'text-white' },
+          { label: 'Total predicciones', value: ordered.length.toString(), color: 'text-white' },
           { label: 'Resueltas',          value: resolved.length.toString(), color: 'text-zinc-300' },
           { label: 'Correctas',          value: correct.toString(), color: 'text-emerald-400' },
           { label: 'Precisión',          value: `${accuracy}%`, color: accuracy !== '—' && parseFloat(accuracy as string) >= 65 ? 'text-emerald-400' : 'text-amber-400' },
@@ -61,7 +69,7 @@ export default async function PredictionsPage() {
         ))}
       </div>
 
-      <PredictionsTable predictions={predictions ?? []} />
+      <PredictionsTable predictions={ordered} />
     </div>
   )
 }
