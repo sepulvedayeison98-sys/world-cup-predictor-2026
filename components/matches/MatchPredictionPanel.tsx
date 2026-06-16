@@ -190,23 +190,18 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
         </div>
         <div className="space-y-1.5">
           {[
-            { label: 'Forma reciente',       weight: prediction.form_weight ?? 0.20 },
-            { label: 'Calidad plantilla',     weight: prediction.squad_quality_weight ?? 0.15 },
-            { label: 'Estado jugadores',      weight: prediction.player_status_weight ?? 0.15 },
-            { label: 'Stats avanzadas',       weight: prediction.advanced_stats_weight ?? 0.15 },
-            { label: 'Análisis táctico',      weight: prediction.tactical_weight ?? 0.10 },
-            { label: 'ELO Rating',            weight: prediction.elo_weight ?? 0.10 },
-            { label: 'Mercado apuestas',      weight: prediction.odds_weight ?? 0.05 },
-            { label: 'Motivación/contexto',   weight: prediction.motivation_weight ?? 0.05 },
-            { label: 'Factores externos',     weight: prediction.external_factors_weight ?? 0.03 },
-            { label: 'H2H histórico',         weight: prediction.h2h_weight ?? 0.02 },
+            { label: 'xG y capacidad ofensiva', weight: prediction.xg_weight ?? 0.40 },
+            { label: 'ELO Rating',               weight: prediction.elo_weight ?? 0.25 },
+            { label: 'Forma reciente',            weight: prediction.form_weight ?? 0.15 },
+            { label: 'Mercado de apuestas',        weight: prediction.market_weight ?? 0.10 },
+            { label: 'Noticias y lesiones',        weight: prediction.news_weight ?? 0.10 },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2">
-              <span className="text-[10px] text-zinc-500 w-28 shrink-0">{item.label}</span>
+              <span className="text-[10px] text-zinc-500 w-32 shrink-0">{item.label}</span>
               <div className="flex-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-violet-500/60"
-                  style={{ width: `${item.weight * 100 * 5}%` }}
+                  style={{ width: `${item.weight * 100 * 2.5}%` }}
                 />
               </div>
               <span className="text-[10px] mono text-zinc-400 w-7 text-right">

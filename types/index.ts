@@ -271,17 +271,12 @@ export interface Prediction {
   confidence_level: ConfidenceLevel
   confidence_score: number // 0–100
   model_version: string
-  // Weight inputs used
-  form_weight: number
-  squad_quality_weight: number
-  player_status_weight: number
-  advanced_stats_weight: number
-  tactical_weight: number
+  // Pesos del modelo de 5 factores usados
+  xg_weight: number
   elo_weight: number
-  odds_weight: number
-  motivation_weight: number
-  external_factors_weight: number
-  h2h_weight: number
+  form_weight: number
+  market_weight: number
+  news_weight: number
   // Metadata
   is_published: boolean
   was_correct?: boolean
