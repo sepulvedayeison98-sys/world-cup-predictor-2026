@@ -1,23 +1,29 @@
 name: Sync cuotas + recalibracion
 
-# Dos veces al dia: ingesta cuotas (The Odds API) y recalibra las predicciones
+# Cada 8 horas (3 veces al dia): ingesta cuotas (The Odds API) y recalibra las predicciones
 # con el consenso de mercado. Frecuencia conservadora para no agotar la cuota
-# gratis (500/mes). Requiere los secrets del repo: APP_URL y CRON_SECRET.
+# gratis (500/mes). Resiliente: reintenta ante errores transitorios y no marca
+# la corrida en rojo por un fallo puntual. Requiere secrets: APP_URL y CRON_SECRET.
 
 on:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */8 * * *"
   workflow_dispatch:
 
 jobs:
   odds:
     runs-on: ubuntu-latest
     steps:
-      - name: Sincronizar cuotas
+      - name: Sincronizar cuotas y recalibrar predicciones
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -fsS "${{ secrets.APP_URL }}/api/sync/odds" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
-      - name: Recalibrar predicciones con el mercado
-        run: |
-          curl -fsS "${{ secrets.APP_URL }}/api/sync/recalibrate" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          set -uo pipefail
+          AUTH="Authorization: Bearer $CRON_SECRET"
+          curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 180 \
+            "$APP_URL/api/sync/odds" -H "$AUTH" \
+            || { echo "::warning::Sync de cuotas fallo tras reintentos."; exit 0; }
+          curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 120 \
+            "$APP_URL/api/sync/recalibrate" -H "$AUTH" \
+            || { echo "::warning::Recalibracion fallo tras reintentos."; exit 0; }

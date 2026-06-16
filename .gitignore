@@ -40,3 +40,9 @@ yarn-error.log*
 # Supabase local
 supabase/.branches
 supabase/.temp
+
+# Documentos de traspaso / sesión que pueden contener secretos en texto plano
+# (CRON_SECRET, IDs internos). NO deben subirse al repo.
+CONTEXTO.md
+_commitmsg.txt
+.claude/

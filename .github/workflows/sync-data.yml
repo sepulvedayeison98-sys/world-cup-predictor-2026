@@ -1,14 +1,18 @@
 name: Sync resultados
 
-# Cada 20 min revisa la "ventana" (gratis, solo consulta la DB) y sincroniza
+# Cada 15 min revisa la "ventana" (gratis, solo consulta la DB) y sincroniza
 # resultados SOLO si hay un partido en juego/por arrancar -> concentra la cuota
 # de The Odds API en las ventanas de partido.
+#
+# Resiliente: reintenta ante errores transitorios (cold-start, hipos de red/API)
+# y NO marca la corrida en rojo por un fallo puntual (el proximo ciclo reintenta
+# en 20 min). El detalle real de cada sync queda en la tabla sync_logs.
 #
 # Requiere los secrets del repo: APP_URL y CRON_SECRET.
 
 on:
   schedule:
-    - cron: "*/20 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,15 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Revisar ventana y sincronizar resultados si hay partido
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          set -e
-          WINDOW=$(curl -fsS "${{ secrets.APP_URL }}/api/sync/window" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          set -uo pipefail
+          AUTH="Authorization: Bearer $CRON_SECRET"
+          WINDOW=$(curl -fsS --retry 3 --retry-delay 8 --retry-all-errors --max-time 60 \
+            "$APP_URL/api/sync/window" -H "$AUTH") \
+            || { echo "::warning::No se pudo consultar la ventana (transitorio); reintenta el proximo ciclo."; exit 0; }
           echo "$WINDOW"
           if echo "$WINDOW" | grep -q '"shouldSyncResults":true'; then
             echo "Partido en ventana -> sincronizando resultados"
-            curl -fsS "${{ secrets.APP_URL }}/api/sync/results" \
-              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+            curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 120 \
+              "$APP_URL/api/sync/results" -H "$AUTH" \
+              || { echo "::warning::Sync de resultados fallo tras reintentos; se reintenta en 20 min."; exit 0; }
           else
             echo "Sin partidos activos -> no se gasta cuota"
           fi
