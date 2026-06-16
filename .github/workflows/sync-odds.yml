@@ -1,13 +1,13 @@
 name: Sync cuotas + recalibracion
 
-# Dos veces al dia: ingesta cuotas (The Odds API) y recalibra las predicciones
+# Cada 8 horas (3 veces al dia): ingesta cuotas (The Odds API) y recalibra las predicciones
 # con el consenso de mercado. Frecuencia conservadora para no agotar la cuota
 # gratis (500/mes). Resiliente: reintenta ante errores transitorios y no marca
 # la corrida en rojo por un fallo puntual. Requiere secrets: APP_URL y CRON_SECRET.
 
 on:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */8 * * *"
   workflow_dispatch:
 
 jobs:

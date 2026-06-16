@@ -1,12 +1,12 @@
 name: Simulacion Monte Carlo
 
-# Corre la simulacion Monte Carlo del torneo una vez al dia (00:30 UTC) y guarda
+# Corre la simulacion Monte Carlo del torneo cada 6 horas y guarda
 # las probabilidades por equipo/fase. Resiliente: reintenta ante errores
 # transitorios. Requiere los secrets del repo: APP_URL y CRON_SECRET.
 
 on:
   schedule:
-    - cron: "30 0 * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
