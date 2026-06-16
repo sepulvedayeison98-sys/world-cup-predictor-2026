@@ -20,10 +20,16 @@ export default async function ValueBetsPage() {
     `)
     .eq('is_active', true)
 
+  // Solo apuestas de PRÓXIMOS partidos (no tiene sentido apostar a uno ya jugado).
+  const nowMs = Date.now()
+  const upcoming = (betsRaw ?? []).filter(
+    (b: any) => b.match?.kickoff_time && new Date(b.match.kickoff_time).getTime() > nowMs
+  )
+
   // Orden cronológico por fecha/hora del partido; dentro del mismo partido,
   // la mejor apuesta (mayor EV) primero. (PostgREST no ordena el nivel superior
   // por una columna embebida, así que se ordena aquí.)
-  const bets = (betsRaw ?? []).slice().sort((a: any, b: any) => {
+  const bets = upcoming.slice().sort((a: any, b: any) => {
     const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
     const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
     if (ta !== tb) return ta - tb

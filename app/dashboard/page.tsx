@@ -23,6 +23,7 @@ export default async function DashboardPage() {
     { count: activeBetsCount },
     { data: predictions },
     { data: settledBets },
+    { data: nextMatchRows },
   ] = await Promise.all([
     supabase.from('matches').select('*', { count: 'exact', head: true }),
     supabase
@@ -41,7 +42,20 @@ export default async function DashboardPage() {
       .from('value_bets')
       .select('result, odds_value')
       .in('result', ['won', 'lost']),
+    // Próximo partido con grupo (incluye en-juego con 2h de gracia) -> para que
+    // el recuadro de grupo rote y muestre el grupo que está jugando, no uno fijo.
+    supabase
+      .from('matches')
+      .select('kickoff_time, group:groups(letter)')
+      .not('group_id', 'is', null)
+      .gte('kickoff_time', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+      .order('kickoff_time', { ascending: true })
+      .limit(1),
   ])
+
+  // Grupo a mostrar en el recuadro: el del próximo partido; si no hay, el A.
+  const activeGroupLetter =
+    (nextMatchRows?.[0] as any)?.group?.letter ?? 'A'
 
   const resolved = predictions ?? []
   const correctPredictions = resolved.filter((p) => p.was_correct === true).length
@@ -105,7 +119,7 @@ export default async function DashboardPage() {
         {/* Right column — 1/3 width */}
         <div className="flex flex-col gap-6">
           <ValueBetsWidgetRealtime />
-          <GroupStandingsWidget competitionId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" groupLetter="C" />
+          <GroupStandingsWidget competitionId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" groupLetter={activeGroupLetter} />
         </div>
       </div>
 

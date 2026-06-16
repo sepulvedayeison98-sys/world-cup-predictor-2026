@@ -90,25 +90,27 @@ export function TournamentPathTracker() {
                   <span className="font-bold text-zinc-300">{team.team_name}</span>
                   <span className="text-emerald-400 font-mono">{(team.winner_prob * 100).toFixed(1)}% Campeón</span>
                 </div>
-                <div className="flex h-6 w-full gap-1">
+                <div className="flex h-7 w-full gap-1">
                   {stages.map((stage) => {
                     const prob = (team as any)[stage.key]
                     return (
                       <div
                         key={stage.key}
-                        className="relative flex-1 rounded-sm overflow-hidden bg-zinc-900 border border-zinc-800/50 group"
+                        title={`${stage.label}: ${(prob * 100).toFixed(0)}%`}
+                        className="relative flex-1 rounded-sm overflow-hidden bg-zinc-900 border border-zinc-800/50"
                       >
                         <div
                           className={cn(
                             "h-full transition-all duration-1000 ease-out",
-                            prob > 0.7 ? "bg-emerald-500/60" : 
-                            prob > 0.4 ? "bg-emerald-500/40" : 
+                            prob > 0.7 ? "bg-emerald-500/60" :
+                            prob > 0.4 ? "bg-emerald-500/40" :
                             prob > 0.1 ? "bg-emerald-500/20" : "bg-zinc-800/30"
                           )}
                           style={{ width: `${prob * 100}%` }}
                         />
-                        <div className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {stage.label}: {(prob * 100).toFixed(0)}%
+                        {/* % siempre visible dentro de la barra de cada etapa */}
+                        <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                          {(prob * 100).toFixed(0)}%
                         </div>
                       </div>
                     )
