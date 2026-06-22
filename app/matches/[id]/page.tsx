@@ -54,7 +54,7 @@ export default async function MatchDetailPage({ params }: Props) {
       .in('grade', ['high', 'medium'])
       .eq('is_active', true)
       .order('expected_value', { ascending: false })
-      .limit(5),
+      .limit(15),
   ])
 
   if (!match) notFound()
@@ -84,6 +84,14 @@ export default async function MatchDetailPage({ params }: Props) {
     if (!oddsMap.has(key)) oddsMap.set(key, o)
   }
   const odds = Array.from(oddsMap.values())
+
+  // Smart Bets: un mercado único por tarjeta (mejor EV por mercado), máximo 3
+  const smartBetsMarkets = new Set<string>()
+  const smartBets = (smartBetsRaw ?? []).filter((b: any) => {
+    if (smartBetsMarkets.has(b.market)) return false
+    smartBetsMarkets.add(b.market)
+    return true
+  }).slice(0, 3)
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
