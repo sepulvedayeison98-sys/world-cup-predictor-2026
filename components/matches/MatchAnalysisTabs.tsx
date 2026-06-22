@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, BarChart2, DollarSign, Users } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, Users, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
@@ -10,6 +10,7 @@ import { TeamAvgStats } from './TeamAvgStats'
 import { OddsComparisonTable } from './OddsComparisonTable'
 import { LineupDisplay } from './LineupDisplay'
 import { InjuriesPanel } from './InjuriesPanel'
+import { SmartBetsPanel } from './SmartBetsPanel'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
 
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'estadisticas', label: 'Estadísticas', icon: BarChart2   },
   { id: 'cuotas',       label: 'Cuotas',       icon: DollarSign  },
   { id: 'alineaciones', label: 'Alineaciones', icon: Users       },
+  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -30,6 +32,7 @@ interface Props {
   awayStats: any | null
   injuries: any[]
   odds: any[]
+  smartBets: any[]
 }
 
 export function MatchAnalysisTabs({
@@ -40,6 +43,7 @@ export function MatchAnalysisTabs({
   awayStats,
   injuries,
   odds,
+  smartBets,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -154,6 +158,17 @@ export function MatchAnalysisTabs({
               awayTeam={match.away_team}
             />
           </div>
+        )}
+
+        {/* ── Smart Bets AI ── */}
+        {active === 'smart-bets' && (
+          <SmartBetsPanel
+            smartBets={smartBets}
+            prediction={prediction}
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+          />
         )}
       </div>
     </div>
