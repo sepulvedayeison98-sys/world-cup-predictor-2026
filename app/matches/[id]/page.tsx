@@ -27,8 +27,8 @@ export default async function MatchDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
 
-  // Fetch match data and odds in parallel
-  const [{ data: match }, { data: oddsRaw }, { data: injuries }] = await Promise.all([
+  // Fetch match data, odds y smart bets en paralelo
+  const [{ data: match }, { data: oddsRaw }, { data: smartBetsRaw }] = await Promise.all([
     supabase
       .from('matches')
       .select(`
@@ -47,10 +47,14 @@ export default async function MatchDetailPage({ params }: Props) {
       .eq('match_id', id)
       .order('recorded_at', { ascending: false }),
 
-    // injuries query uses a placeholder; real filter applied after match loads
-    // We do a second query below once we have the team IDs.
-    // (This slot kept for structural symmetry; result discarded.)
-    supabase.from('odds').select('bookmaker').limit(0),
+    supabase
+      .from('value_bets')
+      .select('*')
+      .eq('match_id', id)
+      .in('grade', ['high', 'medium'])
+      .eq('is_active', true)
+      .order('expected_value', { ascending: false })
+      .limit(5),
   ])
 
   if (!match) notFound()
@@ -93,6 +97,7 @@ export default async function MatchDetailPage({ params }: Props) {
         awayStats={awayStats}
         injuries={injuriesData ?? []}
         odds={odds}
+        smartBets={smartBetsRaw ?? []}
       />
     </div>
   )
