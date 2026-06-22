@@ -27,8 +27,8 @@ export default async function MatchDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
 
-  // Fetch match data, odds y smart bets en paralelo
-  const [{ data: match }, { data: oddsRaw }, { data: smartBetsRaw }] = await Promise.all([
+  // Fetch match data y odds en paralelo
+  const [{ data: match }, { data: oddsRaw }] = await Promise.all([
     supabase
       .from('matches')
       .select(`
@@ -46,15 +46,6 @@ export default async function MatchDetailPage({ params }: Props) {
       .select('bookmaker, market, odds_value, implied_probability, recorded_at')
       .eq('match_id', id)
       .order('recorded_at', { ascending: false }),
-
-    supabase
-      .from('value_bets')
-      .select('*')
-      .eq('match_id', id)
-      .in('grade', ['high', 'medium'])
-      .eq('is_active', true)
-      .order('expected_value', { ascending: false })
-      .limit(15),
   ])
 
   if (!match) notFound()
@@ -85,14 +76,6 @@ export default async function MatchDetailPage({ params }: Props) {
   }
   const odds = Array.from(oddsMap.values())
 
-  // Smart Bets: un mercado único por tarjeta (mejor EV por mercado), máximo 3
-  const smartBetsMarkets = new Set<string>()
-  const smartBets = (smartBetsRaw ?? []).filter((b: any) => {
-    if (smartBetsMarkets.has(b.market)) return false
-    smartBetsMarkets.add(b.market)
-    return true
-  }).slice(0, 3)
-
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <MatchHeader match={m} />
@@ -105,7 +88,6 @@ export default async function MatchDetailPage({ params }: Props) {
         awayStats={awayStats}
         injuries={injuriesData ?? []}
         odds={odds}
-        smartBets={smartBetsRaw ?? []}
       />
     </div>
   )

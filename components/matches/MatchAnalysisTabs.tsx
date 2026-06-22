@@ -32,7 +32,6 @@ interface Props {
   awayStats: any | null
   injuries: any[]
   odds: any[]
-  smartBets: any[]
 }
 
 export function MatchAnalysisTabs({
@@ -43,7 +42,6 @@ export function MatchAnalysisTabs({
   awayStats,
   injuries,
   odds,
-  smartBets,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -163,11 +161,11 @@ export function MatchAnalysisTabs({
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
           <SmartBetsPanel
-            smartBets={smartBets}
             prediction={prediction}
             homeStats={homeStats}
             awayStats={awayStats}
             match={match}
+            injuries={injuries}
           />
         )}
       </div>
