@@ -172,6 +172,7 @@ export function MatchAnalysisTabs({
             awayStats={awayStats}
             match={match}
             injuries={injuries}
+            odds={odds}
           />
         )}
 

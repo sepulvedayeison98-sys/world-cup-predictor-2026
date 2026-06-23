@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { Sparkles, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Sparkles, AlertTriangle, CheckCircle, XCircle, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   computeSmartBets,
   type SmartBetTier,
   type SmartBetCategory,
   type SmartBetRecommendation,
+  type VolatilityLevel,
 } from '@/lib/smartBetsEngine'
 
 // ─── Configuración visual por tier ─────────────────────────────────────────────
@@ -40,30 +40,30 @@ const CATEGORY_COLOR: Record<SmartBetCategory, string> = {
   combinada:  'text-fuchsia-500 bg-fuchsia-500/10',
 }
 
-const MEDALS = ['🥇', '🥈', '🥉']
+const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: string }> = {
+  LOW_VOLATILITY:    { label: 'Baja volatilidad',  text: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  MEDIUM_VOLATILITY: { label: 'Vol. media',        text: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20'    },
+  HIGH_VOLATILITY:   { label: 'Alta volatilidad',  text: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20'        },
+}
 
 // ─── Gauge circular SVG ────────────────────────────────────────────────────────
 
 const R   = 38
-const C   = 2 * Math.PI * R          // ≈ 238.76
-const ARC = C * 0.75                  // 270° de arco útil
+const C   = 2 * Math.PI * R
+const ARC = C * 0.75
 
 function ConfidenceGauge({ confidence, tier }: { confidence: number; tier: SmartBetTier }) {
   const progress = ARC * (confidence / 100)
   return (
     <div className="relative h-[72px] w-[72px] shrink-0">
-      {/* SVG rotado para que el hueco quede abajo */}
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-[135deg]">
-        {/* Pista gris */}
         <circle cx="50" cy="50" r={R} fill="none" stroke="#27272a" strokeWidth="9"
           strokeDasharray={`${ARC} ${C - ARC}`} strokeLinecap="round" />
-        {/* Progreso coloreado */}
         <circle cx="50" cy="50" r={R} fill="none" strokeWidth="9"
           stroke={TIER[tier].stroke}
           strokeDasharray={`${progress} ${C - progress}`}
           strokeLinecap="round" />
       </svg>
-      {/* Texto centrado (no rotado) */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={cn('text-[17px] font-bold mono leading-none', TIER[tier].text)}>
           {confidence}%
@@ -82,44 +82,29 @@ interface Props {
   awayStats:  any | null
   match:      any
   injuries:   any[]
+  odds?:      any[]
 }
 
-export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuries }: Props) {
-  const [showOthers, setShowOthers] = useState(false)
-
+export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuries, odds }: Props) {
   const homeTeam = match?.home_team
   const awayTeam = match?.away_team
 
-  const all = computeSmartBets(prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match)
+  const recs = computeSmartBets(
+    prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match, odds,
+  )
 
-  // Top-3: máximo 1 recomendación por familia de mercado para garantizar diversidad.
-  // Variantes del mismo umbral (over_1.5 + over_2.5, corners 8.5 + 9.5, etc.)
-  // no ocupan dos slots — la segunda va al apartado "otros".
-  function getFamily(id: string): string {
-    if (id.startsWith('over_'))     return 'over_goals'
-    if (id.startsWith('corners_'))  return 'corners'
-    if (id.startsWith('cards_'))    return 'cards'
-    if (id.startsWith('shots_ot_')) return 'shots_ot'
-    return id
-  }
-  const seenFamilies = new Set<string>()
-  const top: typeof all = []
-  for (const rec of all) {
-    if (top.length >= 3) break
-    const fam = getFamily(rec.id)
-    if (!seenFamilies.has(fam)) { seenFamilies.add(fam); top.push(rec) }
-  }
-  const others = all.filter(r => !top.includes(r))
+  const volatility = recs[0]?.volatility
+  const consensus  = recs[0]?.consensusScore
+  const mce        = recs[0]?.mcEvidence
 
-  // ── Context chips (fase, clima, bajas) ──────────────────────────────────────
-  const phase      = match?.phase ?? ''
-  const isKnockout = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
+  // Context chips
+  const phase        = match?.phase ?? ''
+  const isKnockout   = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
   const phaseLabel: Record<string, string> = {
-    round_of_16:   'Octavos de final', quarter_final: 'Cuartos de final',
-    semi_final:    'Semifinal',        final:         'Final',
-    third_place:   'Tercer puesto',
+    round_of_16: 'Octavos', quarter_final: 'Cuartos',
+    semi_final: 'Semifinal', final: 'Final', third_place: '3er puesto',
   }
-  const weatherRaw  = (match?.weather_condition ?? '').toLowerCase()
+  const weatherRaw   = (match?.weather_condition ?? '').toLowerCase()
   const isBadWeather = /rain|wet|storm|wind|drizzle/i.test(weatherRaw)
   const tempC        = match?.weather_temp_celsius
   const isHot        = tempC != null && tempC > 32
@@ -138,13 +123,13 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
     )
   }
 
-  if (top.length === 0) {
+  if (recs.length === 0) {
     return (
       <div className="card p-10 flex flex-col items-center gap-3">
         <Sparkles className="h-8 w-8 text-zinc-700" />
         <p className="text-sm font-medium text-zinc-500">Sin recomendaciones con suficiente confianza</p>
         <p className="text-xs text-center max-w-xs text-zinc-600">
-          Ningún mercado supera el umbral mínimo de confianza (60%) para este partido.
+          Ningún mercado supera el umbral mínimo de confianza para este partido.
         </p>
       </div>
     )
@@ -154,16 +139,35 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
     <div className="space-y-4">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
           <div>
-            <h3 className="text-sm font-semibold text-white">Smart Bets AI</h3>
+            <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor Monte Carlo</h3>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              {all.length} mercados evaluados · mostrando los {top.length} con mayor confianza
+              {mce ? mce.simulations.toLocaleString() : '50.000'} simulaciones ·
+              top {recs.length} mercados por ventaja matemática
             </p>
           </div>
         </div>
+
+        {/* MC summary chips */}
+        {mce && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {volatility && (
+              <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium border rounded-full px-2 py-0.5', VOLATILITY[volatility].text, VOLATILITY[volatility].bg)}>
+                <Activity className="h-2.5 w-2.5" />
+                {VOLATILITY[volatility].label}
+              </span>
+            )}
+            <span className="text-[10px] text-zinc-400 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-2 py-0.5">
+              Consenso {consensus}/100
+            </span>
+            <span className="text-[10px] text-zinc-400 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-2 py-0.5">
+              P50 {mce.p50Goals}g · P80 {mce.p80Goals}g
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Context chips */}
@@ -176,73 +180,37 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
           )}
           {isBadWeather && (
             <span className="text-[11px] text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-2.5 py-0.5">
-              ☁ {match.weather_condition} — ajuste de goles aplicado
+              {match.weather_condition} — ajuste de goles aplicado
             </span>
           )}
           {isHot && (
             <span className="text-[11px] text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-2.5 py-0.5">
-              🌡 {tempC}°C — calor extremo reduce intensidad
+              {tempC}°C — calor extremo reduce intensidad
             </span>
           )}
           {homeRest != null && homeRest < 3 && (
             <span className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-0.5">
-              ⚡ Local: solo {homeRest}d descanso
+              Local: solo {homeRest}d descanso
             </span>
           )}
           {awayRest != null && awayRest < 3 && (
             <span className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-0.5">
-              ⚡ Visitante: solo {awayRest}d descanso
+              Visitante: solo {awayRest}d descanso
             </span>
           )}
         </div>
       )}
 
-      {/* Top 3 cards */}
-      {top.map((rec, i) => (
-        <BetCard key={rec.id} rec={rec} rank={i} />
+      {/* Recommendation cards */}
+      {recs.map((rec) => (
+        <BetCard key={rec.id} rec={rec} />
       ))}
-
-      {/* Otros mercados — colapsable */}
-      {others.length > 0 && (
-        <div className="card overflow-hidden">
-          <button
-            onClick={() => setShowOthers(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-          >
-            <span className="font-medium">
-              {showOthers ? 'Ocultar' : 'Ver'} {others.length} mercado{others.length !== 1 ? 's' : ''} más analizados
-            </span>
-            {showOthers ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-
-          {showOthers && (
-            <div className="border-t border-zinc-800 divide-y divide-zinc-800/60">
-              {others.map((rec) => {
-                const cfg = TIER[rec.tier]
-                const barW = Math.max(2, ARC * (rec.confidence / 100) / ARC * 100)
-                return (
-                  <div key={rec.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className={cn('text-[10px] font-semibold border rounded px-1.5 py-0.5 shrink-0', cfg.badge, cfg.text)}>
-                      {cfg.label}
-                    </span>
-                    <span className="flex-1 text-xs text-zinc-400 min-w-0 truncate">{rec.label}</span>
-                    <span className={cn('text-xs mono font-bold shrink-0', cfg.text)}>{rec.confidence}%</span>
-                    <div className="w-14 h-1 bg-zinc-800 rounded-full overflow-hidden shrink-0">
-                      <div className="h-full rounded-full" style={{ width: `${barW}%`, backgroundColor: cfg.stroke }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Disclaimer */}
       <div className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
         <AlertTriangle className="h-3.5 w-3.5 text-amber-500/60 shrink-0 mt-0.5" />
         <p className="text-[11px] text-zinc-600 leading-relaxed">
-          Predicciones estadísticas del motor — no garantizan el resultado ni constituyen
+          Predicciones estadísticas del motor Monte Carlo — no garantizan el resultado ni constituyen
           asesoramiento financiero. Apuesta responsablemente. +18.
         </p>
       </div>
@@ -252,7 +220,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
 // ─── Tarjeta individual ────────────────────────────────────────────────────────
 
-function BetCard({ rec, rank }: { rec: SmartBetRecommendation; rank: number }) {
+function BetCard({ rec }: { rec: SmartBetRecommendation }) {
   const cfg = TIER[rec.tier]
 
   return (
@@ -261,9 +229,10 @@ function BetCard({ rec, rank }: { rec: SmartBetRecommendation; rank: number }) {
       <div className="h-0.5 w-full" style={{ backgroundColor: cfg.stroke }} />
 
       <div className="p-4 space-y-3">
-        {/* Fila superior: medalla + categoría chip + nombre del mercado + tier badge */}
+
+        {/* Fila superior: rank · categoría · nombre · tier badge · edge */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base leading-none">{MEDALS[rank] ?? `#${rank + 1}`}</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-600 shrink-0">#{rec.rank}</span>
           <span className={cn('text-[10px] font-semibold rounded px-1.5 py-0.5', CATEGORY_COLOR[rec.category])}>
             {CATEGORY_LABEL[rec.category]}
           </span>
@@ -272,13 +241,46 @@ function BetCard({ rec, rank }: { rec: SmartBetRecommendation; rank: number }) {
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cfg.stroke }} />
             {cfg.label}
           </span>
+          {rec.edge != null && (
+            <span className={cn(
+              'shrink-0 text-[10px] font-bold rounded-full px-2 py-0.5 border',
+              rec.edge > 0
+                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
+                : 'text-zinc-500 bg-zinc-800/40 border-zinc-700/40',
+            )}>
+              Edge {rec.edge > 0 ? '+' : ''}{rec.edge.toFixed(1)}%
+            </span>
+          )}
         </div>
 
         {/* Gauge + justificación */}
         <div className="flex items-start gap-4">
           <ConfidenceGauge confidence={rec.confidence} tier={rec.tier} />
-          <div className="flex-1 min-w-0 space-y-2 pt-1">
+          <div className="flex-1 min-w-0 pt-1">
             <p className="text-xs text-zinc-300 leading-relaxed">{rec.justification}</p>
+          </div>
+        </div>
+
+        {/* Evidencia MC */}
+        <div className="grid grid-cols-4 gap-px rounded-lg overflow-hidden bg-zinc-800/40 border border-zinc-800/60 text-center">
+          <div className="bg-zinc-900/70 px-2 py-1.5">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P50</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}g</p>
+          </div>
+          <div className="bg-zinc-900/70 px-2 py-1.5">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P80</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}g</p>
+          </div>
+          <div className="bg-zinc-900/70 px-2 py-1.5">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P95</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}g</p>
+          </div>
+          <div className="bg-zinc-900/70 px-2 py-1.5">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">+ frec.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">
+              {rec.mcEvidence.topScore}
+              <span className="text-zinc-600 font-normal text-[9px] ml-0.5">({rec.mcEvidence.topScoreFreq}%)</span>
+            </p>
           </div>
         </div>
 
@@ -299,6 +301,16 @@ function BetCard({ rec, rank }: { rec: SmartBetRecommendation; rank: number }) {
             ))}
           </div>
         )}
+
+        {/* Frecuencia MC */}
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className="text-[9px] text-zinc-600 uppercase tracking-wider shrink-0 w-20">MC frecuencia</span>
+          <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${rec.mcFrequency}%`, backgroundColor: cfg.stroke }} />
+          </div>
+          <span className={cn('text-[10px] font-bold mono shrink-0', cfg.text)}>{rec.mcFrequency}%</span>
+        </div>
+
       </div>
     </div>
   )
