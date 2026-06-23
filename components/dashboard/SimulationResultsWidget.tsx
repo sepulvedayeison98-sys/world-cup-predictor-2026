@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface SimulationResult {
   team_id: string;
@@ -20,7 +20,8 @@ interface SimulationResult {
 export function SimulationResultsWidget() {
   const [results, setResults] = useState<SimulationResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Memo para evitar que un nuevo objeto en cada render dispare el efecto en bucle
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const fetchSimulationResults = async () => {
@@ -64,8 +65,8 @@ export function SimulationResultsWidget() {
       } else {
         setResults(data.map((r: any) => ({
           ...r,
-          team_name: r.teams.name,
-          team_code: r.teams.code,
+          team_name: r.teams?.name ?? r.team_id,
+          team_code: r.teams?.code ?? '???',
         })));
       }
       setLoading(false);

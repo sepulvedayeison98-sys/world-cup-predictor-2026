@@ -107,10 +107,10 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
                   {/* Qualification probability */}
                   <span className={cn(
                     'w-12 text-right text-[10px] font-medium mono',
-                    s.qualification_probability >= 70 ? 'text-emerald-400' :
-                    s.qualification_probability >= 40 ? 'text-amber-400' : 'text-red-400'
+                    (s.qualification_probability ?? 0) >= 70 ? 'text-emerald-400' :
+                    (s.qualification_probability ?? 0) >= 40 ? 'text-amber-400' : 'text-red-400'
                   )}>
-                    {s.qualification_probability.toFixed(0)}%
+                    {(s.qualification_probability ?? 0).toFixed(0)}%
                   </span>
 
                   {/* Form */}

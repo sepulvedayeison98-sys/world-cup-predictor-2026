@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
 import { Trophy, Clock, CheckCircle2, Radio } from 'lucide-react'
@@ -156,8 +155,6 @@ function ConnectorLine({ top }: { top?: boolean }) {
 }
 
 export function TournamentBracket({ matches, simulations }: Props) {
-  const [halfView, setHalfView] = useState<'upper' | 'lower' | 'all'>('all')
-
   // Group matches by phase
   const byPhase: Record<string, MatchSlot[]> = {}
   for (const m of matches) {

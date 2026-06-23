@@ -12,6 +12,18 @@ const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 export default async function BracketPage() {
   const supabase = await createServerSupabaseClient()
 
+  // Paso 1: obtener última corrida de simulación
+  const { data: latestSimRun } = await supabase
+    .from('tournament_simulations')
+    .select('simulation_run_id')
+    .eq('competition_id', COMPETITION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const latestRunId = latestSimRun?.simulation_run_id
+
+  // Paso 2: partidos eliminatorios + simulaciones + equipos en paralelo
   const [{ data: matchesRaw }, { data: simsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('matches')
@@ -24,10 +36,13 @@ export default async function BracketPage() {
       .neq('phase', 'group')
       .order('match_number', { ascending: true }),
 
-    supabase
-      .from('tournament_simulations')
-      .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob')
-      .eq('competition_id', COMPETITION_ID),
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+      : Promise.resolve({ data: [] }),
 
     supabase
       .from('teams')
@@ -35,7 +50,7 @@ export default async function BracketPage() {
       .eq('competition_id', COMPETITION_ID),
   ])
 
-  // Build simulation map by team id
+  // Build simulation map by team id (única corrida)
   const simMap: Record<string, any> = {}
   for (const s of simsRaw ?? []) {
     simMap[(s as any).team_id] = s
@@ -48,7 +63,6 @@ export default async function BracketPage() {
     const homeSim = homeId ? simMap[homeId] : null
     const awaySim = awayId ? simMap[awayId] : null
 
-    // For win probability in a given match, derive from relative sim probs at that phase
     let homeWinProb: number | undefined
     let awayWinProb: number | undefined
 
@@ -82,7 +96,6 @@ export default async function BracketPage() {
     }
   })
 
-  // Total teams in knockout: count finished/live/scheduled knockout matches
   const knockoutMatchCount = matches.length
 
   return (

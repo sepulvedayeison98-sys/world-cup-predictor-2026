@@ -75,7 +75,7 @@ export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedM
             <span className="text-[10px] text-zinc-600 mono">WLDCP:2026</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Intelligence Dashboard
+            Panel de Inteligencia
           </h1>
         </div>
         <div className="hidden sm:flex items-center gap-1.5 rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5">

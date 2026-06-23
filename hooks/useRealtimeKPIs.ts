@@ -43,21 +43,19 @@ export function useRealtimeKPIs({ initialKPIs, competitionId = 'a1b2c3d4-e5f6-78
       }
 
       if (table === 'value_bets') {
-        // Actualiza los picks activos y apuestas de valor
-        const { data: valueBets } = await supabase
-          .from('value_bets')
-          .select('*')
-          .eq('is_active', true)
-          .in('grade', ['high', 'medium'])
-
-        const pending = valueBets?.filter(b => b.result === 'pending').length ?? 0
-        const won = valueBets?.filter(b => b.result === 'won').length ?? 0
+        // active_picks = solo grado 'high'; value_bets_detected = total activas
+        const [{ count: totalActive }, { count: highGrade }, { data: settled }] = await Promise.all([
+          supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true),
+          supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('grade', 'high'),
+          supabase.from('value_bets').select('result').in('result', ['won', 'lost']),
+        ])
+        const won = settled?.filter((b: any) => b.result === 'won').length ?? 0
 
         setKPIs(prev => ({
           ...prev,
-          active_picks: valueBets?.length ?? 0,
-          value_bets_detected: valueBets?.length ?? 0,
-          value_bets_pending: pending,
+          active_picks: highGrade ?? 0,
+          value_bets_detected: totalActive ?? 0,
+          value_bets_pending: totalActive ?? 0,
           value_bets_won: won,
         }))
       }

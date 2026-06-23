@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,8 @@ interface TeamProbability {
 export function TournamentPathTracker() {
   const [data, setData] = useState<TeamProbability[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  // Memo para evitar que un nuevo objeto en cada render dispare el efecto en bucle
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function fetchData() {
@@ -29,9 +30,9 @@ export function TournamentPathTracker() {
         .select('simulation_run_id')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
-      if (latestRun) {
+      if (latestRun?.simulation_run_id) {
         const { data: results } = await supabase
           .from('tournament_simulations')
           .select(`
@@ -51,8 +52,8 @@ export function TournamentPathTracker() {
         if (results) {
           setData(results.map((r: any) => ({
             ...r,
-            team_name: r.teams.name,
-            team_code: r.teams.code
+            team_name: r.teams?.name ?? r.team_id,
+            team_code: r.teams?.code ?? '???',
           })))
         }
       }

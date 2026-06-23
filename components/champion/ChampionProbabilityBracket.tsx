@@ -87,6 +87,11 @@ export function ChampionProbabilityBracket({ simulations }: Props) {
   const sorted = [...simulations].sort((a, b) => getProbBySort(b, sortKey) - getProbBySort(a, sortKey))
   const filtered = filter === 'all' ? sorted : sorted.filter(s => s.team.confederation === filter)
 
+  // Rank global por winner_prob pre-computado (evita O(n²) dentro del map de filas)
+  const globalRankByTeamId = new Map(
+    [...simulations].sort((a, b) => b.winner_prob - a.winner_prob).map((s, i) => [s.team_id, i + 1])
+  )
+
   // Top 3 siempre por winner_prob
   const top3 = [...simulations].sort((a, b) => b.winner_prob - a.winner_prob).slice(0, 3)
   const hasData = simulations.length > 0 && simulations.some(s => s.winner_prob > 0)
@@ -248,7 +253,7 @@ export function ChampionProbabilityBracket({ simulations }: Props) {
                 <tbody className="divide-y divide-zinc-800/50">
                   {filtered.map((sim) => {
                     const rank = sorted.indexOf(sim) + 1
-                    const globalRank = [...simulations].sort((a, b) => b.winner_prob - a.winner_prob).indexOf(sim) + 1
+                    const globalRank = globalRankByTeamId.get(sim.team_id) ?? 0
                     const confStyle = CONFEDERATION_COLOR[sim.team.confederation] ?? 'text-zinc-400 bg-zinc-800 border-zinc-700'
                     return (
                       <tr key={sim.team_id} className={cn(

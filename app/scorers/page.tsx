@@ -12,6 +12,18 @@ const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 export default async function ScorersPage() {
   const supabase = await createServerSupabaseClient()
 
+  // Paso 1: obtener última corrida de simulación
+  const { data: latestSimRun } = await supabase
+    .from('tournament_simulations')
+    .select('simulation_run_id')
+    .eq('competition_id', COMPETITION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const latestRunId = latestSimRun?.simulation_run_id
+
+  // Paso 2: estadísticas + simulaciones + partidos en paralelo
   const [{ data: statsRaw }, { data: simulations }, { data: matchCounts }] = await Promise.all([
     supabase
       .from('player_statistics')
@@ -26,11 +38,14 @@ export default async function ScorersPage() {
       .order('goals', { ascending: false })
       .limit(50),
 
-    // Probabilidades de avance por equipo para proyectar partidos restantes
-    supabase
-      .from('tournament_simulations')
-      .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
-      .eq('competition_id', COMPETITION_ID),
+    // Probabilidades filtradas por última corrida
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+      : Promise.resolve({ data: [] }),
 
     // Partidos ya jugados por equipo (para calcular restantes)
     supabase
@@ -51,21 +66,14 @@ export default async function ScorersPage() {
   const simByTeam = new Map((simulations ?? []).map((s: any) => [s.team_id, s]))
 
   // Proyección de goles: goals_per_game × expected_remaining_matches
-  // expected_remaining = 3 (grupos) + E[matches_in_knockout]
-  // E[knockout_matches] = P(R16) × 1 + P(QF) × 1 + P(SF) × 1 + P(Final) × 1 + ...
   const enriched = (statsRaw ?? []).map((s: any) => {
     const teamId = s.player?.team_id
     const played = s.matches_played || 1
     const goalsPerGame = s.goals / played
     const sim = simByTeam.get(teamId)
 
-    // Partidos del equipo ya jugados en el torneo
     const teamMatchesPlayed = playedByTeam.get(teamId) ?? played
-
-    // Partidos esperados restantes en grupos (máximo 3, menos los jugados)
     const groupRemaining = Math.max(0, 3 - teamMatchesPlayed)
-
-    // Partidos esperados en rondas eliminatorias basado en probabilidades
     const expectedKnockout = sim
       ? (sim.round_of_16_prob ?? 0) +
         (sim.quarter_final_prob ?? 0) +

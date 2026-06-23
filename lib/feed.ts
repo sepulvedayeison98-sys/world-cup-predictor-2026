@@ -44,7 +44,7 @@ export function buildFeedEntries(
       type: 'value_bet',
       timestamp: b.created_at ?? new Date().toISOString(),
       title: marketLabel.charAt(0).toUpperCase() + marketLabel.slice(1),
-      detail: `Edge: +${edgePct.toFixed(1)}% · Cuota: ${b.odds_value?.toFixed(2) ?? '—'} · ${b.bookmaker ?? '—'}`,
+      detail: `Edge: ${edgePct > 0 ? '+' : ''}${edgePct.toFixed(1)}% · Cuota: ${b.odds_value?.toFixed(2) ?? '—'} · ${b.bookmaker ?? '—'}`,
     })
   }
 
