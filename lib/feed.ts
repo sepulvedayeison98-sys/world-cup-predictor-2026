@@ -1,13 +1,9 @@
-import { TrendingUp, Zap } from 'lucide-react'
-
 export interface FeedEntry {
   id: string
   type: 'prediction' | 'value_bet' | 'result' | 'alert'
   timestamp: string
   title: string
   detail: string
-  color: string
-  icon: typeof TrendingUp
   code1?: string | null
   code2?: string | null
 }
@@ -33,10 +29,8 @@ export function buildFeedEntries(
       timestamp: p.created_at ?? new Date().toISOString(),
       title: `${m?.home_team?.code ?? '?'} – ${m?.away_team?.code ?? '?'}`,
       detail: `${outcome} · Confianza ${Math.round(maxP * 100)}%`,
-      color: 'text-blue-400',
-      icon: TrendingUp,
-      code1: m?.home_team?.code,
-      code2: m?.away_team?.code,
+      code1: m?.home_team?.code ?? null,
+      code2: m?.away_team?.code ?? null,
     })
   }
 
@@ -48,8 +42,6 @@ export function buildFeedEntries(
       timestamp: b.created_at ?? new Date().toISOString(),
       title: b.description ?? 'Apuesta de valor detectada',
       detail: `Edge: +${Number(edge).toFixed(1)}% · Cuota: ${b.odds_value?.toFixed(2) ?? '—'} · ${b.bookmaker ?? '—'}`,
-      color: 'text-amber-400',
-      icon: Zap,
     })
   }
 

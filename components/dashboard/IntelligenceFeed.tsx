@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
+import { TrendingUp, Zap, CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { FeedEntry } from '@/lib/feed'
 
 interface Props {
@@ -19,11 +20,11 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`
 }
 
-const TYPE_META: Record<FeedEntry['type'], { label: string; dot: string }> = {
-  prediction: { label: 'PRED', dot: 'bg-blue-500' },
-  value_bet:  { label: 'VAL',  dot: 'bg-amber-500' },
-  result:     { label: 'RES',  dot: 'bg-emerald-500' },
-  alert:      { label: 'ALT',  dot: 'bg-red-500' },
+const TYPE_META: Record<FeedEntry['type'], { label: string; dot: string; color: string; Icon: React.ElementType }> = {
+  prediction: { label: 'PRED', dot: 'bg-blue-500',    color: 'text-blue-400',    Icon: TrendingUp    },
+  value_bet:  { label: 'VAL',  dot: 'bg-amber-500',   color: 'text-amber-400',   Icon: Zap           },
+  result:     { label: 'RES',  dot: 'bg-emerald-500', color: 'text-emerald-400', Icon: CheckCircle2  },
+  alert:      { label: 'ALT',  dot: 'bg-red-500',     color: 'text-red-400',     Icon: AlertTriangle },
 }
 
 export function IntelligenceFeed({ entries }: Props) {
@@ -47,8 +48,8 @@ export function IntelligenceFeed({ entries }: Props) {
   return (
     <div className="divide-y divide-zinc-800/60">
       {entries.map((entry) => {
-        const Icon = entry.icon
         const meta = TYPE_META[entry.type]
+        const Icon = meta.Icon
         return (
           <div
             key={entry.id}
@@ -62,7 +63,7 @@ export function IntelligenceFeed({ entries }: Props) {
               <span className="text-[8px] font-bold tracking-wider text-zinc-600 mono">{meta.label}</span>
             </div>
 
-            <div className={cn('mt-0.5 shrink-0', entry.color)}>
+            <div className={cn('mt-0.5 shrink-0', meta.color)}>
               <Icon className="h-3.5 w-3.5" />
             </div>
 
