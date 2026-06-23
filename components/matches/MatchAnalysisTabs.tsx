@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, BarChart2, DollarSign, Users, Sparkles } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
@@ -13,13 +13,15 @@ import { InjuriesPanel } from './InjuriesPanel'
 import { SmartBetsPanel } from './SmartBetsPanel'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
+import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
 
 const TABS = [
-  { id: 'prediccion',   label: 'Predicción',   icon: TrendingUp  },
-  { id: 'estadisticas', label: 'Estadísticas', icon: BarChart2   },
-  { id: 'cuotas',       label: 'Cuotas',       icon: DollarSign  },
-  { id: 'alineaciones', label: 'Alineaciones', icon: Users       },
-  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles   },
+  { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp  },
+  { id: 'estadisticas', label: 'Estadísticas',  icon: BarChart2   },
+  { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign  },
+  { id: 'alineaciones', label: 'Alineaciones',  icon: Users       },
+  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles    },
+  { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -166,6 +168,18 @@ export function MatchAnalysisTabs({
             awayStats={awayStats}
             match={match}
             injuries={injuries}
+          />
+        )}
+
+        {/* ── Auditoría AI ── */}
+        {active === 'auditoria' && (
+          <DataIntegrityPanel
+            prediction={prediction}
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+            injuries={injuries}
+            odds={odds}
           />
         )}
       </div>
