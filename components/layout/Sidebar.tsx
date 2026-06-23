@@ -15,19 +15,22 @@ import {
   ChevronRight,
   Trophy,
   FlaskConical,
+  Crosshair,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
-  { href: '/matches',      label: 'Partidos',      icon: Calendar },
-  { href: '/groups',       label: 'Grupos',        icon: Grid3X3 },
-  { href: '/predictions',  label: 'Predicciones',  icon: TrendingUp },
-  { href: '/value-bets',   label: 'Apuestas Valor', icon: Zap },
-  { href: '/simulation',   label: 'Simulador',      icon: FlaskConical },
-  { href: '/players',      label: 'Jugadores',     icon: User },
-  { href: '/settings',     label: 'Información', icon: Settings },
+  { href: '/dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/matches',      label: 'Partidos',        icon: Calendar },
+  { href: '/groups',       label: 'Grupos',          icon: Grid3X3 },
+  { href: '/predictions',  label: 'Predicciones',    icon: TrendingUp },
+  { href: '/champion',     label: 'Campeón',         icon: Trophy },
+  { href: '/scorers',      label: 'Goleadores',      icon: Crosshair },
+  { href: '/value-bets',   label: 'Apuestas Valor',  icon: Zap },
+  { href: '/simulation',   label: 'Simulador',       icon: FlaskConical },
+  { href: '/players',      label: 'Jugadores',       icon: User },
+  { href: '/settings',     label: 'Información',     icon: Settings },
 ]
 
 export function Sidebar() {
