@@ -7,7 +7,8 @@ import { GroupStandingsWidget } from '@/components/dashboard/GroupStandingsWidge
 import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
 import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
-import { IntelligenceFeed, buildFeedEntries } from '@/components/dashboard/IntelligenceFeed'
+import { IntelligenceFeed } from '@/components/dashboard/IntelligenceFeed'
+import { buildFeedEntries } from '@/lib/feed'
 import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
 import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
 import { MODEL_VERSION } from '@/lib/constants'
@@ -53,8 +54,7 @@ export default async function DashboardPage() {
     supabase
       .from('predictions')
       .select(`
-        id, home_win_probability, draw_probability, away_win_probability,
-        data_quality_score, created_at,
+        id, home_win_probability, draw_probability, away_win_probability, created_at,
         match:matches(id, home_team:teams!matches_home_team_id_fkey(code), away_team:teams!matches_away_team_id_fkey(code))
       `)
       .eq('is_published', true)
