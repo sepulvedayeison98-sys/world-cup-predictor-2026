@@ -30,9 +30,9 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       border: 'border-blue-500/20',
     },
     {
-      label: 'Picks Activos',
+      label: 'Picks Premium',
       value: kpis.active_picks.toString(),
-      sub: `${kpis.value_bets_pending} pendientes`,
+      sub: `de ${kpis.value_bets_pending} activas`,
       icon: Zap,
       color: 'text-violet-400',
       bg: 'bg-violet-500/10',

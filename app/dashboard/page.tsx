@@ -23,10 +23,23 @@ const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
 
+  // Paso 1: obtener la última corrida de simulación (secuencial, necesario para filtrar)
+  const { data: latestSimRun } = await supabase
+    .from('tournament_simulations')
+    .select('simulation_run_id')
+    .eq('competition_id', COMPETITION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const latestRunId = latestSimRun?.simulation_run_id
+
+  // Paso 2: todas las demás queries en paralelo
   const [
     { count: totalMatches },
     { count: analyzedMatches },
     { count: activeBetsCount },
+    { count: highGradeBetsCount },
     { data: predictions },
     { data: settledBets },
     { data: nextMatchRows },
@@ -41,6 +54,7 @@ export default async function DashboardPage() {
     supabase.from('matches').select('*', { count: 'exact', head: true }),
     supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('is_published', true),
     supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('grade', 'high'),
     supabase.from('predictions').select('was_correct').not('was_correct', 'is', null),
     supabase.from('value_bets').select('result, odds_value').in('result', ['won', 'lost']),
     supabase
@@ -60,20 +74,23 @@ export default async function DashboardPage() {
       .eq('is_published', true)
       .order('created_at', { ascending: false })
       .limit(10),
-    // Recent value bets
+    // Recent value bets — solo columnas que existen en el schema
     supabase
       .from('value_bets')
-      .select('id, description, edge_percentage, odds_value, bookmaker, model_probability, implied_probability, created_at')
+      .select('id, market, odds_value, bookmaker, model_probability, implied_probability, edge, grade, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(5),
-    // Champion simulations
-    supabase
-      .from('tournament_simulations')
-      .select('team_id, winner_prob')
-      .eq('competition_id', COMPETITION_ID)
-      .order('winner_prob', { ascending: false })
-      .limit(8),
+    // Champion simulations — filtrado por última corrida
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+          .order('winner_prob', { ascending: false })
+          .limit(8)
+      : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name, short_name, code, confederation').eq('competition_id', COMPETITION_ID),
     // Top scorers for strip
     supabase
@@ -87,11 +104,14 @@ export default async function DashboardPage() {
       .gt('matches_played', 0)
       .order('goals', { ascending: false })
       .limit(10),
-    // Sim probs for scorer projection
-    supabase
-      .from('tournament_simulations')
-      .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
-      .eq('competition_id', COMPETITION_ID),
+    // Sim probs for scorer projection — filtrado por última corrida
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+      : Promise.resolve({ data: [] }),
     // Matches played per team for scorers
     supabase
       .from('matches')
@@ -118,7 +138,7 @@ export default async function DashboardPage() {
   const initialKPIs = {
     total_matches: totalMatches ?? 0,
     analyzed_matches: analyzedMatches ?? 0,
-    active_picks: activeBets,
+    active_picks: highGradeBetsCount ?? 0,   // picks de alto valor (no duplica value_bets_detected)
     historical_accuracy: accuracy,
     roi,
     correct_predictions: correctPredictions,
@@ -133,7 +153,7 @@ export default async function DashboardPage() {
   // Intelligence feed entries
   const feedEntries = buildFeedEntries(recentPredictions ?? [], recentValueBets ?? [])
 
-  // Champion strip
+  // Champion strip — equipos enriquecidos con datos del equipo
   const teamsMap = new Map((teams ?? []).map((t: any) => [t.id, t]))
   const championData = (simulations ?? [])
     .map((s: any) => ({ ...s, team: teamsMap.get(s.team_id) }))

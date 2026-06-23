@@ -35,13 +35,16 @@ export function buildFeedEntries(
   }
 
   for (const b of (valueBets ?? []).slice(0, 5)) {
-    const edge = b.edge_percentage ?? ((b.model_probability ?? 0) - (b.implied_probability ?? 0)) * 100
+    const edgePct = b.edge != null
+      ? Number(b.edge) * 100
+      : ((b.model_probability ?? 0) - (b.implied_probability ?? 0)) * 100
+    const marketLabel = b.market?.replace(/_/g, ' ') ?? 'Apuesta de valor'
     entries.push({
       id: `bet-${b.id}`,
       type: 'value_bet',
       timestamp: b.created_at ?? new Date().toISOString(),
-      title: b.description ?? 'Apuesta de valor detectada',
-      detail: `Edge: +${Number(edge).toFixed(1)}% · Cuota: ${b.odds_value?.toFixed(2) ?? '—'} · ${b.bookmaker ?? '—'}`,
+      title: marketLabel.charAt(0).toUpperCase() + marketLabel.slice(1),
+      detail: `Edge: +${edgePct.toFixed(1)}% · Cuota: ${b.odds_value?.toFixed(2) ?? '—'} · ${b.bookmaker ?? '—'}`,
     })
   }
 
