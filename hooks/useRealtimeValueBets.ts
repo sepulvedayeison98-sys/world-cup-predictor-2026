@@ -16,14 +16,17 @@ interface UseRealtimeValueBetsOptions {
 export function useRealtimeValueBets({ limit = 5 }: UseRealtimeValueBetsOptions) {
   const supabase = createClient()
   const [valueBets, setValueBets] = useState<ValueBet[]>([])
+  const [totalUpcoming, setTotalUpcoming] = useState(0)
   const [isLive, setIsLive] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchValueBets = useCallback(async () => {
     try {
       setIsLoading(true)
-      // Traemos más de la cuenta y filtramos a próximos partidos en el cliente
-      // (PostgREST no filtra fácil por columna de la tabla embebida).
+      // Traemos las apuestas de valor activas (alto/medio) con la fecha del
+      // partido y filtramos a PRÓXIMOS partidos en el cliente (PostgREST no
+      // filtra fácil por columna de la tabla embebida). Mostramos las de MEJOR
+      // EV primero y exponemos el total de oportunidades próximas.
       const { data, error } = await supabase
         .from('value_bets')
         .select(`
@@ -33,20 +36,15 @@ export function useRealtimeValueBets({ limit = 5 }: UseRealtimeValueBetsOptions)
         .eq('is_active', true)
         .in('grade', ['high', 'medium'])
         .order('expected_value', { ascending: false })
-        .limit(Math.max(limit * 8, 40))
+        .limit(300)
 
       if (error) throw error
       const nowMs = Date.now()
       const upcoming = (data ?? [])
         .filter((b: any) => b.match?.kickoff_time && new Date(b.match.kickoff_time).getTime() > nowMs)
-        .sort((a: any, b: any) => {
-          const ta = new Date(a.match.kickoff_time).getTime()
-          const tb = new Date(b.match.kickoff_time).getTime()
-          if (ta !== tb) return ta - tb
-          return (b.expected_value ?? 0) - (a.expected_value ?? 0)
-        })
-        .slice(0, limit)
-      setValueBets(upcoming)
+        .sort((a: any, b: any) => (b.expected_value ?? 0) - (a.expected_value ?? 0))
+      setTotalUpcoming(upcoming.length)
+      setValueBets(upcoming.slice(0, limit))
     } catch (error) {
       console.error('Error cargando apuestas de valor:', error)
     } finally {
@@ -77,5 +75,5 @@ export function useRealtimeValueBets({ limit = 5 }: UseRealtimeValueBetsOptions)
     }
   }, [supabase, fetchValueBets])
 
-  return { valueBets, isLive, isLoading }
+  return { valueBets, totalUpcoming, isLive, isLoading }
 }

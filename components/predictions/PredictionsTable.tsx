@@ -114,6 +114,27 @@ export function PredictionsTable({ predictions }: Props) {
                 const m = p.match
                 const topScore = (p.exact_score_predictions ?? []).find((s: any) => s.rank === 1)
 
+                // Determine predicted outcome from probabilities (not from Poisson mode score,
+                // which can contradict: e.g. predicted_home_score=1, predicted_away_score=1
+                // but away_win_probability is highest — showing "1-1" would confuse users)
+                const homeP = p.home_win_probability ?? 0
+                const drawP = p.draw_probability ?? 0
+                const awayP = p.away_win_probability ?? 0
+                const maxP  = Math.max(homeP, drawP, awayP)
+                const predictedOutcome = maxP === homeP ? 'home' : maxP === awayP ? 'away' : 'draw'
+                const predictedLabel =
+                  predictedOutcome === 'home' ? `${m?.home_team?.code} gana` :
+                  predictedOutcome === 'away' ? `${m?.away_team?.code} gana` : 'Empate'
+                const outcomeColor =
+                  predictedOutcome === 'home' ? 'text-emerald-400' :
+                  predictedOutcome === 'away' ? 'text-red-400'     : 'text-amber-400'
+
+                // Actual result label for finished matches
+                const actualLabel =
+                  p.actual_outcome === 'home' ? `${m?.home_team?.code} ganó` :
+                  p.actual_outcome === 'away' ? `${m?.away_team?.code} ganó` :
+                  p.actual_outcome === 'draw' ? 'Empate' : null
+
                 return (
                   <tr key={p.id} className={cn(
                     p.was_correct === true  && 'bg-emerald-500/5',
@@ -146,18 +167,23 @@ export function PredictionsTable({ predictions }: Props) {
                       <ProbCell value={p.away_win_probability} color="text-red-400" />
                     </td>
                     <td className="text-center">
-                      <span className="mono text-sm font-bold text-zinc-200">
-                        {p.predicted_home_score}–{p.predicted_away_score}
+                      {/* Primary: predicted outcome (from probabilities, not Poisson mode) */}
+                      <span className={cn('text-xs font-bold', outcomeColor)}>
+                        {predictedLabel}
                       </span>
-                      {m?.status === 'finished' && m?.home_score != null && m?.away_score != null ? (
-                        <p className="text-[9px] mono text-zinc-500">
-                          real <span className="font-bold text-zinc-300">{m.home_score}–{m.away_score}</span>
-                        </p>
-                      ) : topScore ? (
-                        <p className="text-[9px] text-zinc-600">
-                          ({Math.round(topScore.probability * 100)}%)
+                      {/* Secondary: top exact score prediction */}
+                      {topScore ? (
+                        <p className="text-[9px] mono text-zinc-500 mt-0.5">
+                          marcador {topScore.home_score}–{topScore.away_score}
+                          <span className="text-zinc-600"> ({Math.round(topScore.probability * 100)}%)</span>
                         </p>
                       ) : null}
+                      {/* Real score for finished matches */}
+                      {m?.status === 'finished' && m?.home_score != null && m?.away_score != null && (
+                        <p className="text-[9px] mono text-zinc-500 mt-0.5">
+                          real <span className="font-bold text-zinc-300">{m.home_score}–{m.away_score}</span>
+                        </p>
+                      )}
                     </td>
                     <td className="text-center">
                       <div className="flex flex-col items-center gap-0.5">
@@ -173,10 +199,8 @@ export function PredictionsTable({ predictions }: Props) {
                           <span className={cn('text-[10px] font-bold', p.was_correct ? 'text-emerald-400' : 'text-red-400')}>
                             {p.was_correct ? '✓ Correcto' : '✗ Incorrecto'}
                           </span>
-                          {p.actual_outcome && (
-                            <p className="text-[9px] text-zinc-600">
-                              Ganó: {p.actual_outcome === 'home' ? m?.home_team?.code : p.actual_outcome === 'away' ? m?.away_team?.code : 'Empate'}
-                            </p>
+                          {actualLabel && (
+                            <p className="text-[9px] text-zinc-600">{actualLabel}</p>
                           )}
                         </div>
                       )}

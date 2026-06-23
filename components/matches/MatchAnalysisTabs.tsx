@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, BarChart2, DollarSign, Users, Sparkles } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical, Crosshair } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
@@ -13,13 +13,19 @@ import { InjuriesPanel } from './InjuriesPanel'
 import { SmartBetsPanel } from './SmartBetsPanel'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
+import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
+import { MonteCarloPanel } from '@/components/intelligence/MonteCarloPanel'
+import { MatchDigitalTwin } from '@/components/digital-twin/MatchDigitalTwin'
 
 const TABS = [
-  { id: 'prediccion',   label: 'Predicción',   icon: TrendingUp  },
-  { id: 'estadisticas', label: 'Estadísticas', icon: BarChart2   },
-  { id: 'cuotas',       label: 'Cuotas',       icon: DollarSign  },
-  { id: 'alineaciones', label: 'Alineaciones', icon: Users       },
-  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles   },
+  { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp    },
+  { id: 'estadisticas', label: 'Estadísticas',  icon: BarChart2     },
+  { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign    },
+  { id: 'alineaciones', label: 'Alineaciones',  icon: Users         },
+  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles      },
+  { id: 'digital-twin', label: 'Digital Twin',  icon: Crosshair     },
+  { id: 'montecarlo',   label: 'Monte Carlo',   icon: FlaskConical  },
+  { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -32,7 +38,6 @@ interface Props {
   awayStats: any | null
   injuries: any[]
   odds: any[]
-  smartBets: any[]
 }
 
 export function MatchAnalysisTabs({
@@ -43,7 +48,6 @@ export function MatchAnalysisTabs({
   awayStats,
   injuries,
   odds,
-  smartBets,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -163,11 +167,43 @@ export function MatchAnalysisTabs({
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
           <SmartBetsPanel
-            smartBets={smartBets}
             prediction={prediction}
             homeStats={homeStats}
             awayStats={awayStats}
             match={match}
+            injuries={injuries}
+          />
+        )}
+
+        {/* ── Digital Twin ── */}
+        {active === 'digital-twin' && (
+          <MatchDigitalTwin
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+          />
+        )}
+
+        {/* ── Monte Carlo ── */}
+        {active === 'montecarlo' && (
+          <MonteCarloPanel
+            prediction={prediction}
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+            injuries={injuries}
+          />
+        )}
+
+        {/* ── Auditoría AI ── */}
+        {active === 'auditoria' && (
+          <DataIntegrityPanel
+            prediction={prediction}
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+            injuries={injuries}
+            odds={odds}
           />
         )}
       </div>

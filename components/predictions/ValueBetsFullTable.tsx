@@ -86,8 +86,51 @@ export function ValueBetsFullTable({ bets }: Props) {
         <span className="ml-auto text-xs text-zinc-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Vista MÓVIL: tarjetas apiladas (la tabla de 12 columnas no cabe en celular) */}
+      <div className="md:hidden divide-y divide-zinc-800/70">
+        {filtered.length === 0 ? (
+          <p className="py-10 text-center text-sm text-zinc-500">No hay apuestas con los filtros actuales</p>
+        ) : (
+          paged.map((bet: any) => {
+            const grade = GRADE_CONFIG[bet.grade as keyof typeof GRADE_CONFIG] ?? GRADE_CONFIG.none
+            const ev = bet.expected_value ?? 0
+            const edge = (bet.edge ?? 0) * 100
+            const m = bet.match
+            return (
+              <Link key={bet.id} href={`/matches/${bet.match_id}`} className="block p-3 hover:bg-zinc-800/30 transition-colors">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border', grade.bg, grade.border, grade.text)}>
+                    {grade.label}
+                  </span>
+                  <span className={cn('flex items-center gap-0.5 text-sm font-bold mono', ev > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                    <TrendingUp className="h-3 w-3" />{ev > 0 ? '+' : ''}{(ev * 100).toFixed(1)}% EV
+                  </span>
+                </div>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-zinc-200">
+                  <Flag code={m?.home_team?.code} />
+                  {m?.home_team?.code} vs {m?.away_team?.code}
+                  <Flag code={m?.away_team?.code} />
+                </p>
+                <p className="text-[11px] text-zinc-400 mb-2">
+                  {MARKET_LABELS[bet.market] ?? bet.market} · {bet.bookmaker}
+                  {m?.kickoff_time && (
+                    <span className="text-zinc-600"> · {format(new Date(m.kickoff_time), 'd MMM HH:mm', { locale: es })}</span>
+                  )}
+                </p>
+                <div className="grid grid-cols-4 gap-1 text-center">
+                  <div><p className="text-[9px] text-zinc-600">Cuota</p><p className="text-xs font-bold mono text-white">{bet.odds_value?.toFixed(2)}</p></div>
+                  <div><p className="text-[9px] text-zinc-600">Modelo</p><p className="text-xs font-semibold mono text-emerald-400">{((bet.model_probability ?? 0) * 100).toFixed(0)}%</p></div>
+                  <div><p className="text-[9px] text-zinc-600">Edge</p><p className={cn('text-xs font-semibold mono', edge > 0 ? 'text-emerald-400' : 'text-red-400')}>{edge > 0 ? '+' : ''}{edge.toFixed(1)}%</p></div>
+                  <div><p className="text-[9px] text-zinc-600">Kelly</p><p className="text-xs font-semibold mono text-violet-400">{bet.stake_suggestion_percent > 0 ? `${bet.stake_suggestion_percent?.toFixed(1)}%` : '—'}</p></div>
+                </div>
+              </Link>
+            )
+          })
+        )}
+      </div>
+
+      {/* Vista ESCRITORIO: tabla completa */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full data-table">
           <thead>
             <tr className="border-b border-zinc-800">
