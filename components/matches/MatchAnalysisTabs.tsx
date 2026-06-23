@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical, Crosshair } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
@@ -15,6 +15,7 @@ import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
 import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
 import { MonteCarloPanel } from '@/components/intelligence/MonteCarloPanel'
+import { MatchDigitalTwin } from '@/components/digital-twin/MatchDigitalTwin'
 
 const TABS = [
   { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp    },
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign    },
   { id: 'alineaciones', label: 'Alineaciones',  icon: Users         },
   { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles      },
+  { id: 'digital-twin', label: 'Digital Twin',  icon: Crosshair     },
   { id: 'montecarlo',   label: 'Monte Carlo',   icon: FlaskConical  },
   { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck   },
 ] as const
@@ -170,6 +172,15 @@ export function MatchAnalysisTabs({
             awayStats={awayStats}
             match={match}
             injuries={injuries}
+          />
+        )}
+
+        {/* ── Digital Twin ── */}
+        {active === 'digital-twin' && (
+          <MatchDigitalTwin
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
           />
         )}
 
