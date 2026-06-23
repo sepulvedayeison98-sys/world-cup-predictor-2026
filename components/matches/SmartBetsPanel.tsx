@@ -90,9 +90,26 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
   const homeTeam = match?.home_team
   const awayTeam = match?.away_team
 
-  const all    = computeSmartBets(prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match)
-  const top    = all.slice(0, 3)
-  const others = all.slice(3)
+  const all = computeSmartBets(prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match)
+
+  // Top-3: máximo 1 recomendación por familia de mercado para garantizar diversidad.
+  // Variantes del mismo umbral (over_1.5 + over_2.5, corners 8.5 + 9.5, etc.)
+  // no ocupan dos slots — la segunda va al apartado "otros".
+  function getFamily(id: string): string {
+    if (id.startsWith('over_'))     return 'over_goals'
+    if (id.startsWith('corners_'))  return 'corners'
+    if (id.startsWith('cards_'))    return 'cards'
+    if (id.startsWith('shots_ot_')) return 'shots_ot'
+    return id
+  }
+  const seenFamilies = new Set<string>()
+  const top: typeof all = []
+  for (const rec of all) {
+    if (top.length >= 3) break
+    const fam = getFamily(rec.id)
+    if (!seenFamilies.has(fam)) { seenFamilies.add(fam); top.push(rec) }
+  }
+  const others = all.filter(r => !top.includes(r))
 
   // ── Context chips (fase, clima, bajas) ──────────────────────────────────────
   const phase      = match?.phase ?? ''
