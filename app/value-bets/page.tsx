@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Zap } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 
@@ -8,10 +9,14 @@ export const metadata: Metadata = {
 
 export default async function ValueBetsPage() {
   const supabase = await createServerSupabaseClient()
+
   const { data: betsRaw } = await supabase
     .from('value_bets')
     .select(`
-      *,
+      id, match_id, market, bookmaker, odds_value,
+      implied_probability, model_probability, expected_value,
+      edge, grade, stake_suggestion_percent, result, created_at,
+      ai_justification,
       match:matches(
         kickoff_time, venue, city, status,
         home_team:teams!matches_home_team_id_fkey(name, short_name, code),
@@ -20,63 +25,77 @@ export default async function ValueBetsPage() {
     `)
     .eq('is_active', true)
 
-  // Solo apuestas de PRÓXIMOS partidos (no tiene sentido apostar a uno ya jugado).
   const nowMs = Date.now()
   const upcoming = (betsRaw ?? []).filter(
     (b: any) => b.match?.kickoff_time && new Date(b.match.kickoff_time).getTime() > nowMs
   )
 
-  // Orden cronológico por fecha/hora del partido; dentro del mismo partido,
-  // la mejor apuesta (mayor EV) primero. (PostgREST no ordena el nivel superior
-  // por una columna embebida, así que se ordena aquí.)
+  // Orden cronológico; dentro del mismo partido, mayor EV primero
   const bets = upcoming.slice().sort((a: any, b: any) => {
-    const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
-    const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
+    const ta = new Date(a.match?.kickoff_time ?? 0).getTime()
+    const tb = new Date(b.match?.kickoff_time ?? 0).getTime()
     if (ta !== tb) return ta - tb
     return (b.expected_value ?? 0) - (a.expected_value ?? 0)
   })
 
-  // Summary stats
-  const totalEV = bets.reduce((acc, b: any) => acc + (b.expected_value ?? 0), 0)
-  const highValue = bets.filter((b: any) => b.grade === 'high').length
-  const mediumValue = bets.filter((b: any) => b.grade === 'medium').length
+  const highBets    = bets.filter((b: any) => b.grade === 'high')
+  const mediumBets  = bets.filter((b: any) => b.grade === 'medium')
+  const totalEV     = bets.reduce((acc, b: any) => acc + (b.expected_value ?? 0), 0)
+  const avgEV       = bets.length > 0 ? totalEV / bets.length : 0
+  const bestEdge    = bets.reduce((max, b: any) => Math.max(max, b.edge ?? 0), 0)
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
-      <div>
-        <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">
-          Motor de detección activo
-        </span>
-        <h1 className="mt-1 text-2xl font-bold text-white">Apuestas de Valor</h1>
-        <p className="text-sm text-zinc-400">
-          Mercados con EV positivo detectado por el modelo
-        </p>
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <Zap className="h-5 w-5 text-violet-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">Apuestas de Valor</h1>
+            <p className="text-sm text-zinc-500">
+              Mercados con EV positivo · Modelo 5 factores
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Detección activa</span>
+        </div>
       </div>
 
-      {/* Summary KPIs */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Total detectadas', value: (bets ?? []).length.toString(), color: 'text-white' },
-          { label: 'Alto valor 🟢', value: highValue.toString(), color: 'text-emerald-400' },
-          { label: 'Valor medio 🟡', value: mediumValue.toString(), color: 'text-amber-400' },
-          { label: 'EV promedio', value: `${((totalEV / Math.max((bets ?? []).length, 1)) * 100).toFixed(1)}%`, color: 'text-violet-400' },
-        ].map((kpi) => (
-          <div key={kpi.label} className="kpi-card">
-            <p className="text-[11px] text-zinc-500">{kpi.label}</p>
-            <p className={`text-2xl font-bold mono ${kpi.color}`}>{kpi.value}</p>
-          </div>
-        ))}
+        <div className="kpi-card">
+          <p className="text-[11px] text-zinc-500">Total detectadas</p>
+          <p className="text-2xl font-bold mono text-white">{bets.length}</p>
+        </div>
+        <div className="kpi-card">
+          <p className="text-[11px] text-zinc-500">Alto valor</p>
+          <p className="text-2xl font-bold mono text-emerald-400">{highBets.length}</p>
+          <p className="text-[10px] text-zinc-600">{mediumBets.length} valor medio</p>
+        </div>
+        <div className="kpi-card">
+          <p className="text-[11px] text-zinc-500">EV promedio</p>
+          <p className={`text-2xl font-bold mono ${avgEV > 0 ? 'text-emerald-400' : 'text-zinc-500'}`}>
+            {avgEV > 0 ? '+' : ''}{(avgEV * 100).toFixed(1)}%
+          </p>
+        </div>
+        <div className="kpi-card">
+          <p className="text-[11px] text-zinc-500">Mejor edge</p>
+          <p className="text-2xl font-bold mono text-violet-400">+{(bestEdge * 100).toFixed(1)}%</p>
+        </div>
       </div>
 
       {/* Disclaimer */}
-      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
         <p className="text-xs text-amber-400">
-          ⚠️ Estas probabilidades son estimaciones del modelo. No constituyen asesoramiento financiero.
-          Apuesta solo lo que puedas permitirte perder. El juego responsable es obligatorio.
+          ⚠️ Estimaciones del modelo. No son asesoramiento financiero. Solo apuesta lo que puedas permitirte perder.
         </p>
       </div>
 
-      <ValueBetsFullTable bets={bets ?? []} />
+      <ValueBetsFullTable bets={bets} />
     </div>
   )
 }
