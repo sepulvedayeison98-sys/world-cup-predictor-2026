@@ -1,7 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Award, TrendingUp } from 'lucide-react'
+import { Award, TrendingUp, Activity, Users, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
+import { runMarketMovementAgent } from '@/lib/agents/marketMovementAgent'
 
 const MARKET_LABEL: Record<string, string> = {
   home_win:        'Victoria Local',
@@ -32,6 +33,9 @@ interface Props {
 }
 
 export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Props) {
+  const marketReport = runMarketMovementAgent({ odds, prediction })
+  const { summary: mkt, valueDiscrepancies, alignment, alignmentNote } = marketReport
+
   // Group by market → bookmaker
   const byMarket: Record<string, OddsRow[]> = {}
   for (const o of odds) {
@@ -75,8 +79,125 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
     return total > 0 ? ((total - 1) * 100).toFixed(1) : '—'
   }
 
+  const ALIGN_COLOR: Record<string, string> = {
+    fuerte:    'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    moderado:  'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    débil:     'text-red-400 bg-red-500/10 border-red-500/20',
+    sin_datos: 'text-zinc-500 bg-zinc-800/50 border-zinc-700',
+  }
+
+  const SIGNAL_ICON = {
+    sube_local:      <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />,
+    sube_visitante:  <ArrowUpRight className="h-3.5 w-3.5 text-red-400" />,
+    sube_empate:     <ArrowUpRight className="h-3.5 w-3.5 text-amber-400" />,
+    estable:         <Minus className="h-3.5 w-3.5 text-zinc-400" />,
+    sin_datos:       <Activity className="h-3.5 w-3.5 text-zinc-600" />,
+  }
+
   return (
     <div className="space-y-4">
+
+      {/* Market movement signal */}
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-blue-400" />
+          <h3 className="text-sm font-semibold text-white">Movimiento de Mercado</h3>
+          {mkt.signal !== 'sin_datos' && (
+            <span className={cn('ml-auto text-[10px] font-semibold border rounded-full px-2 py-0.5', ALIGN_COLOR[alignment])}>
+              {alignment.toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        {mkt.signal === 'sin_datos' ? (
+          <p className="text-xs text-zinc-600">Sin datos de cuotas para analizar movimiento de mercado.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {/* Signal */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+                <div className="flex justify-center mb-1">{SIGNAL_ICON[mkt.signal]}</div>
+                <p className={cn('text-xs font-bold', mkt.signalColor)}>{mkt.signalLabel}</p>
+                <p className="text-[9px] text-zinc-600 mt-0.5">Señal</p>
+              </div>
+
+              {/* Consensus */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+                <p className="text-lg font-black mono text-zinc-200">{Math.round(mkt.consensusStrength * 100)}%</p>
+                <p className="text-[9px] text-zinc-600">Consenso</p>
+                <div className="mt-1 h-0.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${mkt.consensusStrength * 100}%` }} />
+                </div>
+              </div>
+
+              {/* Bookmakers */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+                <div className="flex justify-center mb-1"><Users className="h-3.5 w-3.5 text-zinc-500" /></div>
+                <p className="text-lg font-black mono text-zinc-200">{mkt.bookmakerCount}</p>
+                <p className="text-[9px] text-zinc-600">Casas</p>
+              </div>
+
+              {/* Sharpest */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+                <p className="text-[10px] font-bold text-amber-400 truncate">{mkt.sharpestBook ?? '—'}</p>
+                <p className="text-[9px] text-zinc-600 mt-1">Casa más sharp</p>
+              </div>
+            </div>
+
+            {/* Spread bars */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Spread entre bookmakers (menor = más consenso)</p>
+              {[
+                { label: homeTeam?.code ?? 'Local', val: mkt.spread.home, implied: mkt.implied.home, color: 'bg-emerald-500' },
+                { label: 'Empate',                  val: mkt.spread.draw, implied: mkt.implied.draw, color: 'bg-amber-500' },
+                { label: awayTeam?.code ?? 'Visit.', val: mkt.spread.away, implied: mkt.implied.away, color: 'bg-red-500' },
+              ].map(({ label, val, implied, color }) => {
+                const maxSpread = Math.max(mkt.spread.home, mkt.spread.draw, mkt.spread.away, 0.001)
+                return (
+                  <div key={label} className="flex items-center gap-2">
+                    <span className="text-[10px] text-zinc-500 w-14 shrink-0">{label}</span>
+                    <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className={cn('h-full rounded-full', color)} style={{ width: `${(val / maxSpread) * 100}%` }} />
+                    </div>
+                    <span className="text-[10px] mono text-zinc-400 w-10 text-right">{(val * 100).toFixed(1)}pp</span>
+                    <span className="text-[10px] mono text-zinc-600 w-10 text-right">{Math.round(implied * 100)}%</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="text-[10px] text-zinc-600 leading-relaxed">{alignmentNote}</p>
+
+            {/* Value discrepancies */}
+            {valueDiscrepancies.length > 0 && (
+              <div className="border-t border-zinc-800 pt-3 space-y-1.5">
+                <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Discrepancias modelo vs mercado</p>
+                {valueDiscrepancies.map((d) => {
+                  const isEdge = d.edge > 0
+                  return (
+                    <div key={d.outcome} className="flex items-center gap-2">
+                      {isEdge
+                        ? <ArrowUpRight className="h-3 w-3 text-emerald-400 shrink-0" />
+                        : <ArrowDownRight className="h-3 w-3 text-red-400 shrink-0" />
+                      }
+                      <span className="text-[10px] text-zinc-400">
+                        {d.outcome === 'home' ? (homeTeam?.code ?? 'Local') : d.outcome === 'away' ? (awayTeam?.code ?? 'Visit.') : 'Empate'}
+                      </span>
+                      <span className="text-[10px] text-zinc-600">
+                        Modelo {Math.round(d.modelProb * 100)}% vs Mercado {Math.round(d.marketProb * 100)}%
+                      </span>
+                      <span className={cn('ml-auto text-[10px] font-bold mono', isEdge ? 'text-emerald-400' : 'text-red-400')}>
+                        {isEdge ? '+' : ''}{(d.edge * 100).toFixed(1)}pp
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* 1X2 table */}
       {hasMain && (
         <div className="card p-4">

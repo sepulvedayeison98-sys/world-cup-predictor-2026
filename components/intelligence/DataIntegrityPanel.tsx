@@ -1,8 +1,9 @@
 'use client'
 
-import { CheckCircle, XCircle, AlertTriangle, ShieldCheck, Zap } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, ShieldCheck, Zap, Activity, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { runChiefAnalystAgent, type ChiefAnalystReport } from '@/lib/agents/chiefAnalystAgent'
+import { runMarketMovementAgent } from '@/lib/agents/marketMovementAgent'
 import { ReliabilityIndicator } from './ReliabilityIndicator'
 import { ModelComparisonTable } from './ModelComparisonTable'
 import { RISK_COLOR } from '@/lib/agents/riskAssessmentAgent'
@@ -29,11 +30,19 @@ export function DataIntegrityPanel({ prediction, homeStats, awayStats, match, in
   const report: ChiefAnalystReport = runChiefAnalystAgent({
     prediction, homeStats, awayStats, match, injuries, odds,
   })
+  const mktReport = runMarketMovementAgent({ odds, prediction })
 
   const { dataIntegrity, predictionEngine, riskAssessment } = report
   const homeCode = match?.home_team?.code ?? 'LOC'
   const awayCode = match?.away_team?.code ?? 'VIS'
   const riskCfg  = RISK_COLOR[riskAssessment.level]
+
+  const ALIGN_COLOR: Record<string, string> = {
+    fuerte:    'text-emerald-400',
+    moderado:  'text-amber-400',
+    débil:     'text-red-400',
+    sin_datos: 'text-zinc-500',
+  }
 
   return (
     <div className="space-y-5">
@@ -127,6 +136,58 @@ export function DataIntegrityPanel({ prediction, homeStats, awayStats, match, in
           homeCode={homeCode}
           awayCode={awayCode}
         />
+      </div>
+
+      {/* Señal de mercado */}
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-blue-400" />
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Señal de Mercado</h3>
+          </div>
+          {mktReport.summary.signal !== 'sin_datos' && (
+            <span className={cn('text-[10px] font-bold uppercase', ALIGN_COLOR[mktReport.alignment])}>
+              {mktReport.alignment}
+            </span>
+          )}
+        </div>
+
+        {mktReport.summary.signal === 'sin_datos' ? (
+          <p className="text-[11px] text-zinc-600">Sin datos de cuotas disponibles.</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <span className={cn('text-xs font-bold', mktReport.summary.signalColor)}>
+                {mktReport.summary.signalLabel}
+              </span>
+              <span className="text-[10px] text-zinc-600">
+                {mktReport.summary.bookmakerCount} casas · Consenso {Math.round(mktReport.summary.consensusStrength * 100)}%
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">{mktReport.alignmentNote}</p>
+
+            {mktReport.valueDiscrepancies.length > 0 && (
+              <div className="space-y-1 border-t border-zinc-800 pt-2">
+                <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Modelo vs Mercado</p>
+                {mktReport.valueDiscrepancies.map((d) => (
+                  <div key={d.outcome} className="flex items-center gap-1.5">
+                    {d.edge > 0
+                      ? <ArrowUpRight className="h-3 w-3 text-emerald-400" />
+                      : <ArrowDownRight className="h-3 w-3 text-red-400" />
+                    }
+                    <span className="text-[10px] text-zinc-400 flex-1">
+                      {d.outcome === 'home' ? homeCode : d.outcome === 'away' ? awayCode : 'X'}
+                      {' '}· Modelo {Math.round(d.modelProb * 100)}% vs Mercado {Math.round(d.marketProb * 100)}%
+                    </span>
+                    <span className={cn('text-[10px] mono font-bold', d.edge > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {d.edge > 0 ? '+' : ''}{(d.edge * 100).toFixed(1)}pp
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Evaluación de riesgo */}
