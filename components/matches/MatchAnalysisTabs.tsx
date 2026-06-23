@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
@@ -14,14 +14,16 @@ import { SmartBetsPanel } from './SmartBetsPanel'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
 import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
+import { MonteCarloPanel } from '@/components/intelligence/MonteCarloPanel'
 
 const TABS = [
-  { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp  },
-  { id: 'estadisticas', label: 'Estadísticas',  icon: BarChart2   },
-  { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign  },
-  { id: 'alineaciones', label: 'Alineaciones',  icon: Users       },
-  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles    },
-  { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck },
+  { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp    },
+  { id: 'estadisticas', label: 'Estadísticas',  icon: BarChart2     },
+  { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign    },
+  { id: 'alineaciones', label: 'Alineaciones',  icon: Users         },
+  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles      },
+  { id: 'montecarlo',   label: 'Monte Carlo',   icon: FlaskConical  },
+  { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -163,6 +165,17 @@ export function MatchAnalysisTabs({
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
           <SmartBetsPanel
+            prediction={prediction}
+            homeStats={homeStats}
+            awayStats={awayStats}
+            match={match}
+            injuries={injuries}
+          />
+        )}
+
+        {/* ── Monte Carlo ── */}
+        {active === 'montecarlo' && (
+          <MonteCarloPanel
             prediction={prediction}
             homeStats={homeStats}
             awayStats={awayStats}
