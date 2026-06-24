@@ -106,6 +106,14 @@ export function LineupDisplay({ matchId, homeTeam, awayTeam }: Props) {
 
       {isLoading ? (
         <div className="h-64 animate-pulse rounded-lg bg-zinc-800" />
+      ) : !homeLineup && !awayLineup ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+          <Users className="h-10 w-10 text-zinc-700" />
+          <p className="text-sm font-medium text-zinc-500">Alineaciones no confirmadas</p>
+          <p className="text-xs text-zinc-600 max-w-xs">
+            Las alineaciones oficiales se publican aproximadamente 1 hora antes del pitido inicial.
+          </p>
+        </div>
       ) : (
         <div>
           {/* Formation labels */}

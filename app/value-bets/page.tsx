@@ -26,9 +26,14 @@ export default async function ValueBetsPage() {
     .eq('is_active', true)
 
   const nowMs = Date.now()
-  const upcoming = (betsRaw ?? []).filter(
-    (b: any) => b.match?.kickoff_time && new Date(b.match.kickoff_time).getTime() > nowMs
-  )
+  // Incluir partidos en vivo (status='live') además de los próximos aún no comenzados
+  const upcoming = (betsRaw ?? []).filter((b: any) => {
+    if (!b.match?.kickoff_time) return false
+    return (
+      b.match.status === 'live' ||
+      new Date(b.match.kickoff_time).getTime() > nowMs - 3 * 60 * 60 * 1000 // últimas 3h
+    )
+  })
 
   // Orden cronológico; dentro del mismo partido, mayor EV primero
   const bets = upcoming.slice().sort((a: any, b: any) => {
