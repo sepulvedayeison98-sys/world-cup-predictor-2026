@@ -6,6 +6,7 @@ import { MapPin, Clock, CloudSun, Users, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
+import { AutoRefresh } from '@/components/ui/AutoRefresh'
 
 interface Props {
   match: any
@@ -29,6 +30,7 @@ export function MatchHeader({ match }: Props) {
           Volver a Partidos
         </Link>
         <div className="flex items-center gap-3">
+          <AutoRefresh />
           {match.group_id && (
             <span className="text-xs font-medium text-zinc-400">Fase de Grupos</span>
           )}
