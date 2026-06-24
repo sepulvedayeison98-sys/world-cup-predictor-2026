@@ -47,35 +47,6 @@ const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: str
   HIGH_VOLATILITY:   { label: 'Alta volatilidad',  text: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20'        },
 }
 
-// ─── Cuotas colombianas ────────────────────────────────────────────────────────
-
-// Mapea rec.id del motor a la clave market del ENUM odds_market en BD.
-const REC_TO_MARKET: Record<string, string> = {
-  home_win:       'home_win',
-  draw:           'draw',
-  away_win:       'away_win',
-  dc_1x:          'dc_1x',
-  dc_x2:          'dc_x2',
-  over_0_5:       'over_0_5',
-  over_1_5:       'over_1_5',
-  over_2_5:       'over_2_5',
-  over_3_5:       'over_3_5',
-  btts_yes:       'btts_yes',
-  btts_no:        'btts_no',
-  cs_home:        'clean_sheet_home',
-  cs_away:        'clean_sheet_away',
-  corners_8_5:    'corners_8_5',
-  corners_9_5:    'corners_9_5',
-  corners_10_5:   'corners_10_5',
-  cards_2_5:      'cards_2_5',
-  cards_3_5:      'cards_3_5',
-  cards_4_5:      'cards_4_5',
-  shots_ot_5_5:   'shots_ot_5_5',
-  shots_ot_7_5:   'shots_ot_7_5',
-}
-
-const CO_BOOKS = ['Betplay', 'Wplay', 'Betson'] as const
-
 // ─── Gauge circular SVG ────────────────────────────────────────────────────────
 
 const R   = 38
@@ -237,7 +208,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
       {/* Recommendation cards */}
       {recs.map((rec) => (
-        <BetCard key={rec.id} rec={rec} odds={odds} />
+        <BetCard key={rec.id} rec={rec} />
       ))}
 
       {/* Disclaimer */}
@@ -254,19 +225,8 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
 // ─── Tarjeta individual ────────────────────────────────────────────────────────
 
-function BetCard({ rec, odds }: { rec: SmartBetRecommendation; odds?: any[] }) {
+function BetCard({ rec }: { rec: SmartBetRecommendation }) {
   const cfg = TIER[rec.tier]
-
-  // Cuotas colombianas — todos los rec.id tienen entrada en REC_TO_MARKET
-  const dbMarket  = REC_TO_MARKET[rec.id]
-  const coOdds    = CO_BOOKS.map((bk) => ({
-    bk,
-    val: dbMarket
-      ? (odds?.find((o: any) => o.market === dbMarket && o.bookmaker === bk)?.odds_value ?? null)
-      : null,
-  }))
-  const bestVal    = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
-  const hasCoOdds  = coOdds.some((x) => x.val != null)
 
   return (
     <div className={cn('card overflow-hidden border', cfg.border)}>
@@ -355,37 +315,6 @@ function BetCard({ rec, odds }: { rec: SmartBetRecommendation; odds?: any[] }) {
           </div>
           <span className={cn('text-[10px] font-bold mono shrink-0', cfg.text)}>{rec.mcFrequency}%</span>
         </div>
-
-        {/* Cuotas casas colombianas */}
-        {hasCoOdds && (
-          <div className="border-t border-zinc-800/50 pt-3">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider mb-2">Cuotas Colombia</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {coOdds.map(({ bk, val }) => {
-                const isBest = val != null && val === bestVal
-                return (
-                  <div
-                    key={bk}
-                    className={cn(
-                      'rounded-lg px-2 py-2 text-center border',
-                      isBest
-                        ? 'bg-emerald-500/8 border-emerald-500/25'
-                        : 'bg-zinc-900/50 border-zinc-800/50',
-                    )}
-                  >
-                    <p className="text-[9px] font-semibold text-zinc-500 truncate">{bk}</p>
-                    <p className={cn('text-base font-bold mono mt-0.5 leading-tight', isBest ? 'text-emerald-400' : 'text-zinc-300')}>
-                      {val != null ? Number(val).toFixed(2) : '—'}
-                    </p>
-                    {isBest && (
-                      <p className="text-[8px] text-emerald-600 font-medium mt-0.5">mejor</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
       </div>
     </div>
