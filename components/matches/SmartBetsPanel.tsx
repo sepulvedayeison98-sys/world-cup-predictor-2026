@@ -49,7 +49,9 @@ const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: str
 
 // ─── Cuotas colombianas ────────────────────────────────────────────────────────
 
-// Mapea rec.id del motor a la clave market del enum en BD
+// Mapea rec.id del motor a la clave market del enum en BD.
+// Los mercados sin entrada (dc_1x, dc_x2, corners_*, cards_*, shots_ot_*)
+// no existen en el ENUM odds_market → se muestran como "—" en la UI.
 const REC_TO_MARKET: Record<string, string> = {
   home_win:  'home_win',
   draw:      'draw',
@@ -62,6 +64,20 @@ const REC_TO_MARKET: Record<string, string> = {
   btts_no:   'btts_no',
   cs_home:   'clean_sheet_home',
   cs_away:   'clean_sheet_away',
+}
+
+// Etiquetas más amigables para mercados sin cuota disponible
+const MARKET_UNAVAILABLE_LABEL: Record<string, string> = {
+  dc_1x:          '1X',
+  dc_x2:          'X2',
+  corners_8_5:    '+8.5 corners',
+  corners_9_5:    '+9.5 corners',
+  corners_10_5:   '+10.5 corners',
+  cards_2_5:      '+2.5 amarillas',
+  cards_3_5:      '+3.5 amarillas',
+  cards_4_5:      '+4.5 amarillas',
+  shots_ot_5_5:   '+5.5 disparos',
+  shots_ot_7_5:   '+7.5 disparos',
 }
 
 const CO_BOOKS = ['Betplay', 'Wplay', 'Betson'] as const
@@ -247,16 +263,19 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 function BetCard({ rec, odds }: { rec: SmartBetRecommendation; odds?: any[] }) {
   const cfg = TIER[rec.tier]
 
-  // Cuotas colombianas para este mercado
-  const dbMarket = REC_TO_MARKET[rec.id]
-  const coOdds = CO_BOOKS.map((bk) => ({
+  // Mostrar sección de cuotas colombianas si hay odds cargados en la BD.
+  // Los mercados sin mapping en ENUM (dc_1x, corners_*, etc.) muestran "—".
+  const hasAnyOdds = (odds?.length ?? 0) > 0
+  const dbMarket   = REC_TO_MARKET[rec.id]
+  const coOdds     = CO_BOOKS.map((bk) => ({
     bk,
     val: dbMarket
       ? (odds?.find((o: any) => o.market === dbMarket && o.bookmaker === bk)?.odds_value ?? null)
       : null,
   }))
-  const bestVal = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
-  const hasCoOdds = coOdds.some((x) => x.val != null)
+  const bestVal       = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
+  const marketInDb    = !!dbMarket
+  const unavailLabel  = MARKET_UNAVAILABLE_LABEL[rec.id] ?? rec.label
 
   return (
     <div className={cn('card overflow-hidden border', cfg.border)}>
@@ -347,33 +366,39 @@ function BetCard({ rec, odds }: { rec: SmartBetRecommendation; odds?: any[] }) {
         </div>
 
         {/* Cuotas casas colombianas */}
-        {hasCoOdds && (
+        {hasAnyOdds && (
           <div className="border-t border-zinc-800/50 pt-3">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider mb-2">Cuotas Colombia</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {coOdds.map(({ bk, val }) => {
-                const isBest = val != null && val === bestVal
-                return (
-                  <div
-                    key={bk}
-                    className={cn(
-                      'rounded-lg px-2 py-2 text-center border',
-                      isBest
-                        ? 'bg-emerald-500/8 border-emerald-500/25'
-                        : 'bg-zinc-900/50 border-zinc-800/50',
-                    )}
-                  >
-                    <p className="text-[9px] font-semibold text-zinc-500 truncate">{bk}</p>
-                    <p className={cn('text-base font-bold mono mt-0.5 leading-tight', isBest ? 'text-emerald-400' : 'text-zinc-300')}>
-                      {val != null ? Number(val).toFixed(2) : '—'}
-                    </p>
-                    {isBest && (
-                      <p className="text-[8px] text-emerald-600 font-medium mt-0.5">mejor</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            {marketInDb ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                {coOdds.map(({ bk, val }) => {
+                  const isBest = val != null && val === bestVal
+                  return (
+                    <div
+                      key={bk}
+                      className={cn(
+                        'rounded-lg px-2 py-2 text-center border',
+                        isBest
+                          ? 'bg-emerald-500/8 border-emerald-500/25'
+                          : 'bg-zinc-900/50 border-zinc-800/50',
+                      )}
+                    >
+                      <p className="text-[9px] font-semibold text-zinc-500 truncate">{bk}</p>
+                      <p className={cn('text-base font-bold mono mt-0.5 leading-tight', isBest ? 'text-emerald-400' : 'text-zinc-300')}>
+                        {val != null ? Number(val).toFixed(2) : '—'}
+                      </p>
+                      {isBest && (
+                        <p className="text-[8px] text-emerald-600 font-medium mt-0.5">mejor</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-[10px] text-zinc-600 italic">
+                Mercado <span className="text-zinc-500 font-medium">{unavailLabel}</span> no disponible en Betplay · Wplay · Betson
+              </p>
+            )}
           </div>
         )}
 
