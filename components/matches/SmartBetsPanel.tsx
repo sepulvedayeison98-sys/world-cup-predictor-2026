@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Sparkles, AlertTriangle, CheckCircle, XCircle, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -108,8 +109,12 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
   const homeTeam = match?.home_team
   const awayTeam = match?.away_team
 
-  const recs = computeSmartBets(
-    prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match, odds,
+  // useMemo evita re-ejecutar 50k simulaciones Monte Carlo en cada render
+  const recs = useMemo(
+    () => computeSmartBets(prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match, odds),
+    // prediction?.id y match?.id como claves estables de identidad
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prediction?.id, homeStats, awayStats, homeTeam?.id, awayTeam?.id, match?.id, injuries, odds],
   )
 
   const volatility = recs[0]?.volatility
@@ -278,7 +283,7 @@ function BetCard({ rec, odds }: { rec: SmartBetRecommendation; odds?: any[] }) {
                 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
                 : 'text-zinc-500 bg-zinc-800/40 border-zinc-700/40',
             )}>
-              Edge {rec.edge > 0 ? '+' : ''}{rec.edge.toFixed(1)}%
+              Ventaja {rec.edge > 0 ? '+' : ''}{rec.edge.toFixed(1)}%
             </span>
           )}
         </div>

@@ -11,11 +11,9 @@
  *   Capa 7: Explicabilidad — evidencia MC por recomendación
  *   Capa 8: Ranking por ventaja matemática (no por categoría)
  *   Capa 9: Diversidad — máximo 1 por familia de mercado
- *
- * Reemplaza el sistema de reglas estáticas anterior.
- * Las recomendaciones son determinadas por las distribuciones reales
- * de las simulaciones, no por plantillas fijas.
  */
+
+import { getMatchContext } from '@/lib/matchContext'
 
 // ─── Tipos exportados ─────────────────────────────────────────────────────────
 
@@ -170,13 +168,11 @@ function consensusScore(prediction: any, homeWin: number, draw: number, awayWin:
 
 // ─── CAPA 4: Detector de volatilidad ─────────────────────────────────────────
 
-function detectVolatility(mc: MCRun, N: number): VolatilityLevel {
-  const mean     = mc.totalDist.reduce((s, v) => s + v, 0) / N
-  const variance = mc.totalDist.reduce((s, v) => s + (v - mean) ** 2, 0) / N
-  const stdDev   = Math.sqrt(variance)
-  let topCount   = 0
+// Recibe stdDev precalculado por extractMCEvidence para evitar 2 pases extra sobre N=50k
+function detectVolatility(mc: MCRun, stdDev: number): VolatilityLevel {
+  let topCount = 0
   for (const c of mc.exactScores.values()) { if (c > topCount) topCount = c }
-  const topConc  = topCount / N
+  const topConc = topCount / mc.N
 
   if (stdDev < 1.25 && topConc > 0.18) return 'LOW_VOLATILITY'
   if (stdDev > 1.85 || topConc < 0.10) return 'HIGH_VOLATILITY'
@@ -238,9 +234,9 @@ function family(id: string): string {
   if (id.startsWith('corners_'))  return 'corners'
   if (id.startsWith('cards_'))    return 'cards'
   if (id.startsWith('shots_ot_')) return 'shots_ot'
-  if (id === 'btts_yes' || id === 'btts_no') return 'btts'
   if (id.startsWith('cs_'))       return 'clean_sheet'
-  if (id.startsWith('dc_'))       return 'dc'
+  // btts_yes/btts_no y dc_1x/dc_x2 son mercados complementarios independientes:
+  // ambos lados pueden aparecer simultáneamente cuando los dos superan el umbral
   return id
 }
 
@@ -294,14 +290,11 @@ export function computeSmartBets(
   const homeKeyDown   = homeInj.filter((i: any) => i.impact_score >= 7)
   const awayKeyDown   = awayInj.filter((i: any) => i.impact_score >= 7)
 
-  const phase      = match?.phase ?? 'group'
-  const isKnockout = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
+  // Contexto de partido — helper compartido con MonteCarloPanel
+  const ctx        = getMatchContext(match)
+  const { isKnockout, isBadW, isHot, goalMult, cornersF } = ctx
   const homeRest   = match?.home_rest_days ?? 4
   const awayRest   = match?.away_rest_days ?? 4
-  const weather    = (match?.weather_condition ?? '').toLowerCase()
-  const isBadW     = /rain|wet|storm|wind|drizzle/i.test(weather)
-  const tempC      = match?.weather_temp_celsius ?? 22
-  const isHot      = tempC > 32
 
   const homeFS   = formScore(homeStats?.form)
   const awayFS   = formScore(awayStats?.form)
@@ -309,12 +302,18 @@ export function computeSmartBets(
   const awayFStr = formStr(awayStats?.form)
 
   // ── CAPA 2: Monte Carlo ──────────────────────────────────────────────────────
-  // Lambdas desde xG (más preciso que el entero redondeado de predicted_home_score)
-  const rawLH = Math.max(0.15, (homeXG + awayXGA) / 2)
-  const rawLA = Math.max(0.15, (awayXG + homeXGA) / 2)
+  // Lambda convergente: usa los valores calibrados del motor de predicción como
+  // fuente primaria (ya incorporan ELO, forma, cuotas, noticias y xG).
+  // Si hay stats de xG disponibles, se mezclan al 40% para mayor granularidad.
+  const predLH = Math.max(0.15, prediction.predicted_home_score ?? 1.2)
+  const predLA = Math.max(0.15, prediction.predicted_away_score ?? 0.9)
+  const xgLH   = Math.max(0.15, (homeXG + awayXGA) / 2)
+  const xgLA   = Math.max(0.15, (awayXG + homeXGA) / 2)
+  const hasXgStats = homeStats?.avg_xg != null && awayStats?.avg_xg != null
 
-  // Ajuste contextual sobre lambdas (igual que el motor predictivo)
-  const goalMult = (isKnockout ? 0.92 : 1.0) * (isBadW ? 0.97 : 1.0) * (isHot ? 0.97 : 1.0)
+  const rawLH = hasXgStats ? predLH * 0.60 + xgLH * 0.40 : predLH
+  const rawLA = hasXgStats ? predLA * 0.60 + xgLA * 0.40 : predLA
+
   const lH = rawLH * goalMult
   const lA = rawLA * goalMult
 
@@ -322,30 +321,36 @@ export function computeSmartBets(
   const N   = mc.N
   const mce = extractMCEvidence(mc, N)
 
-  // Probabilidades MC por mercado de goles
+  // Probabilidades MC (binary-search sobre array ordenado para O(log N))
+  function mcCount(dist: number[], gt: number): number {
+    let lo = 0, hi = dist.length
+    while (lo < hi) { const mid = (lo + hi) >>> 1; if (dist[mid] <= gt) lo = mid + 1; else hi = mid }
+    return dist.length - lo
+  }
+
   const mcHomeWin   = mc.homeWin    / N
   const mcDraw      = mc.draw       / N
   const mcAwayWin   = mc.awayWin    / N
   const mcBothScore = mc.bothScored / N
-  const mcOver05    = mc.totalDist.filter(g => g > 0).length / N
-  const mcOver15    = mc.totalDist.filter(g => g > 1).length / N
-  const mcOver25    = mc.totalDist.filter(g => g > 2).length / N
-  const mcOver35    = mc.totalDist.filter(g => g > 3).length / N
-  const mcCS_home   = mc.awayDist.filter(g => g === 0).length / N
-  const mcCS_away   = mc.homeDist.filter(g => g === 0).length / N
+  const mcOver05    = mcCount(mc.totalDist, 0) / N
+  const mcOver15    = mcCount(mc.totalDist, 1) / N
+  const mcOver25    = mcCount(mc.totalDist, 2) / N
+  const mcOver35    = mcCount(mc.totalDist, 3) / N
+  const mcCS_home   = (N - mcCount(mc.awayDist, 0)) / N   // awayDist === 0
+  const mcCS_away   = (N - mcCount(mc.homeDist, 0)) / N   // homeDist === 0
   const mcDC_1X     = mcHomeWin + mcDraw
   const mcDC_X2     = mcDraw    + mcAwayWin
 
   // Analíticos (corners, tarjetas, disparos — lambdas independientes)
-  const expCorners  = (homeCorners + awayCorners) * (isBadW ? 1.04 : 1.0)
+  const expCorners  = (homeCorners + awayCorners) * cornersF
   const expYellow   = homeYellow + awayYellow
   const expShotsOT  = homeShotsOT + awayShotsOT
 
   // ── CAPA 3: Consenso ────────────────────────────────────────────────────────
   const consensus = consensusScore(prediction, homeWin, draw, awayWin)
 
-  // ── CAPA 4: Volatilidad ─────────────────────────────────────────────────────
-  const volatility = detectVolatility(mc, N)
+  // ── CAPA 4: Volatilidad (reutiliza stdDev de mce — sin pases extra sobre N) ─
+  const volatility = detectVolatility(mc, mce.stdDev)
 
   // ── CAPA 5: Odds ────────────────────────────────────────────────────────────
   const oddsMap = buildOddsMap(odds ?? [])
@@ -673,8 +678,8 @@ export function computeSmartBets(
   }
 
   // ── CAPA 8: Ranking por ventaja matemática ───────────────────────────────────
+  // add() ya filtra prob < 0.05; no se necesita un segundo filtro
   const ranked = candidates
-    .filter(c => c.prob >= 0.05)
     .sort((a, b) => rankScore(b, consensus, hasOdds) - rankScore(a, consensus, hasOdds))
 
   // ── CAPA 9: Diversidad (máx 1 por familia) + top 5 ──────────────────────────

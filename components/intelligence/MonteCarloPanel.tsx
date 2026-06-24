@@ -7,26 +7,7 @@ import { cn } from '@/lib/utils'
 import { runMonteCarloModel, type MCResult, type Percentile } from '@/lib/models/monteCarloModel'
 import { simulateEventTimeline } from '@/lib/intelligence/eventSimulator'
 import { formToScore } from '@/lib/predictionEngine'
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function getContextFactors(match: any) {
-  const phase = match?.phase ?? ''
-  const isKnockout = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
-  const weather = (match?.weather_condition ?? '').toLowerCase()
-  const isBadWeather = /rain|wet|storm|wind|drizzle/i.test(weather)
-  const tempC = match?.weather_temp_celsius
-  const isHot = tempC != null && tempC > 32
-  const homeRest = match?.home_rest_days ?? 7
-  const awayRest = match?.away_rest_days ?? 7
-
-  const goalsF   = (isKnockout ? 0.92 : 1.0) * (isBadWeather ? 0.97 : 1.0) * (isHot ? 0.97 : 1.0)
-  const cornersF = isBadWeather ? 1.04 : 1.0
-  const homeRestF = homeRest < 3 ? 0.95 : homeRest > 7 ? 1.02 : 1.0
-  const awayRestF = awayRest < 3 ? 0.95 : awayRest > 7 ? 1.02 : 1.0
-
-  return { goalsF, cornersF, homeRestF, awayRestF, isKnockout, isBadWeather, isHot }
-}
+import { getMatchContext } from '@/lib/matchContext'
 
 // ─── Sub-componentes ────────────────────────────────────────────────────────────
 
@@ -179,7 +160,7 @@ export function MonteCarloPanel({ prediction, homeStats, awayStats, match, injur
   const result = useMemo<MCResult | null>(() => {
     if (!prediction) return null
 
-    const { goalsF, cornersF, homeRestF, awayRestF } = getContextFactors(match)
+    const { goalMult: goalsF, cornersF, homeRestF, awayRestF } = getMatchContext(match)
 
     // Lambdas base desde la predicción almacenada
     // Si no hay xG, usamos los marcadores predichos como proxy
