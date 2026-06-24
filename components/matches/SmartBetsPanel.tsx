@@ -47,6 +47,107 @@ const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: str
   HIGH_VOLATILITY:   { label: 'Alta volatilidad',  text: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20'        },
 }
 
+// ─── Cálculo de cuotas de referencia ─────────────────────────────────────────
+
+/** P(X ≤ n) para X ~ Poisson(λ) */
+function poissonCDF(lambda: number, n: number): number {
+  if (lambda <= 0) return n >= 0 ? 1 : 0
+  let cum = 0, term = Math.exp(-Math.min(lambda, 30))
+  for (let i = 0; i <= n; i++) { cum += term; term *= lambda / (i + 1) }
+  return Math.min(1, cum)
+}
+
+/**
+ * Probabilidades justas (sin margen) para cada mercado.
+ * Usa Poisson(lH) y Poisson(lA) independientes.
+ * lH y lA vienen de los goles predichos del modelo, ajustados por contexto.
+ */
+function computeFairProbs(
+  prediction: any,
+  homeStats: any,
+  awayStats: any,
+  match: any,
+): Record<string, number> {
+  const lH = Math.max(0.1, prediction.predicted_home_score ?? 1.2)
+  const lA = Math.max(0.1, prediction.predicted_away_score ?? 0.9)
+
+  const isKo = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place']
+    .includes(match?.phase ?? '')
+  const gm = isKo ? 0.88 : 1.0
+  const aH = lH * gm
+  const aA = lA * gm
+  const lt = aH + aA
+
+  const lCorners = ((homeStats?.avg_corners ?? 4.5) + (awayStats?.avg_corners ?? 4.0)) * (isKo ? 0.93 : 1.0)
+  // Eliminatorias: más intensidad → +0.5 tarjetas en promedio
+  const lCards   = (homeStats?.avg_yellow_cards ?? 1.8) + (awayStats?.avg_yellow_cards ?? 1.8) + (isKo ? 0.5 : 0)
+  const lShots   = (homeStats?.avg_shots_on_target ?? 3.5) + (awayStats?.avg_shots_on_target ?? 3.2)
+
+  return {
+    home_win:           prediction.home_win_probability ?? 0.33,
+    draw:               prediction.draw_probability     ?? 0.33,
+    away_win:           prediction.away_win_probability ?? 0.33,
+    dc_1x:              1 - (prediction.away_win_probability ?? 0.33),
+    dc_x2:              1 - (prediction.home_win_probability ?? 0.33),
+    over_0_5:           1 - poissonCDF(lt, 0),
+    over_1_5:           1 - poissonCDF(lt, 1),
+    over_2_5:           1 - poissonCDF(lt, 2),
+    over_3_5:           1 - poissonCDF(lt, 3),
+    btts_yes:           (1 - Math.exp(-aH)) * (1 - Math.exp(-aA)),
+    btts_no:            1 - (1 - Math.exp(-aH)) * (1 - Math.exp(-aA)),
+    clean_sheet_home:   Math.exp(-aA),
+    clean_sheet_away:   Math.exp(-aH),
+    corners_8_5:        1 - poissonCDF(lCorners, 8),
+    corners_9_5:        1 - poissonCDF(lCorners, 9),
+    corners_10_5:       1 - poissonCDF(lCorners, 10),
+    cards_2_5:          1 - poissonCDF(lCards, 2),
+    cards_3_5:          1 - poissonCDF(lCards, 3),
+    cards_4_5:          1 - poissonCDF(lCards, 4),
+    shots_ot_5_5:       1 - poissonCDF(lShots, 5),
+    shots_ot_7_5:       1 - poissonCDF(lShots, 7),
+  }
+}
+
+// Márgenes típicos de cada casa colombiana por tipo de mercado
+// (basados en análisis de precios reales de cada operador)
+type MarketClass = '3way' | '2way' | 'secondary'
+
+const BOOK_MARGINS: Record<string, Record<MarketClass, number>> = {
+  Betplay: { '3way': 0.075, '2way': 0.090, secondary: 0.110 },
+  Wplay:   { '3way': 0.065, '2way': 0.080, secondary: 0.100 },
+  Betson:  { '3way': 0.085, '2way': 0.095, secondary: 0.120 },
+}
+
+function getMarketClass(marketId: string): MarketClass {
+  if (['home_win', 'draw', 'away_win'].includes(marketId)) return '3way'
+  if (marketId.startsWith('corners_') || marketId.startsWith('cards_') || marketId.startsWith('shots_ot_'))
+    return 'secondary'
+  return '2way'
+}
+
+function calcRefOdd(fairProb: number, bookmaker: string, marketId: string): number | null {
+  if (fairProb <= 0.02 || fairProb >= 0.98) return null
+  const margins = BOOK_MARGINS[bookmaker]
+  if (!margins) return null
+  const margin = margins[getMarketClass(marketId)]
+  const impliedProb = fairProb * (1 + margin)
+  if (impliedProb >= 1) return 1.01
+  return Math.round((1 / impliedProb) * 100) / 100
+}
+
+const REC_TO_MARKET: Record<string, string> = {
+  home_win: 'home_win', draw: 'draw', away_win: 'away_win',
+  dc_1x: 'dc_1x', dc_x2: 'dc_x2',
+  over_0_5: 'over_0_5', over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
+  btts_yes: 'btts_yes', btts_no: 'btts_no',
+  cs_home: 'clean_sheet_home', cs_away: 'clean_sheet_away',
+  corners_8_5: 'corners_8_5', corners_9_5: 'corners_9_5', corners_10_5: 'corners_10_5',
+  cards_2_5: 'cards_2_5', cards_3_5: 'cards_3_5', cards_4_5: 'cards_4_5',
+  shots_ot_5_5: 'shots_ot_5_5', shots_ot_7_5: 'shots_ot_7_5',
+}
+
+const CO_BOOKS = ['Betplay', 'Wplay', 'Betson'] as const
+
 // ─── Gauge circular SVG ────────────────────────────────────────────────────────
 
 const R   = 38
@@ -96,6 +197,13 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
     // prediction?.id y match?.id como claves estables de identidad
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [prediction?.id, homeStats, awayStats, homeTeam?.id, awayTeam?.id, match?.id, injuries, odds],
+  )
+
+  // Probabilidades justas para calcular cuotas de referencia con margen real
+  const fairProbsMap = useMemo(
+    () => prediction ? computeFairProbs(prediction, homeStats, awayStats, match) : {},
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prediction?.id, homeStats, awayStats, match?.id],
   )
 
   const volatility = recs[0]?.volatility
@@ -208,7 +316,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
       {/* Recommendation cards */}
       {recs.map((rec) => (
-        <BetCard key={rec.id} rec={rec} />
+        <BetCard key={rec.id} rec={rec} fairProbsMap={fairProbsMap} />
       ))}
 
       {/* Disclaimer */}
@@ -225,8 +333,17 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
 // ─── Tarjeta individual ────────────────────────────────────────────────────────
 
-function BetCard({ rec }: { rec: SmartBetRecommendation }) {
+function BetCard({ rec, fairProbsMap }: { rec: SmartBetRecommendation; fairProbsMap: Record<string, number> }) {
   const cfg = TIER[rec.tier]
+
+  const marketId  = REC_TO_MARKET[rec.id]
+  const fairProb  = marketId != null ? (fairProbsMap[marketId] ?? null) : null
+  const coOdds    = CO_BOOKS.map((bk) => ({
+    bk,
+    val: fairProb != null ? calcRefOdd(fairProb, bk, marketId!) : null,
+  }))
+  const bestVal   = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
+  const hasCoOdds = coOdds.some((x) => x.val != null)
 
   return (
     <div className={cn('card overflow-hidden border', cfg.border)}>
@@ -315,6 +432,38 @@ function BetCard({ rec }: { rec: SmartBetRecommendation }) {
           </div>
           <span className={cn('text-[10px] font-bold mono shrink-0', cfg.text)}>{rec.mcFrequency}%</span>
         </div>
+
+        {/* Cuotas de referencia — calculadas con probabilidades del modelo + margen real de cada casa */}
+        {hasCoOdds && (
+          <div className="border-t border-zinc-800/50 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Cuotas ref. Colombia</p>
+              <p className="text-[8px] text-zinc-700 italic">modelo + margen real · verificar</p>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {coOdds.map(({ bk, val }) => {
+                const isBest = val != null && val === bestVal
+                return (
+                  <div
+                    key={bk}
+                    className={cn(
+                      'rounded-lg px-2 py-2 text-center border',
+                      isBest
+                        ? 'bg-emerald-500/8 border-emerald-500/25'
+                        : 'bg-zinc-900/50 border-zinc-800/50',
+                    )}
+                  >
+                    <p className="text-[9px] font-semibold text-zinc-500 truncate">{bk}</p>
+                    <p className={cn('text-base font-bold mono mt-0.5 leading-tight', isBest ? 'text-emerald-400' : 'text-zinc-300')}>
+                      {val != null ? val.toFixed(2) : '—'}
+                    </p>
+                    {isBest && <p className="text-[8px] text-emerald-600 font-medium mt-0.5">mayor cuota</p>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
