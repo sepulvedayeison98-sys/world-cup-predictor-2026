@@ -4,15 +4,19 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 
-const INTERVAL_MS = 30 * 60 * 1000 // 30 minutos
+const INTERVAL_MS = 20 * 60 * 1000 // 20 minutos
 
-export function AutoRefresh() {
-  const router   = useRouter()
-  const [last,   setLast]   = useState<Date>(new Date())
-  const [mins,   setMins]   = useState(0)
-  const [spin,   setSpin]   = useState(false)
+interface Props {
+  showIndicator?: boolean
+}
 
-  // Refresco automático cada 30 min
+export function AutoRefresh({ showIndicator = false }: Props) {
+  const router = useRouter()
+  const [last, setLast]  = useState<Date>(new Date())
+  const [mins, setMins]  = useState(0)
+  const [spin, setSpin]  = useState(false)
+
+  // Refresco automático cada 20 min
   useEffect(() => {
     const id = setInterval(() => {
       setSpin(true)
@@ -25,11 +29,14 @@ export function AutoRefresh() {
 
   // Contador de minutos desde el último refresh
   useEffect(() => {
+    if (!showIndicator) return
     const id = setInterval(() => {
       setMins(Math.floor((Date.now() - last.getTime()) / 60_000))
     }, 30_000)
     return () => clearInterval(id)
-  }, [last])
+  }, [last, showIndicator])
+
+  if (!showIndicator) return null
 
   return (
     <span className="inline-flex items-center gap-1.5 text-[10px] text-zinc-600 select-none">

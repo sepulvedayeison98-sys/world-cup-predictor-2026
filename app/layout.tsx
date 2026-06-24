@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { QueryProvider } from '@/components/layout/QueryProvider'
 import { MobileNavProvider } from '@/components/layout/MobileNavContext'
 import { Toaster } from '@/components/ui/sonner'
+import { AutoRefresh } from '@/components/ui/AutoRefresh'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -68,6 +69,7 @@ export default function RootLayout({
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <Topbar />
                   <main className="flex-1 overflow-y-auto bg-zinc-950">
+                    <AutoRefresh />
                     {children}
                   </main>
                 </div>
