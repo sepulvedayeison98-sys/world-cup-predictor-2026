@@ -320,7 +320,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
       {/* Recommendation cards */}
       {recs.map((rec) => (
-        <BetCard key={rec.id} rec={rec} fairProbsMap={fairProbsMap} />
+        <BetCard key={rec.id} rec={rec} fairProbsMap={fairProbsMap} odds={odds} />
       ))}
 
       {/* Disclaimer */}
@@ -337,17 +337,36 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
 // ─── Tarjeta individual ────────────────────────────────────────────────────────
 
-function BetCard({ rec, fairProbsMap }: { rec: SmartBetRecommendation; fairProbsMap: Record<string, number> }) {
+function BetCard({
+  rec,
+  fairProbsMap,
+  odds,
+}: {
+  rec: SmartBetRecommendation
+  fairProbsMap: Record<string, number>
+  odds?: any[]
+}) {
   const cfg = TIER[rec.tier]
 
-  const marketId  = REC_TO_MARKET[rec.id]
-  const fairProb  = marketId != null ? (fairProbsMap[marketId] ?? null) : null
-  const coOdds    = CO_BOOKS.map((bk) => ({
-    bk,
-    val: fairProb != null ? calcRefOdd(fairProb, bk, marketId!) : null,
-  }))
+  const marketId = REC_TO_MARKET[rec.id]
+
+  // Preferir cuotas reales de BD (derivadas de Pinnacle) sobre el cálculo Poisson
+  const coOdds = CO_BOOKS.map((bk) => {
+    if (marketId && odds?.length) {
+      const dbOdd = odds.find(
+        (o: any) => o.market === marketId && o.bookmaker === bk && o.odds_value > 1.05,
+      )
+      if (dbOdd?.odds_value) return { bk, val: Number(dbOdd.odds_value), fromDb: true }
+    }
+    // Fallback: cálculo Poisson con margen real
+    const fairProb = marketId != null ? (fairProbsMap[marketId] ?? null) : null
+    const val = fairProb != null ? calcRefOdd(fairProb, bk, marketId!) : null
+    return { bk, val, fromDb: false }
+  })
+
   const bestVal   = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
   const hasCoOdds = coOdds.some((x) => x.val != null)
+  const hasRealOdds = coOdds.some((x) => x.fromDb)
 
   return (
     <div className={cn('card overflow-hidden border', cfg.border)}>
@@ -437,12 +456,16 @@ function BetCard({ rec, fairProbsMap }: { rec: SmartBetRecommendation; fairProbs
           <span className={cn('text-[10px] font-bold mono shrink-0', cfg.text)}>{rec.mcFrequency}%</span>
         </div>
 
-        {/* Cuotas de referencia — calculadas con probabilidades del modelo + margen real de cada casa */}
+        {/* Cuotas Colombia — reales (Pinnacle) cuando están disponibles, estimadas como fallback */}
         {hasCoOdds && (
           <div className="border-t border-zinc-800/50 pt-3">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Cuotas ref. Colombia</p>
-              <p className="text-[8px] text-zinc-700 italic">modelo + margen real · verificar</p>
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">
+                {hasRealOdds ? 'Cuotas Colombia' : 'Cuotas ref. Colombia'}
+              </p>
+              <p className="text-[8px] text-zinc-700 italic">
+                {hasRealOdds ? 'Pinnacle → margen real' : 'modelo Poisson · verificar'}
+              </p>
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {coOdds.map(({ bk, val }) => {
