@@ -126,13 +126,17 @@ function getMarketClass(marketId: string): MarketClass {
 }
 
 function calcRefOdd(fairProb: number, bookmaker: string, marketId: string): number | null {
-  if (fairProb <= 0.02 || fairProb >= 0.98) return null
+  // Probabilidades fuera de este rango producen cuotas que ninguna casa ofrece realmente
+  if (fairProb <= 0.05 || fairProb >= 0.90) return null
   const margins = BOOK_MARGINS[bookmaker]
   if (!margins) return null
   const margin = margins[getMarketClass(marketId)]
   const impliedProb = fairProb * (1 + margin)
-  if (impliedProb >= 1) return 1.01
-  return Math.round((1 / impliedProb) * 100) / 100
+  if (impliedProb >= 1) return null
+  const odd = Math.round((1 / impliedProb) * 100) / 100
+  // No mostrar cuotas por debajo de 1.10 — el modelo está fuera del rango de mercado
+  if (odd < 1.10) return null
+  return odd
 }
 
 const REC_TO_MARKET: Record<string, string> = {
