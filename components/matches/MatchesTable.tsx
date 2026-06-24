@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useMemo, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   useReactTable,
@@ -238,6 +238,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
 
 export function MatchesTable() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'kickoff_time', desc: false },
   ])
@@ -363,8 +364,10 @@ export function MatchesTable() {
               : table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={() => router.push(`/matches/${row.original.id}`)}
                     className={cn(
-                      row.original.status === 'live' && 'bg-red-500/5'
+                      'cursor-pointer transition-colors hover:bg-zinc-800/60',
+                      row.original.status === 'live' && 'bg-red-500/5 hover:bg-red-500/10'
                     )}
                   >
                     {row.getVisibleCells().map((cell) => (
