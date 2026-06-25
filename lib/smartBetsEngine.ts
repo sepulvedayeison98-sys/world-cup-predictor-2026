@@ -327,10 +327,56 @@ function processTeamForm(
   }
 }
 
+// ─── Motor de coherencia matemática ──────────────────────────────────────────
+
+/**
+ * Después de puntuar todos los candidatos, garantiza que los mercados
+ * derivados de 1X2 (resultado + doble oportunidad) no se desvíen más de
+ * MAX_DEV puntos porcentuales de la probabilidad matemática del modelo.
+ * Esto evita que mezclas de forma contradigan la predicción base.
+ */
+function enforceCoherence(candidates: Candidate[], hw: number, dr: number, aw: number): Candidate[] {
+  const modelTarget: Partial<Record<string, number>> = {
+    home_win: Math.round(hw * 100),
+    draw:     Math.round(dr * 100),
+    away_win: Math.round(aw * 100),
+    dc_1x:   Math.round((hw + dr) * 100),
+    dc_x2:   Math.round((dr + aw) * 100),
+  }
+  const MAX_DEV = 9
+  return candidates.map(c => {
+    const target = modelTarget[c.id]
+    if (target == null) return c
+    if (c.confidence > target + MAX_DEV) c.confidence = target + MAX_DEV
+    if (c.confidence < Math.max(5, target - MAX_DEV)) c.confidence = Math.max(5, target - MAX_DEV)
+    return c
+  })
+}
+
+/**
+ * home_win y dc_x2 son complementos (suman ~100%).
+ * away_win y dc_1x también.
+ * Si dos complementos aparecen juntos con suma > 112%, uno es contradictorio.
+ */
+function isContradiction(candidateId: string, candidateConf: number, existing: SmartBetRecommendation[]): boolean {
+  const COMPLEMENTS: [string, string][] = [
+    ['home_win', 'dc_x2'],
+    ['away_win', 'dc_1x'],
+  ]
+  for (const [a, b] of COMPLEMENTS) {
+    const paired = candidateId === a ? b : candidateId === b ? a : null
+    if (!paired) continue
+    const existingRec = existing.find(r => r.id === paired)
+    if (existingRec && existingRec.confidence + candidateConf > 112) return true
+  }
+  return false
+}
+
 // ─── Market scorers ───────────────────────────────────────────────────────────
 
 /**
- * Over goals: over_0_5, over_1_5, over_2_5, over_3_5
+ * Over goals: over_1_5, over_2_5, over_3_5
+ * Usa probabilidad Poisson analítica como señal principal (bounded), blendada con frecuencia de forma.
  */
 function scoreOver(
   h: TeamFormData,
@@ -344,19 +390,18 @@ function scoreOver(
 
   // Frecuencia base en over_2_5, ajustada para otras líneas
   let adjustedFreq = (h.over25Freq + a.over25Freq) / 2
-  if (goals <= 0.5)       adjustedFreq = Math.min(0.99, adjustedFreq + 0.40)
-  else if (goals <= 1.5)  adjustedFreq = Math.min(0.99, adjustedFreq + 0.20)
+  if (goals <= 1.5)       adjustedFreq = Math.min(0.98, adjustedFreq + 0.20)
   else if (goals >= 3.5)  adjustedFreq = Math.max(0.01, adjustedFreq - 0.20)
 
-  // Referencia de goles según línea
-  const goalRef = Math.max(0.5, goals)
+  // Probabilidad Poisson analítica: P(goles totales > k)
+  const poissonProb = poissonOver(expected, Math.floor(goals))
 
   // Bonus si hay datos reales de forma
-  const dataBonus = (h.n >= 3 && a.n >= 3) ? 5 : 0
+  const dataBonus = (h.n >= 3 && a.n >= 3) ? 3 : 0
 
-  // Confianza compuesta
-  const raw = (expected / goalRef) * 30 + adjustedFreq * 50 + (h.shotsOT / 12) * 15 + dataBonus
-  const confidence = Math.min(94, Math.round(raw))
+  // Confianza: blend Poisson (60%) + frecuencia de forma (35%) + tiros a puerta (5%)
+  const blended = poissonProb * 0.60 + adjustedFreq * 0.35 + Math.min(1, h.shotsOT / 12) * 0.05
+  const confidence = Math.min(92, Math.round(blended * 100) + dataBonus)
 
   const fFor: string[] = []
   const fAg: string[]  = []
@@ -381,8 +426,8 @@ function scoreOver(
     confidence, freq: adjustedFreq,
     justification: [
       `${h.name} marcó ${fmt1(h.goalsScored)} goles/p · ${a.name} marcó ${fmt1(a.goalsScored)} goles/p en forma reciente.`,
-      `Goles esperados combinados: ${fmt1(expected)}.`,
-      `Over ${goals} en ${Math.round(adjustedFreq * 100)}% de partidos recientes.`,
+      `Goles esperados combinados: ${fmt1(expected)}. P(>${goals}): ${Math.round(poissonProb * 100)}% (Poisson).`,
+      `Over ${goals} registrado en el ${Math.round(adjustedFreq * 100)}% de partidos recientes.`,
       `${h.name} concede ${fmt1(h.goalsConceded)}/p · ${a.name} concede ${fmt1(a.goalsConceded)}/p.`,
     ].join(' '),
     factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
@@ -418,7 +463,7 @@ function scoreBtts(h: TeamFormData, a: TeamFormData, isYes: boolean): Candidate 
       fAg.push(`${a.name} genera poco en ataque (${fmt1(a.goalsScored)} goles/p)`)
   } else {
     const csSignal    = Math.min(1, (h.cleanSheetFreq + a.cleanSheetFreq) / 2)
-    const defStrength = Math.min(1, 1 - (h.goalsConceded + a.goalsConceded) / 4)
+    const defStrength = Math.min(1, Math.max(0, 1 - (h.goalsConceded + a.goalsConceded) / 4))
     const raw = adjustedFreq * 55 + csSignal * 25 + defStrength * 15 + (h.n >= 3 && a.n >= 3 ? 5 : 0)
     confidence = Math.min(90, Math.round(raw))
 
@@ -520,7 +565,10 @@ function scoreCards(
   line: number,
   marketId: string,
   isKnockout: boolean,
-): Candidate {
+): Candidate | null {
+  // Sin datos reales de forma, el fallback (1.8+1.7=3.5) produce el mismo score
+  // para todos los partidos — no aporta valor diferencial
+  if (h.n === 0 && a.n === 0) return null
   const totalCards = h.yellowCards + a.yellowCards + (isKnockout ? 0.6 : 0)
   const probOver   = poissonOver(totalCards, Math.floor(line))
   const confidence = Math.min(88, Math.round(probOver * 100))
@@ -555,10 +603,10 @@ function scoreResult(
     market === 'draw'     ? (h.drawFreq + a.drawFreq) / 2 :
                             a.winFreq
 
-  // Blend: si ambos equipos tienen >= 3 partidos, mezclar al 50/50
-  const bothHaveForm = h.n >= 3 && a.n >= 3
-  const blended      = bothHaveForm ? modelProb * 0.5 + formFreq * 0.5 : modelProb
-  const confidence   = Math.round(Math.min(92, blended * 100))
+  // Modelo es señal primaria (80-100%); forma solo afina cuando hay datos reales
+  const formW    = h.n >= 3 && a.n >= 3 ? 0.20 : h.n >= 1 || a.n >= 1 ? 0.10 : 0.0
+  const blended  = modelProb * (1 - formW) + formFreq * formW
+  const confidence = Math.round(Math.min(92, blended * 100))
 
   const fFor: string[] = []
   const fAg: string[]  = []
@@ -633,11 +681,12 @@ function scoreDoubleChance(
   const awayWin = prediction.away_win_probability ?? 0.33
 
   if (market === 'dc_1x') {
-    const modelProb    = homeWin + draw
-    const formNotLoss  = 1 - a.winFreq
-    const bothHaveForm = h.n >= 3 && a.n >= 3
-    const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
-    const confidence   = Math.round(Math.min(96, blended * 100))
+    const modelProb   = homeWin + draw
+    const formNotLoss = 1 - a.winFreq
+    // Modelo ancla la confianza; la forma ajusta ≤12% cuando hay datos reales
+    const formW       = h.n >= 3 && a.n >= 3 ? 0.12 : 0.0
+    const blended     = modelProb * (1 - formW) + formNotLoss * formW
+    const confidence  = Math.round(Math.min(96, blended * 100))
 
     return {
       id: 'dc_1x', label: `${h.name} o empate (1X)`, category: 'resultado',
@@ -654,11 +703,11 @@ function scoreDoubleChance(
   }
 
   // dc_x2
-  const modelProb    = draw + awayWin
-  const formNotLoss  = 1 - h.winFreq
-  const bothHaveForm = h.n >= 3 && a.n >= 3
-  const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
-  const confidence   = Math.round(Math.min(96, blended * 100))
+  const modelProb   = draw + awayWin
+  const formNotLoss = 1 - h.winFreq
+  const formW       = h.n >= 3 && a.n >= 3 ? 0.12 : 0.0
+  const blended     = modelProb * (1 - formW) + formNotLoss * formW
+  const confidence  = Math.round(Math.min(96, blended * 100))
 
   return {
     id: 'dc_x2', label: `${a.name} o empate (X2)`, category: 'resultado',
@@ -703,7 +752,33 @@ export function computeSmartBets(
 
   // ── Contexto de partido ───────────────────────────────────────────────────────
   const ctx = getMatchContext(match)
-  const { isKnockout } = ctx
+  const { isKnockout, goalMult, cornersF, homeRestF, awayRestF } = ctx
+
+  // ── C2: Penalización de lesiones por equipo ───────────────────────────────────
+  const homeInjuryImpact = (injuries ?? [])
+    .filter((i: any) => i.team_id === homeTeam?.id)
+    .reduce((sum: number, i: any) => sum + (i.impact_score ?? 0), 0)
+  const awayInjuryImpact = (injuries ?? [])
+    .filter((i: any) => i.team_id === awayTeam?.id)
+    .reduce((sum: number, i: any) => sum + (i.impact_score ?? 0), 0)
+  const homePenalty = Math.min(0.20, homeInjuryImpact / 100)
+  const awayPenalty = Math.min(0.20, awayInjuryImpact / 100)
+
+  // ── C3: Aplicar contexto + lesiones a métricas de forma ─────────────────────
+  const hMult = goalMult * homeRestF * (1 - homePenalty)
+  const aMult = goalMult * awayRestF * (1 - awayPenalty)
+  h.goalsScored    *= hMult
+  h.xg             *= hMult
+  h.shotsOT        *= hMult
+  h.bigChances     *= hMult
+  h.corners        *= cornersF
+  h.goalsConceded  *= goalMult
+  a.goalsScored    *= aMult
+  a.xg             *= aMult
+  a.shotsOT        *= aMult
+  a.bigChances     *= aMult
+  a.corners        *= cornersF
+  a.goalsConceded  *= goalMult
 
   // ── Capa 3: Consenso basado en calidad de datos ──────────────────────────────
   const dataPoints        = h.n + a.n
@@ -744,15 +819,15 @@ export function computeSmartBets(
   add(scoreResult(h, a, prediction, 'draw'))
   add(scoreResult(h, a, prediction, 'away_win'))
 
-  // Doble oportunidad
+  // Doble oportunidad — solo si el resultado complementario tiene probabilidad real (≥12%)
+  // Evita mostrar apuestas trivialmente ciertas (ej: dc_1x cuando P(away)=5%)
   const homeWin = prediction.home_win_probability ?? 0.33
   const draw    = prediction.draw_probability     ?? 0.33
   const awayWin = prediction.away_win_probability ?? 0.33
-  if (homeWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_1x'))
-  if (awayWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
+  if ((homeWin >= 0.28 || draw >= 0.25) && awayWin >= 0.12) add(scoreDoubleChance(h, a, prediction, 'dc_1x'))
+  if ((awayWin >= 0.28 || draw >= 0.25) && homeWin >= 0.12) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
 
   // Goles
-  add(scoreOver(h, a, 0.5, 'over_0_5', 'Más de 0.5 goles'))
   add(scoreOver(h, a, 1.5, 'over_1_5', 'Más de 1.5 goles'))
   add(scoreOver(h, a, 2.5, 'over_2_5', 'Más de 2.5 goles'))
   add(scoreOver(h, a, 3.5, 'over_3_5', 'Más de 3.5 goles'))
@@ -783,21 +858,24 @@ export function computeSmartBets(
     add(scoreCards(h, a, line, id, isKnockout))
   }
 
+  // ── Capa 6.5: Coherencia matemática — anclar 1X2-derivados al modelo ─────────
+  const coherentCandidates = enforceCoherence(candidates, homeWin, draw, awayWin)
+
   // ── Capa 7: Ranking por confianza descendente ────────────────────────────────
-  const ranked = [...candidates].sort((x, y) => y.confidence - x.confidence)
+  const ranked = [...coherentCandidates].sort((x, y) => y.confidence - x.confidence)
 
   // Mapa de market IDs para edge vs cuotas
   const marketOddsId: Record<string, string> = {
     home_win: 'home_win', draw: 'draw', away_win: 'away_win',
     dc_1x: 'dc_1x', dc_x2: 'dc_x2',
-    over_0_5: 'over_0_5', over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
+    over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
     btts_yes: 'btts_yes', btts_no: 'btts_no',
     cs_home: 'clean_sheet_home', cs_away: 'clean_sheet_away',
     corners_8_5: 'corners_8_5', corners_9_5: 'corners_9_5', corners_10_5: 'corners_10_5',
     cards_2_5: 'cards_2_5', cards_3_5: 'cards_3_5', cards_4_5: 'cards_4_5',
   }
 
-  // ── Capa 8: Deduplicar por familia + top 5 ──────────────────────────────────
+  // ── Capa 8: Deduplicar por familia + validar coherencia + top 5 ─────────────
   const seen = new Set<string>()
   const top5: SmartBetRecommendation[] = []
 
@@ -805,6 +883,8 @@ export function computeSmartBets(
     if (top5.length >= 5) break
     const fam = family(c.id)
     if (seen.has(fam)) continue
+    // Descartar si contradice matemáticamente a un candidato ya seleccionado
+    if (isContradiction(c.id, c.confidence, top5)) continue
     seen.add(fam)
 
     const edgeVal = calcEdge(c.confidence / 100, oddsMap, marketOddsId[c.id] ?? c.id)

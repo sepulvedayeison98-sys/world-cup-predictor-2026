@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Group { id: string; name: string; letter: string }
@@ -31,6 +31,18 @@ export function MatchFiltersBar({ groups, teams }: Props) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
+  // Fecha local en formato YYYY-MM-DD
+  const todayStr = new Date().toLocaleDateString('en-CA')
+  const dateParam = searchParams.get('date') ?? todayStr
+
+  const shiftDate = (base: string, days: number) => {
+    const d = new Date(`${base}T12:00:00`)
+    d.setDate(d.getDate() + days)
+    return d.toLocaleDateString('en-CA')
+  }
+  const yesterdayStr = shiftDate(todayStr, -1)
+  const tomorrowStr  = shiftDate(todayStr, +1)
+
   const update = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -39,7 +51,7 @@ export function MatchFiltersBar({ groups, teams }: Props) {
       } else {
         params.delete(key)
       }
-      params.delete('page') // reset pagination on filter change
+      params.delete('page')
       router.push(`${pathname}?${params.toString()}`)
     },
     [router, pathname, searchParams]
@@ -50,13 +62,69 @@ export function MatchFiltersBar({ groups, teams }: Props) {
     searchParams.has('status') ||
     searchParams.has('group') ||
     searchParams.has('team') ||
-    searchParams.has('confidence')
+    searchParams.has('confidence') ||
+    (searchParams.has('date') && searchParams.get('date') !== todayStr)
 
   const clearAll = () => router.push(pathname)
 
   return (
     <div className="card p-3">
       <div className="flex flex-wrap items-center gap-2">
+
+        {/* Date navigation */}
+        <div className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-1 py-0.5">
+          <button
+            onClick={() => update('date', shiftDate(dateParam, -1))}
+            className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+            title="Día anterior"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+
+          <div className="flex items-center gap-1.5 px-1">
+            <CalendarDays className="h-3.5 w-3.5 text-zinc-500" />
+            <input
+              type="date"
+              value={dateParam}
+              onChange={(e) => update('date', e.target.value)}
+              className="bg-transparent text-xs text-zinc-200 outline-none cursor-pointer [color-scheme:dark]"
+            />
+          </div>
+
+          <button
+            onClick={() => update('date', shiftDate(dateParam, +1))}
+            className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+            title="Día siguiente"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Quick day buttons */}
+        <div className="flex items-center gap-1">
+          {[
+            { label: 'Ayer',   date: yesterdayStr },
+            { label: 'Hoy',    date: todayStr },
+            { label: 'Mañana', date: tomorrowStr },
+          ].map(({ label, date }) => (
+            <button
+              key={date}
+              onClick={() => update('date', date)}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
+                dateParam === date
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-300'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="h-5 w-px bg-zinc-700" />
+
         {/* Search */}
         <div className="relative flex-1 min-w-[160px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />

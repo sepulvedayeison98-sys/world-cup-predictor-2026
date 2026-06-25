@@ -3,22 +3,49 @@
 import { cn, formatProbability } from '@/lib/utils'
 import { Shield, TrendingUp, Target, AlertTriangle } from 'lucide-react'
 
-const MARKET_ROWS = [
-  { key: 'home_win', label: 'Victoria Local' },
-  { key: 'draw', label: 'Empate' },
-  { key: 'away_win', label: 'Victoria Visitante' },
-]
+// P(X <= k) para X ~ Poisson(lambda)
+function poissonCDF(lambda: number, k: number): number {
+  if (lambda <= 0) return k >= 0 ? 1 : 0
+  let cum = 0, term = Math.exp(-lambda)
+  for (let i = 0; i <= k; i++) { cum += term; term *= lambda / (i + 1) }
+  return Math.min(1, cum)
+}
 
-const EXTRA_MARKETS = [
-  { label: 'Más de 0.5 goles', prob: 0.91 },
-  { label: 'Más de 1.5 goles', prob: 0.68 },
-  { label: 'Más de 2.5 goles', prob: 0.42 },
-  { label: 'Más de 3.5 goles', prob: 0.20 },
-  { label: 'Ambos marcan: Sí', prob: 0.45 },
-  { label: 'Ambos marcan: No', prob: 0.55 },
-  { label: 'Portería a 0 Local', prob: 0.48 },
-  { label: 'Portería a 0 Visitante', prob: 0.30 },
-]
+function deriveLambdas(prediction: any, match: any): { lambdaHome: number; lambdaAway: number } {
+  const hStat = match?.home_team?.team_statistics?.[0]
+  const aStat = match?.away_team?.team_statistics?.[0]
+  const homeXg  = hStat?.avg_xg  ?? hStat?.avg_goals_scored  ?? 1.3
+  const awayXg  = aStat?.avg_xg  ?? aStat?.avg_goals_scored  ?? 1.1
+  const homeXga = hStat?.avg_xga ?? hStat?.avg_goals_conceded ?? 1.1
+  const awayXga = aStat?.avg_xga ?? aStat?.avg_goals_conceded ?? 1.3
+  const baseHome = Math.max(0.20, (homeXg + awayXga) / 2)
+  const baseAway = Math.max(0.20, (awayXg + homeXga) / 2)
+  const total    = Math.min(baseHome + baseAway, 5.5)
+  const hw = prediction.home_win_probability ?? 0.40
+  const aw = prediction.away_win_probability ?? 0.28
+  const hs = Math.max(0.20, Math.min(0.80, hw / Math.max(0.01, hw + aw)))
+  return {
+    lambdaHome: Math.max(0.10, total * hs),
+    lambdaAway: Math.max(0.10, total * (1 - hs)),
+  }
+}
+
+function computeMarketProbs(lambdaHome: number, lambdaAway: number) {
+  const lambdaTotal = lambdaHome + lambdaAway
+  const pHome0 = poissonCDF(lambdaHome, 0)
+  const pAway0 = poissonCDF(lambdaAway, 0)
+  const bttsYes = (1 - pHome0) * (1 - pAway0)
+  return [
+    { label: 'Más de 0.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 0) },
+    { label: 'Más de 1.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 1) },
+    { label: 'Más de 2.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 2) },
+    { label: 'Más de 3.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 3) },
+    { label: 'Ambos marcan: Sí',     prob: bttsYes },
+    { label: 'Ambos marcan: No',     prob: 1 - bttsYes },
+    { label: 'Portería a 0 Local',   prob: pAway0 },
+    { label: 'Portería a 0 Visitante', prob: pHome0 },
+  ]
+}
 
 interface Props {
   prediction: any
@@ -64,6 +91,9 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
   const homeWin = prediction.home_win_probability
   const draw   = prediction.draw_probability
   const away   = prediction.away_win_probability
+
+  const { lambdaHome, lambdaAway } = deriveLambdas(prediction, match)
+  const extraMarkets = computeMarketProbs(lambdaHome, lambdaAway)
 
   const topOutcome =
     homeWin >= draw && homeWin >= away
@@ -150,7 +180,7 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
         </div>
 
         <div className="space-y-1">
-          {EXTRA_MARKETS.map((market) => (
+          {extraMarkets.map((market) => (
             <div key={market.label} className="flex items-center justify-between py-1.5 border-b border-zinc-800/50 last:border-0">
               <span className="text-xs text-zinc-400">{market.label}</span>
               <div className="flex items-center gap-3">
