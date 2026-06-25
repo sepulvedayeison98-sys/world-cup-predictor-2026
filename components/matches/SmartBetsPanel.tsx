@@ -9,6 +9,7 @@ import {
   type SmartBetCategory,
   type SmartBetRecommendation,
   type VolatilityLevel,
+  type MatchFormEntry,
 } from '@/lib/smartBetsEngine'
 
 // ─── Configuración visual por tier ─────────────────────────────────────────────
@@ -49,7 +50,6 @@ const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: str
 
 // ─── Cálculo de cuotas de referencia ─────────────────────────────────────────
 
-/** P(X ≤ n) para X ~ Poisson(λ) */
 function poissonCDF(lambda: number, n: number): number {
   if (lambda <= 0) return n >= 0 ? 1 : 0
   let cum = 0, term = Math.exp(-Math.min(lambda, 30))
@@ -57,11 +57,6 @@ function poissonCDF(lambda: number, n: number): number {
   return Math.min(1, cum)
 }
 
-/**
- * Probabilidades justas (sin margen) para cada mercado.
- * Usa Poisson(lH) y Poisson(lA) independientes.
- * lH y lA vienen de los goles predichos del modelo, ajustados por contexto.
- */
 function computeFairProbs(
   prediction: any,
   homeStats: any,
@@ -79,7 +74,6 @@ function computeFairProbs(
   const lt = aH + aA
 
   const lCorners = ((homeStats?.avg_corners ?? 4.5) + (awayStats?.avg_corners ?? 4.0)) * (isKo ? 0.93 : 1.0)
-  // Eliminatorias: más intensidad → +0.5 tarjetas en promedio
   const lCards   = (homeStats?.avg_yellow_cards ?? 1.8) + (awayStats?.avg_yellow_cards ?? 1.8) + (isKo ? 0.5 : 0)
   const lShots   = (homeStats?.avg_shots_on_target ?? 3.5) + (awayStats?.avg_shots_on_target ?? 3.2)
 
@@ -108,8 +102,6 @@ function computeFairProbs(
   }
 }
 
-// Márgenes típicos de cada casa colombiana por tipo de mercado
-// (basados en análisis de precios reales de cada operador)
 type MarketClass = '3way' | '2way' | 'secondary'
 
 const BOOK_MARGINS: Record<string, Record<MarketClass, number>> = {
@@ -126,7 +118,6 @@ function getMarketClass(marketId: string): MarketClass {
 }
 
 function calcRefOdd(fairProb: number, bookmaker: string, marketId: string): number | null {
-  // Probabilidades fuera de este rango producen cuotas que ninguna casa ofrece realmente
   if (fairProb <= 0.05 || fairProb >= 0.90) return null
   const margins = BOOK_MARGINS[bookmaker]
   if (!margins) return null
@@ -134,7 +125,6 @@ function calcRefOdd(fairProb: number, bookmaker: string, marketId: string): numb
   const impliedProb = fairProb * (1 + margin)
   if (impliedProb >= 1) return null
   const odd = Math.round((1 / impliedProb) * 100) / 100
-  // No mostrar cuotas por debajo de 1.10 — el modelo está fuera del rango de mercado
   if (odd < 1.10) return null
   return odd
 }
@@ -183,27 +173,32 @@ function ConfidenceGauge({ confidence, tier }: { confidence: number; tier: Smart
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 interface Props {
-  prediction: any | null
-  homeStats:  any | null
-  awayStats:  any | null
-  match:      any
-  injuries:   any[]
-  odds?:      any[]
+  prediction:         any | null
+  homeStats:          any | null
+  awayStats:          any | null
+  match:              any
+  injuries:           any[]
+  odds?:              any[]
+  homeRecentMatches?: MatchFormEntry[]
+  awayRecentMatches?: MatchFormEntry[]
 }
 
-export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuries, odds }: Props) {
+export function SmartBetsPanel({
+  prediction, homeStats, awayStats, match, injuries, odds,
+  homeRecentMatches, awayRecentMatches,
+}: Props) {
   const homeTeam = match?.home_team
   const awayTeam = match?.away_team
 
-  // useMemo evita re-ejecutar 50k simulaciones Monte Carlo en cada render
   const recs = useMemo(
-    () => computeSmartBets(prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match, odds),
-    // prediction?.id y match?.id como claves estables de identidad
+    () => computeSmartBets(
+      prediction, homeStats, awayStats, homeTeam, awayTeam, injuries,
+      match, odds, homeRecentMatches, awayRecentMatches,
+    ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [prediction?.id, homeStats, awayStats, homeTeam?.id, awayTeam?.id, match?.id, injuries, odds],
+    [prediction?.id, homeStats, awayStats, homeTeam?.id, awayTeam?.id, match?.id, injuries, odds, homeRecentMatches, awayRecentMatches],
   )
 
-  // Probabilidades justas para calcular cuotas de referencia con margen real
   const fairProbsMap = useMemo(
     () => prediction ? computeFairProbs(prediction, homeStats, awayStats, match) : {},
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,15 +255,15 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
           <div>
-            <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor Monte Carlo</h3>
+            <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor de Forma</h3>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              {mce ? mce.simulations.toLocaleString() : '50.000'} simulaciones ·
-              top {recs.length} mercados por ventaja matemática
+              {mce ? `Últimos ${mce.simulations} partidos analizados` : 'Análisis basado en forma reciente'} ·
+              top {recs.length} mercados
             </p>
           </div>
         </div>
 
-        {/* MC summary chips */}
+        {/* Chips de resumen */}
         {mce && (
           <div className="flex flex-wrap gap-1.5 items-center">
             {volatility && (
@@ -281,7 +276,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
               Consenso {consensus}/100
             </span>
             <span className="text-[10px] text-zinc-400 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-2 py-0.5">
-              P50 {mce.p50Goals}g · P80 {mce.p80Goals}g
+              Local {mce.p50Goals}g · Visitante {mce.p80Goals}g
             </span>
           </div>
         )}
@@ -327,8 +322,8 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
       <div className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
         <AlertTriangle className="h-3.5 w-3.5 text-amber-500/60 shrink-0 mt-0.5" />
         <p className="text-[11px] text-zinc-600 leading-relaxed">
-          Predicciones estadísticas del motor Monte Carlo — no garantizan el resultado ni constituyen
-          asesoramiento financiero. Apuesta responsablemente. +18.
+          Recomendaciones basadas en forma reciente y estadísticas del modelo — no garantizan el resultado
+          ni constituyen asesoramiento financiero. Apuesta responsablemente. +18.
         </p>
       </div>
     </div>
@@ -358,14 +353,13 @@ function BetCard({
       )
       if (dbOdd?.odds_value) return { bk, val: Number(dbOdd.odds_value), fromDb: true }
     }
-    // Fallback: cálculo Poisson con margen real
     const fairProb = marketId != null ? (fairProbsMap[marketId] ?? null) : null
     const val = fairProb != null ? calcRefOdd(fairProb, bk, marketId!) : null
     return { bk, val, fromDb: false }
   })
 
-  const bestVal   = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
-  const hasCoOdds = coOdds.some((x) => x.val != null)
+  const bestVal    = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
+  const hasCoOdds  = coOdds.some((x) => x.val != null)
   const hasRealOdds = coOdds.some((x) => x.fromDb)
 
   return (
@@ -406,22 +400,22 @@ function BetCard({
           </div>
         </div>
 
-        {/* Evidencia MC */}
+        {/* Evidencia de forma */}
         <div className="grid grid-cols-4 gap-px rounded-lg overflow-hidden bg-zinc-800/40 border border-zinc-800/60 text-center">
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P50</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles L.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P80</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles V.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P95</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles Tot.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">+ frec.</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Resultado</p>
             <p className="text-xs font-bold text-zinc-300 mt-0.5">
               {rec.mcEvidence.topScore}
               <span className="text-zinc-600 font-normal text-[9px] ml-0.5">({rec.mcEvidence.topScoreFreq}%)</span>
@@ -447,9 +441,9 @@ function BetCard({
           </div>
         )}
 
-        {/* Frecuencia MC */}
+        {/* Frecuencia de forma */}
         <div className="flex items-center gap-2 pt-0.5">
-          <span className="text-[9px] text-zinc-600 uppercase tracking-wider shrink-0 w-20">MC frecuencia</span>
+          <span className="text-[9px] text-zinc-600 uppercase tracking-wider shrink-0 w-20">Frec. forma</span>
           <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full rounded-full" style={{ width: `${rec.mcFrequency}%`, backgroundColor: cfg.stroke }} />
           </div>

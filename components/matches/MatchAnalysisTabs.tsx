@@ -11,6 +11,7 @@ import { OddsComparisonTable } from './OddsComparisonTable'
 import { LineupDisplay } from './LineupDisplay'
 import { InjuriesPanel } from './InjuriesPanel'
 import { SmartBetsPanel } from './SmartBetsPanel'
+import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
 import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
@@ -38,6 +39,8 @@ interface Props {
   awayStats: any | null
   injuries: any[]
   odds: any[]
+  homeRecentMatches?: MatchFormEntry[]
+  awayRecentMatches?: MatchFormEntry[]
 }
 
 export function MatchAnalysisTabs({
@@ -48,6 +51,8 @@ export function MatchAnalysisTabs({
   awayStats,
   injuries,
   odds,
+  homeRecentMatches,
+  awayRecentMatches,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -173,6 +178,8 @@ export function MatchAnalysisTabs({
             match={match}
             injuries={injuries}
             odds={odds}
+            homeRecentMatches={homeRecentMatches}
+            awayRecentMatches={awayRecentMatches}
           />
         )}
 

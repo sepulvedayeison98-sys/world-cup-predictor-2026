@@ -3,9 +3,64 @@ import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { MatchHeader } from '@/components/matches/MatchHeader'
 import { MatchAnalysisTabs } from '@/components/matches/MatchAnalysisTabs'
+import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+async function fetchTeamForm(
+  supabase: any,
+  teamId: string,
+  excludeMatchId: string,
+): Promise<MatchFormEntry[]> {
+  const { data } = await supabase
+    .from('matches')
+    .select(`
+      id, kickoff_time, home_score, away_score, home_team_id, away_team_id,
+      home_team:teams!matches_home_team_id_fkey(name, short_name),
+      away_team:teams!matches_away_team_id_fkey(name, short_name),
+      match_statistics(team_id, shots, shots_on_target, corners, fouls,
+        yellow_cards, red_cards, possession, xg, xga, big_chances)
+    `)
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+    .eq('status', 'finished')
+    .neq('id', excludeMatchId)
+    .order('kickoff_time', { ascending: false })
+    .limit(6)
+
+  if (!data) return []
+
+  return (data as any[]).map((m) => {
+    const isHome    = m.home_team_id === teamId
+    const teamScore = isHome ? (m.home_score ?? 0) : (m.away_score ?? 0)
+    const oppScore  = isHome ? (m.away_score ?? 0) : (m.home_score ?? 0)
+    const opp       = isHome ? m.away_team : m.home_team
+    const stats     = (m.match_statistics ?? []).find((s: any) => s.team_id === teamId)
+    const result: 'W' | 'D' | 'L' = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'D'
+
+    return {
+      kickoff_time:    m.kickoff_time,
+      result,
+      goals_scored:    teamScore,
+      goals_conceded:  oppScore,
+      is_clean_sheet:  oppScore === 0,
+      btts:            teamScore > 0 && oppScore > 0,
+      over_2_5:        (teamScore + oppScore) > 2,
+      over_1_5:        (teamScore + oppScore) > 1,
+      opponent_name:   opp?.short_name ?? opp?.name ?? 'Oponente',
+      xg:              stats?.xg              ?? null,
+      xga:             stats?.xga             ?? null,
+      shots:           stats?.shots           ?? null,
+      shots_on_target: stats?.shots_on_target ?? null,
+      corners:         stats?.corners         ?? null,
+      yellow_cards:    stats?.yellow_cards    ?? null,
+      red_cards:       stats?.red_cards       ?? null,
+      fouls:           stats?.fouls           ?? null,
+      possession:      stats?.possession      ?? null,
+      big_chances:     stats?.big_chances     ?? null,
+    } satisfies MatchFormEntry
+  })
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -52,12 +107,16 @@ export default async function MatchDetailPage({ params }: Props) {
 
   const m = match as any
 
-  // Injuries require team IDs from the match row
-  const { data: injuriesData } = await supabase
-    .from('injuries')
-    .select('*, player:players(name, short_name, position, photo_url)')
-    .in('team_id', [m.home_team_id, m.away_team_id])
-    .eq('is_active', true)
+  // Injuries y forma reciente en paralelo
+  const [{ data: injuriesData }, homeRecentMatches, awayRecentMatches] = await Promise.all([
+    supabase
+      .from('injuries')
+      .select('*, player:players(name, short_name, position, photo_url)')
+      .in('team_id', [m.home_team_id, m.away_team_id])
+      .eq('is_active', true),
+    fetchTeamForm(supabase, m.home_team_id, id),
+    fetchTeamForm(supabase, m.away_team_id, id),
+  ])
 
   // PostgREST returns predictions as object (UNIQUE match_id); handle array too
   const prediction = Array.isArray(m.predictions)
@@ -88,6 +147,8 @@ export default async function MatchDetailPage({ params }: Props) {
         awayStats={awayStats}
         injuries={injuriesData ?? []}
         odds={odds}
+        homeRecentMatches={homeRecentMatches}
+        awayRecentMatches={awayRecentMatches}
       />
     </div>
   )
