@@ -244,6 +244,12 @@ export function MatchesTable() {
   const [pageIndex, setPageIndex] = useState(0)
   const PAGE_SIZE = 15
 
+  // Por defecto muestra los partidos del día actual
+  const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+  const dateParam = searchParams.get('date') ?? todayStr
+  const date_from = `${dateParam}T00:00:00`
+  const date_to   = `${dateParam}T23:59:59`
+
   const filters = {
     search: searchParams.get('q') ?? undefined,
     status: searchParams.get('status') ? [searchParams.get('status') as any] : undefined,
@@ -252,10 +258,12 @@ export function MatchesTable() {
     min_confidence: searchParams.get('confidence')
       ? parseInt(searchParams.get('confidence')!)
       : undefined,
+    date_from,
+    date_to,
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['matches', filters, pageIndex],
+    queryKey: ['matches', filters, dateParam, pageIndex],
     queryFn: () => matchesService.getMatchesWithPredictions(filters, pageIndex + 1, PAGE_SIZE),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
@@ -270,16 +278,17 @@ export function MatchesTable() {
   const hasOtherFilters = Boolean(
     filters.search || filters.group_id || filters.team_id || filters.min_confidence
   )
+  const isToday = dateParam === todayStr
   const emptyMessage =
     hasOtherFilters
       ? 'No hay partidos que coincidan con los filtros actuales.'
       : activeStatus === 'live'
-        ? 'No hay partidos en vivo en este momento. Esta vista se llenará automáticamente cuando un partido esté en juego.'
+        ? 'No hay partidos en vivo en este momento.'
         : activeStatus === 'finished'
-          ? 'Todavía no hay partidos finalizados.'
-          : activeStatus === 'scheduled'
-            ? 'No hay partidos programados.'
-            : 'No hay partidos con los filtros actuales.'
+          ? 'No hay partidos finalizados en esta fecha.'
+          : isToday
+            ? 'No hay partidos programados para hoy.'
+            : `No hay partidos programados para el ${new Date(`${dateParam}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long' })}.`
 
   const table = useReactTable({
     data: (data?.data ?? []) as MatchRow[],
