@@ -1,20 +1,20 @@
 name: Sync cuotas + recalibracion
 
-# Cada 8 horas (3 veces al dia): ingesta cuotas (The Odds API) y recalibra las predicciones
-# con el consenso de mercado. Frecuencia conservadora para no agotar la cuota
-# gratis (500/mes). Resiliente: reintenta ante errores transitorios y no marca
-# la corrida en rojo por un fallo puntual. Requiere secrets: APP_URL y CRON_SECRET.
+# Cada 4 horas: ingesta cuotas de Pinnacle (via The Odds API) y recalibra
+# las predicciones con el consenso de mercado.
+# Cuota API gratuita: 500 req/mes → cada 4h = ~180 req/mes, dentro del limite.
+# Requiere secrets: APP_URL, CRON_SECRET.
 
 on:
   schedule:
-    - cron: "0 */8 * * *"
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 jobs:
   odds:
     runs-on: ubuntu-latest
     steps:
-      - name: Sincronizar cuotas y recalibrar predicciones
+      - name: Sincronizar cuotas Pinnacle y derivar CO
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
