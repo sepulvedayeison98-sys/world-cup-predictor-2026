@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Sparkles, AlertTriangle, CheckCircle, XCircle, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -8,6 +9,7 @@ import {
   type SmartBetCategory,
   type SmartBetRecommendation,
   type VolatilityLevel,
+  type MatchFormEntry,
 } from '@/lib/smartBetsEngine'
 
 // ─── Configuración visual por tier ─────────────────────────────────────────────
@@ -46,6 +48,100 @@ const VOLATILITY: Record<VolatilityLevel, { label: string; text: string; bg: str
   HIGH_VOLATILITY:   { label: 'Alta volatilidad',  text: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20'        },
 }
 
+// ─── Cálculo de cuotas de referencia ─────────────────────────────────────────
+
+function poissonCDF(lambda: number, n: number): number {
+  if (lambda <= 0) return n >= 0 ? 1 : 0
+  let cum = 0, term = Math.exp(-Math.min(lambda, 30))
+  for (let i = 0; i <= n; i++) { cum += term; term *= lambda / (i + 1) }
+  return Math.min(1, cum)
+}
+
+function computeFairProbs(
+  prediction: any,
+  homeStats: any,
+  awayStats: any,
+  match: any,
+): Record<string, number> {
+  const lH = Math.max(0.1, prediction.predicted_home_score ?? 1.2)
+  const lA = Math.max(0.1, prediction.predicted_away_score ?? 0.9)
+
+  const isKo = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place']
+    .includes(match?.phase ?? '')
+  const gm = isKo ? 0.88 : 1.0
+  const aH = lH * gm
+  const aA = lA * gm
+  const lt = aH + aA
+
+  const lCorners = ((homeStats?.avg_corners ?? 4.5) + (awayStats?.avg_corners ?? 4.0)) * (isKo ? 0.93 : 1.0)
+  const lCards   = (homeStats?.avg_yellow_cards ?? 1.8) + (awayStats?.avg_yellow_cards ?? 1.8) + (isKo ? 0.5 : 0)
+  const lShots   = (homeStats?.avg_shots_on_target ?? 3.5) + (awayStats?.avg_shots_on_target ?? 3.2)
+
+  return {
+    home_win:           prediction.home_win_probability ?? 0.33,
+    draw:               prediction.draw_probability     ?? 0.33,
+    away_win:           prediction.away_win_probability ?? 0.33,
+    dc_1x:              1 - (prediction.away_win_probability ?? 0.33),
+    dc_x2:              1 - (prediction.home_win_probability ?? 0.33),
+    over_0_5:           1 - poissonCDF(lt, 0),
+    over_1_5:           1 - poissonCDF(lt, 1),
+    over_2_5:           1 - poissonCDF(lt, 2),
+    over_3_5:           1 - poissonCDF(lt, 3),
+    btts_yes:           (1 - Math.exp(-aH)) * (1 - Math.exp(-aA)),
+    btts_no:            1 - (1 - Math.exp(-aH)) * (1 - Math.exp(-aA)),
+    clean_sheet_home:   Math.exp(-aA),
+    clean_sheet_away:   Math.exp(-aH),
+    corners_8_5:        1 - poissonCDF(lCorners, 8),
+    corners_9_5:        1 - poissonCDF(lCorners, 9),
+    corners_10_5:       1 - poissonCDF(lCorners, 10),
+    cards_2_5:          1 - poissonCDF(lCards, 2),
+    cards_3_5:          1 - poissonCDF(lCards, 3),
+    cards_4_5:          1 - poissonCDF(lCards, 4),
+    shots_ot_5_5:       1 - poissonCDF(lShots, 5),
+    shots_ot_7_5:       1 - poissonCDF(lShots, 7),
+  }
+}
+
+type MarketClass = '3way' | '2way' | 'secondary'
+
+const BOOK_MARGINS: Record<string, Record<MarketClass, number>> = {
+  Betplay: { '3way': 0.075, '2way': 0.090, secondary: 0.110 },
+  Wplay:   { '3way': 0.065, '2way': 0.080, secondary: 0.100 },
+  Betson:  { '3way': 0.085, '2way': 0.095, secondary: 0.120 },
+}
+
+function getMarketClass(marketId: string): MarketClass {
+  if (['home_win', 'draw', 'away_win'].includes(marketId)) return '3way'
+  if (marketId.startsWith('corners_') || marketId.startsWith('cards_') || marketId.startsWith('shots_ot_'))
+    return 'secondary'
+  return '2way'
+}
+
+function calcRefOdd(fairProb: number, bookmaker: string, marketId: string): number | null {
+  if (fairProb <= 0.05 || fairProb >= 0.90) return null
+  const margins = BOOK_MARGINS[bookmaker]
+  if (!margins) return null
+  const margin = margins[getMarketClass(marketId)]
+  const impliedProb = fairProb * (1 + margin)
+  if (impliedProb >= 1) return null
+  const odd = Math.round((1 / impliedProb) * 100) / 100
+  if (odd < 1.10) return null
+  return odd
+}
+
+const REC_TO_MARKET: Record<string, string> = {
+  home_win: 'home_win', draw: 'draw', away_win: 'away_win',
+  dc_1x: 'dc_1x', dc_x2: 'dc_x2',
+  over_0_5: 'over_0_5', over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
+  btts_yes: 'btts_yes', btts_no: 'btts_no',
+  cs_home: 'clean_sheet_home', cs_away: 'clean_sheet_away',
+  corners_8_5: 'corners_8_5', corners_9_5: 'corners_9_5', corners_10_5: 'corners_10_5',
+  cards_2_5: 'cards_2_5', cards_3_5: 'cards_3_5', cards_4_5: 'cards_4_5',
+  shots_ot_5_5: 'shots_ot_5_5', shots_ot_7_5: 'shots_ot_7_5',
+}
+
+const CO_BOOKS = ['Betplay', 'Wplay', 'Betson'] as const
+
 // ─── Gauge circular SVG ────────────────────────────────────────────────────────
 
 const R   = 38
@@ -77,20 +173,36 @@ function ConfidenceGauge({ confidence, tier }: { confidence: number; tier: Smart
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 interface Props {
-  prediction: any | null
-  homeStats:  any | null
-  awayStats:  any | null
-  match:      any
-  injuries:   any[]
-  odds?:      any[]
+  prediction:         any | null
+  homeStats:          any | null
+  awayStats:          any | null
+  match:              any
+  injuries:           any[]
+  odds?:              any[]
+  homeRecentMatches?: MatchFormEntry[]
+  awayRecentMatches?: MatchFormEntry[]
 }
 
-export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuries, odds }: Props) {
+export function SmartBetsPanel({
+  prediction, homeStats, awayStats, match, injuries, odds,
+  homeRecentMatches, awayRecentMatches,
+}: Props) {
   const homeTeam = match?.home_team
   const awayTeam = match?.away_team
 
-  const recs = computeSmartBets(
-    prediction, homeStats, awayStats, homeTeam, awayTeam, injuries, match, odds,
+  const recs = useMemo(
+    () => computeSmartBets(
+      prediction, homeStats, awayStats, homeTeam, awayTeam, injuries,
+      match, odds, homeRecentMatches, awayRecentMatches,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prediction?.id, homeStats, awayStats, homeTeam?.id, awayTeam?.id, match?.id, injuries, odds, homeRecentMatches, awayRecentMatches],
+  )
+
+  const fairProbsMap = useMemo(
+    () => prediction ? computeFairProbs(prediction, homeStats, awayStats, match) : {},
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prediction?.id, homeStats, awayStats, match?.id],
   )
 
   const volatility = recs[0]?.volatility
@@ -143,15 +255,15 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
           <div>
-            <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor Monte Carlo</h3>
+            <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor de Forma</h3>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              {mce ? mce.simulations.toLocaleString() : '50.000'} simulaciones ·
-              top {recs.length} mercados por ventaja matemática
+              {mce ? `Últimos ${mce.simulations} partidos analizados` : 'Análisis basado en forma reciente'} ·
+              top {recs.length} mercados
             </p>
           </div>
         </div>
 
-        {/* MC summary chips */}
+        {/* Chips de resumen */}
         {mce && (
           <div className="flex flex-wrap gap-1.5 items-center">
             {volatility && (
@@ -164,7 +276,7 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
               Consenso {consensus}/100
             </span>
             <span className="text-[10px] text-zinc-400 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-2 py-0.5">
-              P50 {mce.p50Goals}g · P80 {mce.p80Goals}g
+              Local {mce.p50Goals}g · Visitante {mce.p80Goals}g
             </span>
           </div>
         )}
@@ -203,15 +315,15 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
       {/* Recommendation cards */}
       {recs.map((rec) => (
-        <BetCard key={rec.id} rec={rec} />
+        <BetCard key={rec.id} rec={rec} fairProbsMap={fairProbsMap} odds={odds} />
       ))}
 
       {/* Disclaimer */}
       <div className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
         <AlertTriangle className="h-3.5 w-3.5 text-amber-500/60 shrink-0 mt-0.5" />
         <p className="text-[11px] text-zinc-600 leading-relaxed">
-          Predicciones estadísticas del motor Monte Carlo — no garantizan el resultado ni constituyen
-          asesoramiento financiero. Apuesta responsablemente. +18.
+          Recomendaciones basadas en forma reciente y estadísticas del modelo — no garantizan el resultado
+          ni constituyen asesoramiento financiero. Apuesta responsablemente. +18.
         </p>
       </div>
     </div>
@@ -220,8 +332,35 @@ export function SmartBetsPanel({ prediction, homeStats, awayStats, match, injuri
 
 // ─── Tarjeta individual ────────────────────────────────────────────────────────
 
-function BetCard({ rec }: { rec: SmartBetRecommendation }) {
+function BetCard({
+  rec,
+  fairProbsMap,
+  odds,
+}: {
+  rec: SmartBetRecommendation
+  fairProbsMap: Record<string, number>
+  odds?: any[]
+}) {
   const cfg = TIER[rec.tier]
+
+  const marketId = REC_TO_MARKET[rec.id]
+
+  // Preferir cuotas reales de BD (derivadas de Pinnacle) sobre el cálculo Poisson
+  const coOdds = CO_BOOKS.map((bk) => {
+    if (marketId && odds?.length) {
+      const dbOdd = odds.find(
+        (o: any) => o.market === marketId && o.bookmaker === bk && o.odds_value > 1.05,
+      )
+      if (dbOdd?.odds_value) return { bk, val: Number(dbOdd.odds_value), fromDb: true }
+    }
+    const fairProb = marketId != null ? (fairProbsMap[marketId] ?? null) : null
+    const val = fairProb != null ? calcRefOdd(fairProb, bk, marketId!) : null
+    return { bk, val, fromDb: false }
+  })
+
+  const bestVal    = coOdds.reduce((max, x) => (x.val != null && x.val > max ? x.val : max), 0)
+  const hasCoOdds  = coOdds.some((x) => x.val != null)
+  const hasRealOdds = coOdds.some((x) => x.fromDb)
 
   return (
     <div className={cn('card overflow-hidden border', cfg.border)}>
@@ -248,7 +387,7 @@ function BetCard({ rec }: { rec: SmartBetRecommendation }) {
                 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
                 : 'text-zinc-500 bg-zinc-800/40 border-zinc-700/40',
             )}>
-              Edge {rec.edge > 0 ? '+' : ''}{rec.edge.toFixed(1)}%
+              Ventaja {rec.edge > 0 ? '+' : ''}{rec.edge.toFixed(1)}%
             </span>
           )}
         </div>
@@ -261,22 +400,22 @@ function BetCard({ rec }: { rec: SmartBetRecommendation }) {
           </div>
         </div>
 
-        {/* Evidencia MC */}
+        {/* Evidencia de forma */}
         <div className="grid grid-cols-4 gap-px rounded-lg overflow-hidden bg-zinc-800/40 border border-zinc-800/60 text-center">
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P50</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles L.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P80</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles V.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">P95</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}g</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles Tot.</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">+ frec.</p>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Resultado</p>
             <p className="text-xs font-bold text-zinc-300 mt-0.5">
               {rec.mcEvidence.topScore}
               <span className="text-zinc-600 font-normal text-[9px] ml-0.5">({rec.mcEvidence.topScoreFreq}%)</span>
@@ -302,14 +441,50 @@ function BetCard({ rec }: { rec: SmartBetRecommendation }) {
           </div>
         )}
 
-        {/* Frecuencia MC */}
+        {/* Frecuencia de forma */}
         <div className="flex items-center gap-2 pt-0.5">
-          <span className="text-[9px] text-zinc-600 uppercase tracking-wider shrink-0 w-20">MC frecuencia</span>
+          <span className="text-[9px] text-zinc-600 uppercase tracking-wider shrink-0 w-20">Frec. forma</span>
           <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full rounded-full" style={{ width: `${rec.mcFrequency}%`, backgroundColor: cfg.stroke }} />
           </div>
           <span className={cn('text-[10px] font-bold mono shrink-0', cfg.text)}>{rec.mcFrequency}%</span>
         </div>
+
+        {/* Cuotas Colombia — reales (Pinnacle) cuando están disponibles, estimadas como fallback */}
+        {hasCoOdds && (
+          <div className="border-t border-zinc-800/50 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">
+                {hasRealOdds ? 'Cuotas Colombia' : 'Cuotas ref. Colombia'}
+              </p>
+              <p className="text-[8px] text-zinc-700 italic">
+                {hasRealOdds ? 'Pinnacle → margen real' : 'modelo Poisson · verificar'}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {coOdds.map(({ bk, val }) => {
+                const isBest = val != null && val === bestVal
+                return (
+                  <div
+                    key={bk}
+                    className={cn(
+                      'rounded-lg px-2 py-2 text-center border',
+                      isBest
+                        ? 'bg-emerald-500/8 border-emerald-500/25'
+                        : 'bg-zinc-900/50 border-zinc-800/50',
+                    )}
+                  >
+                    <p className="text-[9px] font-semibold text-zinc-500 truncate">{bk}</p>
+                    <p className={cn('text-base font-bold mono mt-0.5 leading-tight', isBest ? 'text-emerald-400' : 'text-zinc-300')}>
+                      {val != null ? val.toFixed(2) : '—'}
+                    </p>
+                    {isBest && <p className="text-[8px] text-emerald-600 font-medium mt-0.5">mayor cuota</p>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

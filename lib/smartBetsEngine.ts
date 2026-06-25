@@ -1,21 +1,18 @@
 /**
- * Smart Bets AI Engine v2 — Motor de Decisión Inteligente
+ * Smart Bets AI Engine v3 — Motor basado en forma reciente
  *
- * Arquitectura de 9 capas:
- *   Capa 1: Recolección y normalización de señales
- *   Capa 2: Motor Monte Carlo (50.000 simulaciones reales)
- *   Capa 3: Score de consenso entre modelos
- *   Capa 4: Detector de volatilidad/incertidumbre
+ * Arquitectura:
+ *   Capa 1: Recolección y normalización de señales de forma (últimos 5-6 partidos)
+ *   Capa 2: processTeamForm — pesos de recencia para calcular métricas ponderadas
+ *   Capa 3: Score de consenso basado en calidad de datos
+ *   Capa 4: Detector de volatilidad basado en desviación estándar de goles
  *   Capa 5: Motor de edge vs mercado
- *   Capa 6: Generador dinámico de candidatos
- *   Capa 7: Explicabilidad — evidencia MC por recomendación
- *   Capa 8: Ranking por ventaja matemática (no por categoría)
- *   Capa 9: Diversidad — máximo 1 por familia de mercado
- *
- * Reemplaza el sistema de reglas estáticas anterior.
- * Las recomendaciones son determinadas por las distribuciones reales
- * de las simulaciones, no por plantillas fijas.
+ *   Capa 6: Generador dinámico de candidatos (scorers por mercado)
+ *   Capa 7: Ranking por confianza descendente
+ *   Capa 8: Diversidad — máximo 1 por familia de mercado, top 5
  */
+
+import { getMatchContext } from '@/lib/matchContext'
 
 // ─── Tipos exportados ─────────────────────────────────────────────────────────
 
@@ -24,13 +21,13 @@ export type SmartBetCategory = 'resultado' | 'goles' | 'porteria' | 'corners' | 
 export type VolatilityLevel  = 'LOW_VOLATILITY' | 'MEDIUM_VOLATILITY' | 'HIGH_VOLATILITY'
 
 export interface MCEvidence {
-  simulations:  number  // N simulaciones ejecutadas
-  p50Goals:     number  // mediana de goles totales
-  p80Goals:     number  // percentil 80 de goles totales
-  p95Goals:     number  // percentil 95 de goles totales
-  stdDev:       number  // desviación estándar de goles totales
-  topScore:     string  // marcador más frecuente "H-A"
-  topScoreFreq: number  // % de simulaciones con ese marcador
+  simulations:  number  // total de partidos recientes (h.n + a.n)
+  p50Goals:     number  // media ponderada de goles local (repropuesto)
+  p80Goals:     number  // media ponderada de goles visitante (repropuesto)
+  p95Goals:     number  // goles combinados local + visitante (repropuesto)
+  stdDev:       number  // desviación estándar de goles del local
+  topScore:     string  // resultado más frecuente del local en forma
+  topScoreFreq: number  // % de ocurrencia del resultado más frecuente
 }
 
 export interface SmartBetRecommendation {
@@ -41,15 +38,89 @@ export interface SmartBetRecommendation {
   confidence:     number           // probabilidad modelo × 100
   tier:           SmartBetTier
   edge:           number | null    // % ventaja vs mercado (null si sin cuotas)
-  mcFrequency:    number           // % simulaciones donde la apuesta gana
-  consensusScore: number           // 0-100 acuerdo entre modelos
+  mcFrequency:    number           // frecuencia de forma ponderada (%)
+  consensusScore: number           // 0-100 basado en calidad de datos
   volatility:     VolatilityLevel
   mcEvidence:     MCEvidence
   justification:  string
   factors:        { for: string[]; against: string[] }
 }
 
-// ─── Utilidades internas ───────────────────────────────────────────────────────
+export interface MatchFormEntry {
+  kickoff_time:     string
+  result:           'W' | 'D' | 'L'
+  goals_scored:     number
+  goals_conceded:   number
+  is_clean_sheet:   boolean
+  btts:             boolean
+  over_2_5:         boolean
+  over_1_5:         boolean
+  opponent_name:    string
+  xg:               number | null
+  xga:              number | null
+  shots:            number | null
+  shots_on_target:  number | null
+  corners:          number | null
+  yellow_cards:     number | null
+  red_cards:        number | null
+  fouls:            number | null
+  possession:       number | null
+  big_chances:      number | null
+}
+
+// ─── Tipos internos ───────────────────────────────────────────────────────────
+
+interface TeamFormData {
+  name:           string
+  n:              number
+  goalsScored:    number
+  xg:             number
+  shots:          number
+  shotsOT:        number
+  bigChances:     number
+  corners:        number
+  goalsConceded:  number
+  xga:            number
+  yellowCards:    number
+  fouls:          number
+  possession:     number
+  winFreq:        number
+  drawFreq:       number
+  lossFreq:       number
+  cleanSheetFreq: number
+  bttsFreq:       number
+  over15Freq:     number
+  over25Freq:     number
+  goalsStdDev:    number
+  topResult:      string
+  topResultFreq:  number
+}
+
+interface Candidate {
+  id:            string
+  label:         string
+  category:      SmartBetCategory
+  confidence:    number   // 0-100
+  freq:          number   // frecuencia de forma ponderada (0-1)
+  justification: string
+  factors:       { for: string[]; against: string[] }
+}
+
+// ─── Pesos de recencia ────────────────────────────────────────────────────────
+
+const WEIGHTS_5 = [0.35, 0.25, 0.18, 0.12, 0.10]
+const WEIGHTS_6 = [0.30, 0.22, 0.18, 0.14, 0.10, 0.06]
+
+function getWeights(n: number): number[] {
+  if (n >= 6) return WEIGHTS_6
+  if (n === 5) return WEIGHTS_5
+  // Para n < 5: normalizar los primeros n pesos del set de 5
+  const raw = WEIGHTS_5.slice(0, n)
+  const sum  = raw.reduce((s, w) => s + w, 0)
+  return raw.map(w => w / sum)
+}
+
+// ─── Utilidades ───────────────────────────────────────────────────────────────
 
 function toTier(c: number): SmartBetTier {
   if (c >= 90) return 'premium'
@@ -59,7 +130,7 @@ function toTier(c: number): SmartBetTier {
   return 'evitar'
 }
 
-/** P(X > k) Poisson analítico — solo para corners/tarjetas/disparos */
+/** P(X > k) Poisson analítico */
 function poissonOver(lambda: number, k: number): number {
   if (lambda <= 0) return 0
   let cum = 0, term = Math.exp(-lambda)
@@ -67,125 +138,18 @@ function poissonOver(lambda: number, k: number): number {
   return Math.max(0, Math.min(1, 1 - cum))
 }
 
-function formScore(form: string[] | null | undefined): number {
-  if (!form?.length) return 0.5
-  const r = form.slice(-5)
-  return r.reduce((s, x) => s + (x === 'W' ? 1 : x === 'D' ? 0.5 : 0), 0) / r.length
-}
-
-function formStr(form: string[] | null | undefined): string {
-  if (!form?.length) return ''
-  return form.slice(-5).join(' ')
-}
-
-function pct(sorted: number[], p: number): number {
-  if (!sorted.length) return 0
-  return sorted[Math.min(Math.floor(p * (sorted.length - 1)), sorted.length - 1)]
-}
-
 function fmt1(x: number): string { return x.toFixed(1) }
 function fmt2(x: number): string { return x.toFixed(2) }
-function pctStr(x: number): string { return `${Math.round(x * 1000) / 10}%` }
 
-// ─── CAPA 2: Motor Monte Carlo ────────────────────────────────────────────────
-
-interface MCRun {
-  homeWin:    number   // conteo
-  draw:       number
-  awayWin:    number
-  bothScored: number
-  totalDist:  number[] // sorted asc
-  homeDist:   number[] // sorted asc
-  awayDist:   number[] // sorted asc
-  exactScores: Map<string, number>
-  N:          number
+function calcStdDev(values: number[]): number {
+  if (values.length < 2) return 0
+  const mean = values.reduce((s, v) => s + v, 0) / values.length
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length
+  return Math.sqrt(variance)
 }
 
-/** Muestreo Poisson (método Knuth). Promedio = lambda iteraciones. */
-function samplePoisson(lambda: number): number {
-  if (lambda <= 0) return 0
-  const L = Math.exp(-Math.min(lambda, 20))
-  let k = 0, p = 1
-  do { k++; p *= Math.random() } while (p > L && k < 25)
-  return k - 1
-}
+// ─── Motor de edge vs mercado ─────────────────────────────────────────────────
 
-function runMC(lH: number, lA: number, N: number): MCRun {
-  let homeWin = 0, draw = 0, awayWin = 0, bothScored = 0
-  const totalDist = new Array<number>(N)
-  const homeDist  = new Array<number>(N)
-  const awayDist  = new Array<number>(N)
-  const exactScores = new Map<string, number>()
-
-  for (let i = 0; i < N; i++) {
-    const h = samplePoisson(lH)
-    const a = samplePoisson(lA)
-    totalDist[i] = h + a
-    homeDist[i]  = h
-    awayDist[i]  = a
-    if (h > a)       homeWin++
-    else if (h < a)  awayWin++
-    else             draw++
-    if (h > 0 && a > 0) bothScored++
-    const key = `${h}-${a}`
-    exactScores.set(key, (exactScores.get(key) ?? 0) + 1)
-  }
-
-  totalDist.sort((a, b) => a - b)
-  homeDist.sort((a, b) => a - b)
-  awayDist.sort((a, b) => a - b)
-
-  return { homeWin, draw, awayWin, bothScored, totalDist, homeDist, awayDist, exactScores, N }
-}
-
-function extractMCEvidence(mc: MCRun, N: number): MCEvidence {
-  const p50Goals = pct(mc.totalDist, 0.50)
-  const p80Goals = pct(mc.totalDist, 0.80)
-  const p95Goals = pct(mc.totalDist, 0.95)
-  const mean = mc.totalDist.reduce((s, v) => s + v, 0) / N
-  const variance = mc.totalDist.reduce((s, v) => s + (v - mean) ** 2, 0) / N
-  const stdDev = Math.round(Math.sqrt(variance) * 100) / 100
-
-  let topKey = '1-0', topCount = 0
-  for (const [k, c] of mc.exactScores) {
-    if (c > topCount) { topCount = c; topKey = k }
-  }
-
-  return {
-    simulations: N,
-    p50Goals, p80Goals, p95Goals, stdDev,
-    topScore: topKey,
-    topScoreFreq: Math.round(topCount / N * 1000) / 10,
-  }
-}
-
-// ─── CAPA 3: Consenso entre modelos ──────────────────────────────────────────
-
-function consensusScore(prediction: any, homeWin: number, draw: number, awayWin: number): number {
-  const base   = prediction.confidence_score ?? 60              // 40..95
-  const maxP   = Math.max(homeWin, draw, awayWin)
-  const dec    = Math.max(0, (maxP - 1 / 3) * 3)               // 0..1 decisiveness
-  return Math.round(Math.min(100, Math.max(0, base * 0.60 + dec * 40)))
-}
-
-// ─── CAPA 4: Detector de volatilidad ─────────────────────────────────────────
-
-function detectVolatility(mc: MCRun, N: number): VolatilityLevel {
-  const mean     = mc.totalDist.reduce((s, v) => s + v, 0) / N
-  const variance = mc.totalDist.reduce((s, v) => s + (v - mean) ** 2, 0) / N
-  const stdDev   = Math.sqrt(variance)
-  let topCount   = 0
-  for (const c of mc.exactScores.values()) { if (c > topCount) topCount = c }
-  const topConc  = topCount / N
-
-  if (stdDev < 1.25 && topConc > 0.18) return 'LOW_VOLATILITY'
-  if (stdDev > 1.85 || topConc < 0.10) return 'HIGH_VOLATILITY'
-  return 'MEDIUM_VOLATILITY'
-}
-
-// ─── CAPA 5: Motor de edge ────────────────────────────────────────────────────
-
-/** Construye mapa market → implied_prob tomando siempre la cuota más favorable. */
 function buildOddsMap(odds: any[]): Map<string, number> {
   const map = new Map<string, number>()
   for (const o of odds ?? []) {
@@ -198,39 +162,13 @@ function buildOddsMap(odds: any[]): Map<string, number> {
   return map
 }
 
-function edge(modelProb: number, oddsMap: Map<string, number>, market: string): number | null {
+function calcEdge(modelProb: number, oddsMap: Map<string, number>, market: string): number | null {
   const implied = oddsMap.get(market)
   if (implied == null) return null
   return Math.round((modelProb - implied) * 1000) / 10
 }
 
-// ─── CAPA 6-8: Candidatos + Ranking ──────────────────────────────────────────
-
-interface Candidate {
-  id:        string
-  label:     string
-  category:  SmartBetCategory
-  prob:      number          // probabilidad modelo (0..1)
-  edgePct:   number | null
-  analytic:  boolean         // true = corners/tarjetas (sin MC directo)
-  justParts: string[]
-  factors:   { for: string[]; against: string[] }
-}
-
-function rankScore(c: Candidate, consensus: number, hasOdds: boolean): number {
-  const base     = c.prob
-  const edgeB    = c.edgePct != null && c.edgePct > 0 ? c.edgePct / 100 : 0
-  const consB    = consensus / 100
-  const analyticPenalty = c.analytic ? 0.08 : 0  // MC evidence > analytic
-
-  if (hasOdds && c.edgePct != null) {
-    return base * 0.40 + edgeB * 0.35 + consB * 0.25 - analyticPenalty
-  }
-  if (c.analytic) {
-    return base * 0.55 + consB * 0.20 - analyticPenalty
-  }
-  return base * 0.60 + consB * 0.40
-}
+// ─── Deduplicación por familia ────────────────────────────────────────────────
 
 function family(id: string): string {
   if (id.startsWith('over_'))     return 'over_goals'
@@ -238,446 +176,628 @@ function family(id: string): string {
   if (id.startsWith('corners_'))  return 'corners'
   if (id.startsWith('cards_'))    return 'cards'
   if (id.startsWith('shots_ot_')) return 'shots_ot'
-  if (id === 'btts_yes' || id === 'btts_no') return 'btts'
   if (id.startsWith('cs_'))       return 'clean_sheet'
-  if (id.startsWith('dc_'))       return 'dc'
+  if (id.startsWith('dc_'))       return 'double_chance'
+  if (id.startsWith('btts_'))     return 'btts'
   return id
+}
+
+// ─── processTeamForm ──────────────────────────────────────────────────────────
+
+/**
+ * Procesa las entradas de forma del equipo con pesos de recencia.
+ * Si n === 0, usa fallbackStats de team_statistics.
+ */
+function processTeamForm(
+  entries: MatchFormEntry[],
+  fallbackStats: any,
+  teamName: string,
+): TeamFormData {
+  // Tomar máximo 6 partidos, ordenados del más reciente al más antiguo
+  const recent = entries.slice(0, 6)
+  const n      = recent.length
+
+  if (n === 0) {
+    // Fallback completo a estadísticas de BD
+    const gs  = fallbackStats?.avg_goals_scored   ?? 1.2
+    const gc  = fallbackStats?.avg_goals_conceded ?? 1.0
+    const xg  = fallbackStats?.avg_xg             ?? gs * 0.9
+    const xga = fallbackStats?.avg_xga            ?? gc * 0.9
+    return {
+      name:           teamName,
+      n:              0,
+      goalsScored:    gs,
+      xg,
+      shots:          fallbackStats?.avg_shots ?? 10,
+      shotsOT:        fallbackStats?.avg_shots_on_target ?? 3.5,
+      bigChances:     2,
+      corners:        fallbackStats?.avg_corners ?? 4.5,
+      goalsConceded:  gc,
+      xga,
+      yellowCards:    fallbackStats?.avg_yellow_cards ?? 1.8,
+      fouls:          14,
+      possession:     50,
+      winFreq:        0.45,
+      drawFreq:       0.25,
+      lossFreq:       0.30,
+      cleanSheetFreq: 0.30,
+      bttsFreq:       0.50,
+      over15Freq:     0.65,
+      over25Freq:     0.45,
+      goalsStdDev:    0.9,
+      topResult:      'V',
+      topResultFreq:  45,
+    }
+  }
+
+  const weights = getWeights(n)
+
+  // Promedios ponderados de valores numéricos
+  function wavg(vals: (number | null)[], fallback: number): number {
+    let wSum = 0, total = 0
+    for (let i = 0; i < n; i++) {
+      const v = vals[i]
+      if (v != null && !isNaN(v)) { total += v * weights[i]; wSum += weights[i] }
+    }
+    return wSum > 0 ? total / wSum : fallback
+  }
+
+  // Frecuencias ponderadas (binario: sí/no)
+  function wfreq(flags: boolean[]): number {
+    let total = 0
+    for (let i = 0; i < n; i++) total += (flags[i] ? 1 : 0) * weights[i]
+    return total  // ya normalizado porque sum(weights) ~ 1
+  }
+
+  const goalsScoredArr = recent.map(e => e.goals_scored)
+  const xgArr          = recent.map(e => e.xg)
+  const shotsArr       = recent.map(e => e.shots)
+  const shotsOTArr     = recent.map(e => e.shots_on_target)
+  const bigChancesArr  = recent.map(e => e.big_chances)
+  const cornersArr     = recent.map(e => e.corners)
+  const goalsConcArr   = recent.map(e => e.goals_conceded)
+  const xgaArr         = recent.map(e => e.xga)
+  const yellowArr      = recent.map(e => e.yellow_cards)
+  const foulsArr       = recent.map(e => e.fouls)
+  const possArr        = recent.map(e => e.possession)
+
+  const goalsScored   = wavg(goalsScoredArr, 1.2)
+  const goalsConceded = wavg(goalsConcArr, 1.0)
+
+  // xG: usar datos de forma primero, fallback a stats, luego estimación
+  const hasXg = xgArr.some(v => v != null)
+  let xg: number
+  if (hasXg) {
+    xg = wavg(xgArr, goalsScored * 0.9)
+  } else if (fallbackStats?.avg_xg != null) {
+    xg = fallbackStats.avg_xg
+  } else {
+    xg = goalsScored * 0.9
+  }
+
+  // xGA
+  const hasXga = xgaArr.some(v => v != null)
+  let xga: number
+  if (hasXga) {
+    xga = wavg(xgaArr, goalsConceded * 0.9)
+  } else if (fallbackStats?.avg_xga != null) {
+    xga = fallbackStats.avg_xga
+  } else {
+    xga = goalsConceded * 0.9
+  }
+
+  // Corners: fallback a stats si todos nulos
+  const hasCorners = cornersArr.some(v => v != null)
+  const corners    = hasCorners
+    ? wavg(cornersArr, fallbackStats?.avg_corners ?? 4.5)
+    : (fallbackStats?.avg_corners ?? 4.5)
+
+  const shots       = wavg(shotsArr, fallbackStats?.avg_shots ?? 10)
+  const shotsOT     = wavg(shotsOTArr, fallbackStats?.avg_shots_on_target ?? 3.5)
+  const bigChances  = wavg(bigChancesArr, 2)
+  const yellowCards = wavg(yellowArr, fallbackStats?.avg_yellow_cards ?? 1.8)
+  const fouls       = wavg(foulsArr, 14)
+  const possession  = wavg(possArr, 50)
+
+  // Frecuencias ponderadas de resultado
+  const winFreq        = wfreq(recent.map(e => e.result === 'W'))
+  const drawFreq       = wfreq(recent.map(e => e.result === 'D'))
+  const lossFreq       = wfreq(recent.map(e => e.result === 'L'))
+  const cleanSheetFreq = wfreq(recent.map(e => e.is_clean_sheet))
+  const bttsFreq       = wfreq(recent.map(e => e.btts))
+  const over15Freq     = wfreq(recent.map(e => e.over_1_5))
+  const over25Freq     = wfreq(recent.map(e => e.over_2_5))
+
+  // Resultado más frecuente (mayor peso acumulado)
+  const resultBuckets: Record<string, number> = { W: 0, D: 0, L: 0 }
+  for (let i = 0; i < n; i++) resultBuckets[recent[i].result] += weights[i]
+  const topResult     = Object.entries(resultBuckets).sort((x, y) => y[1] - x[1])[0][0]
+  const topResultFreq = Math.round(resultBuckets[topResult] * 100)
+
+  // Desviación estándar de goles anotados
+  const goalsStdDev = calcStdDev(goalsScoredArr)
+
+  return {
+    name: teamName, n,
+    goalsScored, xg, shots, shotsOT, bigChances, corners,
+    goalsConceded, xga, yellowCards, fouls, possession,
+    winFreq, drawFreq, lossFreq,
+    cleanSheetFreq, bttsFreq, over15Freq, over25Freq,
+    goalsStdDev, topResult, topResultFreq,
+  }
+}
+
+// ─── Market scorers ───────────────────────────────────────────────────────────
+
+/**
+ * Over goals: over_0_5, over_1_5, over_2_5, over_3_5
+ */
+function scoreOver(
+  h: TeamFormData,
+  a: TeamFormData,
+  goals: number,
+  marketId: string,
+  label: string,
+): Candidate {
+  // Goles esperados combinados
+  const expected = (h.goalsScored + a.goalsConceded + a.goalsScored + h.goalsConceded) / 2
+
+  // Frecuencia base en over_2_5, ajustada para otras líneas
+  let adjustedFreq = (h.over25Freq + a.over25Freq) / 2
+  if (goals <= 0.5)       adjustedFreq = Math.min(0.99, adjustedFreq + 0.40)
+  else if (goals <= 1.5)  adjustedFreq = Math.min(0.99, adjustedFreq + 0.20)
+  else if (goals >= 3.5)  adjustedFreq = Math.max(0.01, adjustedFreq - 0.20)
+
+  // Referencia de goles según línea
+  const goalRef = Math.max(0.5, goals)
+
+  // Bonus si hay datos reales de forma
+  const dataBonus = (h.n >= 3 && a.n >= 3) ? 5 : 0
+
+  // Confianza compuesta
+  const raw = (expected / goalRef) * 30 + adjustedFreq * 50 + (h.shotsOT / 12) * 15 + dataBonus
+  const confidence = Math.min(94, Math.round(raw))
+
+  const fFor: string[] = []
+  const fAg: string[]  = []
+
+  if (h.goalsScored > 1.5)
+    fFor.push(`${h.name} marcó ${fmt1(h.goalsScored)} goles por partido en sus últimos ${h.n || 5} partidos`)
+  if (a.goalsScored > 1.2)
+    fFor.push(`${a.name} marcó ${fmt1(a.goalsScored)} goles por partido en sus últimos ${a.n || 5} partidos`)
+  if (adjustedFreq >= 0.60)
+    fFor.push(`El Over ${goals} ocurrió en el ${Math.round(adjustedFreq * 100)}% de los partidos recientes combinados`)
+  if (expected > goals + 0.5)
+    fFor.push(`Goles esperados combinados: ${fmt1(expected)} — supera el umbral`)
+  if (h.shotsOT > 4.5)
+    fFor.push(`${h.name} genera ${fmt1(h.shotsOT)} disparos a puerta por partido`)
+  if (goals > 2 && expected < goals + 0.3)
+    fAg.push(`Goles esperados (${fmt1(expected)}) muy ajustados al umbral ${goals}`)
+  if (h.goalsConceded < 0.7 || a.goalsConceded < 0.7)
+    fAg.push('Una de las defensas es muy sólida — puede limitar los goles')
+
+  return {
+    id: marketId, label, category: 'goles',
+    confidence, freq: adjustedFreq,
+    justification: [
+      `${h.name} marcó ${fmt1(h.goalsScored)} goles/p · ${a.name} marcó ${fmt1(a.goalsScored)} goles/p en forma reciente.`,
+      `Goles esperados combinados: ${fmt1(expected)}.`,
+      `Over ${goals} en ${Math.round(adjustedFreq * 100)}% de partidos recientes.`,
+      `${h.name} concede ${fmt1(h.goalsConceded)}/p · ${a.name} concede ${fmt1(a.goalsConceded)}/p.`,
+    ].join(' '),
+    factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+  }
+}
+
+/**
+ * Ambos marcan (BTTS)
+ */
+function scoreBtts(h: TeamFormData, a: TeamFormData, isYes: boolean): Candidate {
+  const freq         = (h.bttsFreq + a.bttsFreq) / 2
+  const adjustedFreq = isYes ? freq : 1 - freq
+
+  let confidence: number
+  const fFor: string[] = []
+  const fAg: string[]  = []
+
+  if (isYes) {
+    const scoringSignal   = Math.min(1, (h.goalsScored / 1.5 + a.goalsScored / 1.5) / 2)
+    const defenseWeakness = Math.min(1, (h.goalsConceded / 1.2 + a.goalsConceded / 1.2) / 2)
+    const raw = adjustedFreq * 55 + scoringSignal * 25 + defenseWeakness * 15 + (h.n >= 3 && a.n >= 3 ? 5 : 0)
+    confidence = Math.min(90, Math.round(raw))
+
+    if (h.goalsScored > 1.2)
+      fFor.push(`${h.name} marcó ${fmt1(h.goalsScored)} goles por partido en forma reciente`)
+    if (a.goalsScored > 1.0)
+      fFor.push(`${a.name} marcó ${fmt1(a.goalsScored)} goles por partido en forma reciente`)
+    if (freq >= 0.55)
+      fFor.push(`Ambos marcaron en el ${Math.round(freq * 100)}% de los partidos combinados recientes`)
+    if (h.goalsConceded < 0.7)
+      fAg.push(`${h.name} es muy sólido defensivamente (${fmt1(h.goalsConceded)} goles concedidos/p)`)
+    if (a.goalsScored < 0.8)
+      fAg.push(`${a.name} genera poco en ataque (${fmt1(a.goalsScored)} goles/p)`)
+  } else {
+    const csSignal    = Math.min(1, (h.cleanSheetFreq + a.cleanSheetFreq) / 2)
+    const defStrength = Math.min(1, 1 - (h.goalsConceded + a.goalsConceded) / 4)
+    const raw = adjustedFreq * 55 + csSignal * 25 + defStrength * 15 + (h.n >= 3 && a.n >= 3 ? 5 : 0)
+    confidence = Math.min(90, Math.round(raw))
+
+    const csFreqCombined = (h.cleanSheetFreq + a.cleanSheetFreq) / 2
+    if (csFreqCombined >= 0.30)
+      fFor.push(`Las defensas mantienen portería a cero en el ${Math.round(csFreqCombined * 100)}% de sus partidos`)
+    if (h.goalsConceded < 0.9)
+      fFor.push(`${h.name} concede solo ${fmt1(h.goalsConceded)} goles por partido`)
+    if (a.goalsConceded < 0.9)
+      fFor.push(`${a.name} concede solo ${fmt1(a.goalsConceded)} goles por partido`)
+    if (freq >= 0.55)
+      fAg.push(`Ambos marcaron en el ${Math.round(freq * 100)}% de sus partidos recientes`)
+    if (h.goalsScored > 1.5 && a.goalsScored > 1.3)
+      fAg.push('Ambos equipos tienen buen poder ofensivo')
+  }
+
+  const idStr  = isYes ? 'btts_yes' : 'btts_no'
+  const lblStr = isYes ? 'Ambos equipos marcan' : 'No marcan los dos'
+
+  return {
+    id: idStr, label: lblStr, category: 'goles',
+    confidence, freq: adjustedFreq,
+    justification: isYes
+      ? `${h.name} marcó en ${Math.round(h.bttsFreq * 100)}% · ${a.name} en ${Math.round(a.bttsFreq * 100)}% de sus partidos recientes. BTTS ocurrió en ${Math.round(freq * 100)}% de los partidos combinados.`
+      : `${h.name} portería a cero en ${Math.round(h.cleanSheetFreq * 100)}% · ${a.name} en ${Math.round(a.cleanSheetFreq * 100)}% de sus partidos recientes. No-BTTS: ${Math.round(adjustedFreq * 100)}% combinado.`,
+    factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+  }
+}
+
+/**
+ * Portería a cero
+ * homeTeamCS = true → puntuar portería a cero del equipo local; false → visitante
+ */
+function scoreCleanSheet(h: TeamFormData, a: TeamFormData, homeTeamCS: boolean): Candidate {
+  const defTeam = homeTeamCS ? h : a
+  const attTeam = homeTeamCS ? a : h
+  const teamId  = homeTeamCS ? 'cs_home' : 'cs_away'
+  const teamLbl = homeTeamCS ? `${h.name} portería a cero` : `${a.name} portería a cero`
+
+  const csBase   = defTeam.cleanSheetFreq
+  const attPower = Math.min(1, attTeam.goalsScored / 2.0)
+  const defStr   = Math.max(0, 1 - defTeam.goalsConceded / 1.5)
+
+  const raw = csBase * 55 + defStr * 25 + (1 - attPower) * 15 + (defTeam.n >= 3 ? 5 : 0)
+  const confidence = Math.min(88, Math.round(raw))
+
+  const fFor: string[] = []
+  const fAg: string[]  = []
+
+  if (csBase >= 0.35)
+    fFor.push(`${defTeam.name} mantiene portería a cero en el ${Math.round(csBase * 100)}% de sus últimos partidos`)
+  if (defTeam.goalsConceded < 0.9)
+    fFor.push(`${defTeam.name} concede solo ${fmt1(defTeam.goalsConceded)} goles por partido`)
+  if (attTeam.goalsScored > 1.5)
+    fAg.push(`${attTeam.name} marcó ${fmt1(attTeam.goalsScored)} goles/p — amenaza real`)
+  if (attTeam.xg > 1.3)
+    fAg.push(`${attTeam.name} genera ${fmt2(attTeam.xg)} xG por partido`)
+
+  return {
+    id: teamId, label: teamLbl, category: 'porteria',
+    confidence, freq: csBase,
+    justification: `${defTeam.name} mantiene portería a cero en el ${Math.round(csBase * 100)}% de sus últimos ${defTeam.n || 5} partidos. Concede ${fmt1(defTeam.goalsConceded)} goles/p. ${attTeam.name} anota ${fmt1(attTeam.goalsScored)} goles/p.`,
+    factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+  }
+}
+
+/**
+ * Corners — solo si hay datos reales de forma
+ */
+function scoreCorners(
+  h: TeamFormData,
+  a: TeamFormData,
+  line: number,
+  marketId: string,
+): Candidate | null {
+  if (h.corners <= 0 && a.corners <= 0) return null
+
+  const totalCorners = h.corners + a.corners
+  const probOver     = poissonOver(totalCorners, Math.floor(line))
+  const confidence   = Math.min(88, Math.round(probOver * 100))
+
+  return {
+    id: marketId, label: `Más de ${line} corners`, category: 'corners',
+    confidence, freq: probOver,
+    justification: `${h.name} promedió ${fmt1(h.corners)} corners/p · ${a.name} promedió ${fmt1(a.corners)} corners/p en forma reciente. Total esperado: ${fmt1(totalCorners)}. P(>${line}): ${Math.round(probOver * 100)}%.`,
+    factors: {
+      for:     [`Media combinada de corners: ${fmt1(totalCorners)}/p`],
+      against: [totalCorners < line + 0.5 ? `Media muy ajustada al umbral ${line}` : ''].filter(Boolean),
+    },
+  }
+}
+
+/**
+ * Tarjetas amarillas
+ */
+function scoreCards(
+  h: TeamFormData,
+  a: TeamFormData,
+  line: number,
+  marketId: string,
+  isKnockout: boolean,
+): Candidate {
+  const totalCards = h.yellowCards + a.yellowCards + (isKnockout ? 0.6 : 0)
+  const probOver   = poissonOver(totalCards, Math.floor(line))
+  const confidence = Math.min(88, Math.round(probOver * 100))
+
+  return {
+    id: marketId, label: `Más de ${line} amarillas`, category: 'tarjetas',
+    confidence, freq: probOver,
+    justification: `${h.name} recibió ${fmt1(h.yellowCards)} amarillas/p · ${a.name} ${fmt1(a.yellowCards)} amarillas/p en forma reciente.${isKnockout ? ' Eliminatoria (+0.6 ajuste tensión).' : ''} Total esperado: ${fmt1(totalCards)}. P(>${line}): ${Math.round(probOver * 100)}%.`,
+    factors: {
+      for:     [`Media combinada: ${fmt1(totalCards)} amarillas/p`, isKnockout ? 'Eliminatoria — mayor tensión' : ''].filter(Boolean),
+      against: [totalCards < line + 0.5 ? 'Media muy ajustada al umbral' : ''].filter(Boolean),
+    },
+  }
+}
+
+/**
+ * Resultado 1X2
+ */
+function scoreResult(
+  h: TeamFormData,
+  a: TeamFormData,
+  prediction: any,
+  market: 'home_win' | 'draw' | 'away_win',
+): Candidate {
+  const modelProb =
+    market === 'home_win' ? (prediction.home_win_probability ?? 0.33) :
+    market === 'draw'     ? (prediction.draw_probability     ?? 0.33) :
+                            (prediction.away_win_probability ?? 0.33)
+
+  const formFreq =
+    market === 'home_win' ? h.winFreq  :
+    market === 'draw'     ? (h.drawFreq + a.drawFreq) / 2 :
+                            a.winFreq
+
+  // Blend: si ambos equipos tienen >= 3 partidos, mezclar al 50/50
+  const bothHaveForm = h.n >= 3 && a.n >= 3
+  const blended      = bothHaveForm ? modelProb * 0.5 + formFreq * 0.5 : modelProb
+  const confidence   = Math.round(Math.min(92, blended * 100))
+
+  const fFor: string[] = []
+  const fAg: string[]  = []
+
+  if (market === 'home_win') {
+    if (h.winFreq >= 0.55)
+      fFor.push(`${h.name} ganó el ${Math.round(h.winFreq * 100)}% de sus últimos ${h.n || 5} partidos`)
+    if (h.goalsScored > 1.5)
+      fFor.push(`${h.name} marcó ${fmt1(h.goalsScored)} goles por partido en forma reciente`)
+    if (a.goalsConceded > 1.2)
+      fFor.push(`${a.name} concede ${fmt1(a.goalsConceded)} goles por partido`)
+    if (h.lossFreq > 0.3)
+      fAg.push(`${h.name} perdió el ${Math.round(h.lossFreq * 100)}% de sus partidos recientes`)
+    if (a.winFreq >= 0.50)
+      fAg.push(`${a.name} también llega en buena forma (${Math.round(a.winFreq * 100)}% victorias)`)
+    return {
+      id: 'home_win', label: `${h.name} gana`, category: 'resultado',
+      confidence, freq: formFreq,
+      justification: `${h.name} ganó el ${Math.round(h.winFreq * 100)}% de sus últimos ${h.n || 5} partidos. Modelo asigna ${Math.round(modelProb * 100)}% de probabilidad. Blend forma+modelo: ${confidence}%.`,
+      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+    }
+  }
+
+  if (market === 'draw') {
+    const avgFormDraw = (h.drawFreq + a.drawFreq) / 2
+    if (avgFormDraw >= 0.25)
+      fFor.push(`Empate ocurrió en ${Math.round(avgFormDraw * 100)}% de los partidos combinados`)
+    if (Math.abs(h.goalsScored - a.goalsScored) < 0.3)
+      fFor.push(`Ataque equilibrado: ${h.name} ${fmt1(h.goalsScored)} goles/p · ${a.name} ${fmt1(a.goalsScored)} goles/p`)
+    if (h.winFreq > 0.55)
+      fAg.push(`${h.name} gana con frecuencia (${Math.round(h.winFreq * 100)}%)`)
+    if (a.winFreq > 0.55)
+      fAg.push(`${a.name} también gana con frecuencia (${Math.round(a.winFreq * 100)}%)`)
+    return {
+      id: 'draw', label: 'Empate', category: 'resultado',
+      confidence, freq: formFreq,
+      justification: `Empate registrado en ${Math.round(h.drawFreq * 100)}% de partidos de ${h.name} y ${Math.round(a.drawFreq * 100)}% de ${a.name} en forma reciente. Modelo: ${Math.round(modelProb * 100)}%. Blend: ${confidence}%.`,
+      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+    }
+  }
+
+  // away_win
+  if (a.winFreq >= 0.55)
+    fFor.push(`${a.name} ganó el ${Math.round(a.winFreq * 100)}% de sus últimos ${a.n || 5} partidos`)
+  if (a.goalsScored > 1.5)
+    fFor.push(`${a.name} marcó ${fmt1(a.goalsScored)} goles por partido en forma reciente`)
+  if (h.goalsConceded > 1.2)
+    fFor.push(`${h.name} concede ${fmt1(h.goalsConceded)} goles por partido`)
+  if (a.lossFreq > 0.3)
+    fAg.push(`${a.name} perdió el ${Math.round(a.lossFreq * 100)}% de sus partidos recientes`)
+  if (h.winFreq >= 0.55)
+    fAg.push(`${h.name} gana en casa con frecuencia (${Math.round(h.winFreq * 100)}%)`)
+  return {
+    id: 'away_win', label: `${a.name} gana`, category: 'resultado',
+    confidence, freq: formFreq,
+    justification: `${a.name} ganó el ${Math.round(a.winFreq * 100)}% de sus últimos ${a.n || 5} partidos. Modelo asigna ${Math.round(modelProb * 100)}% de probabilidad. Blend forma+modelo: ${confidence}%.`,
+    factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
+  }
+}
+
+/**
+ * Doble oportunidad
+ */
+function scoreDoubleChance(
+  h: TeamFormData,
+  a: TeamFormData,
+  prediction: any,
+  market: 'dc_1x' | 'dc_x2',
+): Candidate {
+  const homeWin = prediction.home_win_probability ?? 0.33
+  const draw    = prediction.draw_probability     ?? 0.33
+  const awayWin = prediction.away_win_probability ?? 0.33
+
+  if (market === 'dc_1x') {
+    const modelProb    = homeWin + draw
+    const formNotLoss  = 1 - a.winFreq
+    const bothHaveForm = h.n >= 3 && a.n >= 3
+    const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
+    const confidence   = Math.round(Math.min(96, blended * 100))
+
+    return {
+      id: 'dc_1x', label: `${h.name} o empate (1X)`, category: 'resultado',
+      confidence, freq: formNotLoss,
+      justification: `Cubre victoria local (${Math.round(homeWin * 100)}%) + empate (${Math.round(draw * 100)}%) = ${Math.round(modelProb * 100)}% del modelo. ${h.name} no perdió en el ${Math.round(formNotLoss * 100)}% de sus partidos recientes.`,
+      factors: {
+        for: [
+          `Cubre ${Math.round(modelProb * 100)}% de los escenarios del modelo`,
+          h.n > 0 ? `${h.name} no perdió en ${Math.round(formNotLoss * 100)}% de sus partidos` : '',
+        ].filter(Boolean),
+        against: [awayWin > 0.38 ? `${a.name} gana en el ${Math.round(awayWin * 100)}% del modelo` : ''].filter(Boolean),
+      },
+    }
+  }
+
+  // dc_x2
+  const modelProb    = draw + awayWin
+  const formNotLoss  = 1 - h.winFreq
+  const bothHaveForm = h.n >= 3 && a.n >= 3
+  const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
+  const confidence   = Math.round(Math.min(96, blended * 100))
+
+  return {
+    id: 'dc_x2', label: `${a.name} o empate (X2)`, category: 'resultado',
+    confidence, freq: formNotLoss,
+    justification: `Cubre empate (${Math.round(draw * 100)}%) + victoria visitante (${Math.round(awayWin * 100)}%) = ${Math.round(modelProb * 100)}% del modelo. ${a.name} no perdió en el ${Math.round(formNotLoss * 100)}% de sus partidos recientes.`,
+    factors: {
+      for: [
+        `Cubre ${Math.round(modelProb * 100)}% de los escenarios del modelo`,
+        a.n > 0 ? `${a.name} no perdió en ${Math.round(formNotLoss * 100)}% de sus partidos` : '',
+      ].filter(Boolean),
+      against: [homeWin > 0.38 ? `${h.name} gana en el ${Math.round(homeWin * 100)}% del modelo` : ''].filter(Boolean),
+    },
+  }
 }
 
 // ─── Función principal ────────────────────────────────────────────────────────
 
 /**
  * Genera las 5 mejores oportunidades de apuesta para el partido,
- * ordenadas por ventaja matemática real (edge + MC + consenso).
- * Cada recomendación es única: las distribuciones MC del partido
- * determinan qué mercados aparecen, no plantillas fijas.
+ * basadas en la forma reciente de los últimos 5-6 partidos con pesos de recencia.
  */
 export function computeSmartBets(
-  prediction: any,
-  homeStats:  any,
-  awayStats:  any,
-  homeTeam:   any,
-  awayTeam:   any,
-  injuries:   any[],
-  match?:     any,
-  odds?:      any[],
-  simCount = 50_000,
+  prediction:         any,
+  homeStats:          any,
+  awayStats:          any,
+  homeTeam:           any,
+  awayTeam:           any,
+  injuries:           any[],
+  match?:             any,
+  odds?:              any[],
+  homeRecentMatches?: MatchFormEntry[],
+  awayRecentMatches?: MatchFormEntry[],
 ): SmartBetRecommendation[] {
   if (!prediction) return []
 
-  // ── CAPA 1: Señales ─────────────────────────────────────────────────────────
+  const homeName = homeTeam?.short_name ?? homeTeam?.name ?? 'Local'
+  const awayName = awayTeam?.short_name ?? awayTeam?.name ?? 'Visitante'
+
+  // ── Capa 1: Procesar forma reciente ──────────────────────────────────────────
+  const h = processTeamForm(homeRecentMatches ?? [], homeStats, homeName)
+  const a = processTeamForm(awayRecentMatches ?? [], awayStats, awayName)
+
+  // ── Contexto de partido ───────────────────────────────────────────────────────
+  const ctx = getMatchContext(match)
+  const { isKnockout } = ctx
+
+  // ── Capa 3: Consenso basado en calidad de datos ──────────────────────────────
+  const dataPoints        = h.n + a.n
+  const confScore         = prediction.confidence_score ?? 60
+  const consensusScoreVal = Math.round(Math.min(100, (dataPoints / 12) * 50 + confScore * 0.5))
+
+  // ── Capa 4: Volatilidad ───────────────────────────────────────────────────────
+  const avgStd = (h.goalsStdDev + a.goalsStdDev) / 2
+  const minN   = Math.min(h.n, a.n)
+  let volatility: VolatilityLevel
+  if (avgStd < 0.8 && minN >= 4)      volatility = 'LOW_VOLATILITY'
+  else if (avgStd > 1.5 || minN < 2)  volatility = 'HIGH_VOLATILITY'
+  else                                 volatility = 'MEDIUM_VOLATILITY'
+
+  // ── Evidencia de forma (repropuesta en MCEvidence) ────────────────────────────
+  const mce: MCEvidence = {
+    simulations:  h.n + a.n,
+    p50Goals:     Math.round(h.goalsScored * 10) / 10,
+    p80Goals:     Math.round(a.goalsScored * 10) / 10,
+    p95Goals:     Math.round((h.goalsScored + a.goalsScored) * 10) / 10,
+    stdDev:       Math.round(h.goalsStdDev * 100) / 100,
+    topScore:     h.topResult,
+    topScoreFreq: h.topResultFreq,
+  }
+
+  // ── Capa 5: Odds ──────────────────────────────────────────────────────────────
+  const oddsMap = buildOddsMap(odds ?? [])
+
+  // ── Capa 6: Candidatos ────────────────────────────────────────────────────────
+  const candidates: Candidate[] = []
+
+  function add(c: Candidate | null) {
+    if (c && c.confidence >= 55) candidates.push(c)
+  }
+
+  // Resultado 1X2
+  add(scoreResult(h, a, prediction, 'home_win'))
+  add(scoreResult(h, a, prediction, 'draw'))
+  add(scoreResult(h, a, prediction, 'away_win'))
+
+  // Doble oportunidad
   const homeWin = prediction.home_win_probability ?? 0.33
   const draw    = prediction.draw_probability     ?? 0.33
   const awayWin = prediction.away_win_probability ?? 0.33
+  if (homeWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_1x'))
+  if (awayWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
 
-  const homeXG      = homeStats?.avg_xg              ?? Math.max(0.5, prediction.predicted_home_score ?? 1.2)
-  const awayXG      = awayStats?.avg_xg              ?? Math.max(0.5, prediction.predicted_away_score ?? 0.9)
-  const homeXGA     = homeStats?.avg_xga             ?? Math.max(0.5, prediction.predicted_away_score ?? 0.9)
-  const awayXGA     = awayStats?.avg_xga             ?? Math.max(0.5, prediction.predicted_home_score ?? 1.2)
-  const homeGoals   = homeStats?.avg_goals_scored    ?? Math.max(0.5, prediction.predicted_home_score ?? 1.2)
-  const awayGoals   = awayStats?.avg_goals_scored    ?? Math.max(0.5, prediction.predicted_away_score ?? 0.9)
-  const homeCorners = homeStats?.avg_corners         ?? 4.5
-  const awayCorners = awayStats?.avg_corners         ?? 4.0
-  const homeYellow  = homeStats?.avg_yellow_cards    ?? 1.5
-  const awayYellow  = awayStats?.avg_yellow_cards    ?? 1.5
-  const homeShotsOT = homeStats?.avg_shots_on_target ?? 3.5
-  const awayShotsOT = awayStats?.avg_shots_on_target ?? 3.0
+  // Goles
+  add(scoreOver(h, a, 0.5, 'over_0_5', 'Más de 0.5 goles'))
+  add(scoreOver(h, a, 1.5, 'over_1_5', 'Más de 1.5 goles'))
+  add(scoreOver(h, a, 2.5, 'over_2_5', 'Más de 2.5 goles'))
+  add(scoreOver(h, a, 3.5, 'over_3_5', 'Más de 3.5 goles'))
 
-  const eloDiff   = (homeTeam?.elo_rating ?? 1500) - (awayTeam?.elo_rating ?? 1500)
-  const homeName  = homeTeam?.short_name ?? homeTeam?.name ?? 'Local'
-  const awayName  = awayTeam?.short_name ?? awayTeam?.name ?? 'Visitante'
+  // BTTS
+  add(scoreBtts(h, a, true))
+  add(scoreBtts(h, a, false))
 
-  const homeInj = injuries.filter((i: any) => i.team_id === homeTeam?.id)
-  const awayInj = injuries.filter((i: any) => i.team_id === awayTeam?.id)
-  const homeInjImpact = homeInj.reduce((s: number, i: any) => s + (i.impact_score ?? 0), 0)
-  const awayInjImpact = awayInj.reduce((s: number, i: any) => s + (i.impact_score ?? 0), 0)
-  const homeKeyDown   = homeInj.filter((i: any) => i.impact_score >= 7)
-  const awayKeyDown   = awayInj.filter((i: any) => i.impact_score >= 7)
+  // Portería a cero
+  add(scoreCleanSheet(h, a, true))
+  add(scoreCleanSheet(h, a, false))
 
-  const phase      = match?.phase ?? 'group'
-  const isKnockout = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
-  const homeRest   = match?.home_rest_days ?? 4
-  const awayRest   = match?.away_rest_days ?? 4
-  const weather    = (match?.weather_condition ?? '').toLowerCase()
-  const isBadW     = /rain|wet|storm|wind|drizzle/i.test(weather)
-  const tempC      = match?.weather_temp_celsius ?? 22
-  const isHot      = tempC > 32
-
-  const homeFS   = formScore(homeStats?.form)
-  const awayFS   = formScore(awayStats?.form)
-  const homeFStr = formStr(homeStats?.form)
-  const awayFStr = formStr(awayStats?.form)
-
-  // ── CAPA 2: Monte Carlo ──────────────────────────────────────────────────────
-  // Lambdas desde xG (más preciso que el entero redondeado de predicted_home_score)
-  const rawLH = Math.max(0.15, (homeXG + awayXGA) / 2)
-  const rawLA = Math.max(0.15, (awayXG + homeXGA) / 2)
-
-  // Ajuste contextual sobre lambdas (igual que el motor predictivo)
-  const goalMult = (isKnockout ? 0.92 : 1.0) * (isBadW ? 0.97 : 1.0) * (isHot ? 0.97 : 1.0)
-  const lH = rawLH * goalMult
-  const lA = rawLA * goalMult
-
-  const mc  = runMC(lH, lA, simCount)
-  const N   = mc.N
-  const mce = extractMCEvidence(mc, N)
-
-  // Probabilidades MC por mercado de goles
-  const mcHomeWin   = mc.homeWin    / N
-  const mcDraw      = mc.draw       / N
-  const mcAwayWin   = mc.awayWin    / N
-  const mcBothScore = mc.bothScored / N
-  const mcOver05    = mc.totalDist.filter(g => g > 0).length / N
-  const mcOver15    = mc.totalDist.filter(g => g > 1).length / N
-  const mcOver25    = mc.totalDist.filter(g => g > 2).length / N
-  const mcOver35    = mc.totalDist.filter(g => g > 3).length / N
-  const mcCS_home   = mc.awayDist.filter(g => g === 0).length / N
-  const mcCS_away   = mc.homeDist.filter(g => g === 0).length / N
-  const mcDC_1X     = mcHomeWin + mcDraw
-  const mcDC_X2     = mcDraw    + mcAwayWin
-
-  // Analíticos (corners, tarjetas, disparos — lambdas independientes)
-  const expCorners  = (homeCorners + awayCorners) * (isBadW ? 1.04 : 1.0)
-  const expYellow   = homeYellow + awayYellow
-  const expShotsOT  = homeShotsOT + awayShotsOT
-
-  // ── CAPA 3: Consenso ────────────────────────────────────────────────────────
-  const consensus = consensusScore(prediction, homeWin, draw, awayWin)
-
-  // ── CAPA 4: Volatilidad ─────────────────────────────────────────────────────
-  const volatility = detectVolatility(mc, N)
-
-  // ── CAPA 5: Odds ────────────────────────────────────────────────────────────
-  const oddsMap = buildOddsMap(odds ?? [])
-  const hasOdds = oddsMap.size > 0
-
-  // ── CAPA 6: Candidatos ──────────────────────────────────────────────────────
-  const candidates: Candidate[] = []
-
-  function add(c: Candidate) {
-    if (c.prob >= 0.05) candidates.push(c)
-  }
-
-  const xGCombined = homeXG + awayXG
-
-  // ─ RESULTADO 1X2 ──────────────────────────────────────────────────────────
-
-  {
-    const injF  = homeInjImpact > 15 ? 0.96 : 1.0
-    const restF = homeRest < 3 ? 0.96 : 1.0
-    const formF = homeFS >= 0.7 ? 1.02 : homeFS <= 0.3 ? 0.97 : 1.0
-    const prob  = Math.min(0.96, mcHomeWin * injF * restF * formF)
-    const e     = edge(prob, oddsMap, 'home_win')
-
-    const fFor: string[] = [], fAg: string[] = []
-    if (eloDiff > 80)   fFor.push(`Ventaja ELO significativa (+${eloDiff} pts)`)
-    if (homeXG > awayXGA * 1.2) fFor.push(`xG superior a defensa rival (${fmt2(homeXG)} vs ${fmt2(awayXGA)})`)
-    if (homeFS >= 0.7 && homeFStr) fFor.push(`Forma reciente: ${homeFStr}`)
-    if (consensus >= 75) fFor.push(`Consenso de modelos alto (${consensus}/100)`)
-    if (homeRest < 3) fAg.push(`Solo ${homeRest}d descanso — fatiga posible`)
-    if (Math.abs(eloDiff) < 60) fAg.push('ELO equilibrado — partido abierto')
-    if (homeKeyDown.length) fAg.push(`Baja clave: ${homeKeyDown[0].player?.short_name ?? 'jugador'}`)
-    if (volatility === 'HIGH_VOLATILITY') fAg.push('Alta dispersión MC — resultado incierto')
-
-    add({
-      id: 'home_win', label: `${homeName} gana`, category: 'resultado',
-      prob, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `${homeName} ganó en ${pctStr(mcHomeWin)} de ${N.toLocaleString()} simulaciones.`,
-        `Marcador más frecuente: ${mce.topScore} (${mce.topScoreFreq}% de sim.).`,
-        `xG local: ${fmt2(homeXG)} · xGA rival: ${fmt2(awayXGA)}.`,
-        `Consenso: ${consensus}/100.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  {
-    const drawMult = isKnockout ? 1.04 : 1.0
-    const prob     = Math.min(0.96, mcDraw * drawMult)
-    const e        = edge(prob, oddsMap, 'draw')
-
-    const fFor: string[] = [], fAg: string[] = []
-    if (Math.abs(eloDiff) < 60)  fFor.push(`Equipos igualados por ELO (dif. ${Math.abs(eloDiff)} pts)`)
-    if (Math.abs(homeXG - awayXG) < 0.35) fFor.push(`xG casi idéntico (${fmt2(homeXG)} vs ${fmt2(awayXG)})`)
-    if (isKnockout)              fFor.push('Eliminatoria — equipos más conservadores')
-    if (mce.p50Goals <= 1)       fFor.push(`P50 de goles = ${mce.p50Goals} — partido muy ajustado`)
-    if (Math.abs(eloDiff) > 120) fAg.push('Gran diferencia de nivel — empate menos probable')
-    if (homeWin > 0.50 || awayWin > 0.50) fAg.push('El motor favorece claramente a un equipo')
-
-    add({
-      id: 'draw', label: 'Empate', category: 'resultado',
-      prob, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `Empate en ${pctStr(mcDraw)} de ${N.toLocaleString()} simulaciones.`,
-        `P50 goles totales: ${mce.p50Goals} · P80: ${mce.p80Goals}.`,
-        `Consenso: ${consensus}/100.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  {
-    const injF  = awayInjImpact > 15 ? 0.96 : 1.0
-    const restF = awayRest < 3 ? 0.96 : 1.0
-    const formF = awayFS >= 0.7 ? 1.02 : awayFS <= 0.3 ? 0.97 : 1.0
-    const prob  = Math.min(0.96, mcAwayWin * injF * restF * formF)
-    const e     = edge(prob, oddsMap, 'away_win')
-
-    const fFor: string[] = [], fAg: string[] = []
-    if (eloDiff < -80)   fFor.push(`Ventaja ELO del visitante (${Math.abs(eloDiff)} pts)`)
-    if (awayXG > homeXGA * 1.2) fFor.push(`xG visitante supera defensa local (${fmt2(awayXG)} vs ${fmt2(homeXGA)})`)
-    if (awayFS >= 0.7 && awayFStr) fFor.push(`Forma visitante: ${awayFStr}`)
-    if (awayRest < 3) fAg.push(`Solo ${awayRest}d descanso del visitante`)
-    if (homeFS >= 0.7 && homeFStr) fAg.push(`${homeName} en buena forma: ${homeFStr}`)
-    if (awayKeyDown.length) fAg.push(`Baja clave: ${awayKeyDown[0].player?.short_name ?? 'jugador'}`)
-
-    add({
-      id: 'away_win', label: `${awayName} gana`, category: 'resultado',
-      prob, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `${awayName} ganó en ${pctStr(mcAwayWin)} de ${N.toLocaleString()} simulaciones.`,
-        `Marcador más frecuente: ${mce.topScore}.`,
-        `xG visitante: ${fmt2(awayXG)} · xGA local: ${fmt2(homeXGA)}.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  // ─ DOBLE OPORTUNIDAD ──────────────────────────────────────────────────────
-
-  if (homeWin >= 0.28 || mcDraw >= 0.25) {
-    const prob = Math.min(0.99, mcDC_1X)
-    const e    = edge(prob, oddsMap, 'dc_1x')
-    add({
-      id: 'dc_1x', label: `${homeName} o empate (1X)`, category: 'resultado',
-      prob, edgePct: e, analytic: false,
-      factors: {
-        for: [
-          `Cubre ${Math.round(mcDC_1X * 100)}% de los escenarios MC`,
-          eloDiff > 40 ? `${homeName} parte con ventaja ELO (+${eloDiff} pts)` : 'Partido equilibrado — empate plausible',
-        ],
-        against: [mcAwayWin > 0.38 ? `Visitante gana en ${Math.round(mcAwayWin * 100)}% de sim.` : ''].filter(Boolean),
-      },
-      justParts: [
-        `Cubre ${pctStr(mcDC_1X)} de ${N.toLocaleString()} simulaciones.`,
-        `Vic. local: ${Math.round(mcHomeWin * 100)}% + Empate: ${Math.round(mcDraw * 100)}%.`,
-        e != null ? `Edge: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  if (awayWin >= 0.28 || mcDraw >= 0.25) {
-    const prob = Math.min(0.99, mcDC_X2)
-    const e    = edge(prob, oddsMap, 'dc_x2')
-    add({
-      id: 'dc_x2', label: `${awayName} o empate (X2)`, category: 'resultado',
-      prob, edgePct: e, analytic: false,
-      factors: {
-        for: [
-          `Cubre ${Math.round(mcDC_X2 * 100)}% de los escenarios MC`,
-          eloDiff < -40 ? `${awayName} parte con ventaja ELO` : 'Partido equilibrado',
-        ],
-        against: [mcHomeWin > 0.38 ? `Local gana en ${Math.round(mcHomeWin * 100)}% de sim.` : ''].filter(Boolean),
-      },
-      justParts: [
-        `Cubre ${pctStr(mcDC_X2)} de ${N.toLocaleString()} simulaciones.`,
-        `Empate: ${Math.round(mcDraw * 100)}% + Vic. visitante: ${Math.round(mcAwayWin * 100)}%.`,
-        e != null ? `Edge: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  // ─ GOLES (desde distribución MC) ─────────────────────────────────────────
-
-  const goalsMarkets = [
-    { id: 'over_0_5', label: 'Más de 0.5 goles', prob: mcOver05 },
-    { id: 'over_1_5', label: 'Más de 1.5 goles', prob: mcOver15 },
-    { id: 'over_2_5', label: 'Más de 2.5 goles', prob: mcOver25 },
-    { id: 'over_3_5', label: 'Más de 3.5 goles', prob: mcOver35 },
-  ]
-
-  for (const { id, label, prob } of goalsMarkets) {
-    const e     = edge(prob, oddsMap, id)
-    const k     = parseFloat(id.replace('over_', '').replace('_', '.'))
-    const fFor: string[] = [], fAg: string[] = []
-    if (xGCombined > 2.5)  fFor.push(`xG combinado alto (${fmt2(xGCombined)}/p)`)
-    if (mce.p80Goals > k + 1)   fFor.push(`P80 goles = ${mce.p80Goals} — supera ampliamente el umbral`)
-    if (mce.stdDev < 1.3 && mce.p50Goals > k) fFor.push(`Baja dispersión MC — resultado consistente`)
-    if (isKnockout)        fAg.push('Eliminatoria — tendencia defensiva')
-    if (isBadW)            fAg.push('Condiciones adversas reducen ofensiva')
-
-    add({
-      id, label, category: 'goles',
-      prob, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `Ocurrió en ${pctStr(prob)} de ${N.toLocaleString()} simulaciones.`,
-        `P50 goles = ${mce.p50Goals} · P80 = ${mce.p80Goals} · P95 = ${mce.p95Goals}.`,
-        `xG combinado: ${fmt2(xGCombined)} · λ local: ${fmt2(lH)} · λ visit.: ${fmt2(lA)}.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  // ─ AMBOS MARCAN (desde MC) ────────────────────────────────────────────────
-
-  {
-    const e    = edge(mcBothScore, oddsMap, 'btts_yes')
-    const fFor: string[] = [], fAg: string[] = []
-    if (homeXG > 1.0 && awayXG > 0.8) fFor.push(`Ambos generan xG elevado (${fmt2(homeXG)} y ${fmt2(awayXG)})`)
-    if (homeGoals > 1.2) fFor.push(`${homeName} anota en casi todos sus partidos`)
-    if (awayGoals > 1.0) fFor.push(`${awayName} también suele anotar (${fmt1(awayGoals)}/p)`)
-    if (lA < 0.7)  fAg.push(`λ visitante bajo (${fmt2(lA)}) — visitante poco generador`)
-    if (awayXG < 0.8) fAg.push(`${awayName} genera poco xG (${fmt2(awayXG)})`)
-
-    add({
-      id: 'btts_yes', label: 'Ambos equipos marcan', category: 'goles',
-      prob: mcBothScore, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `Ambos marcaron en ${pctStr(mcBothScore)} de ${N.toLocaleString()} simulaciones.`,
-        `λ local: ${fmt2(lH)} · λ visitante: ${fmt2(lA)}.`,
-        `P50 goles totales: ${mce.p50Goals}.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  {
-    const probNo = 1 - mcBothScore
-    const e      = edge(probNo, oddsMap, 'btts_no')
-    add({
-      id: 'btts_no', label: 'No marcan los dos', category: 'goles',
-      prob: probNo, edgePct: e, analytic: false,
-      factors: {
-        for: [
-          lA < 0.8 ? `λ visitante bajo (${fmt2(lA)})` : '',
-          mcCS_home > 0.30 ? `${homeName} portería a cero en ${Math.round(mcCS_home * 100)}% de sim.` : '',
-        ].filter(Boolean),
-        against: [homeXG > 1.2 && awayXG > 1.0 ? 'Ambos atacan con eficacia' : ''].filter(Boolean),
-      },
-      justParts: [
-        `Solo uno/ninguno marcó en ${pctStr(probNo)} de ${N.toLocaleString()} simulaciones.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  // ─ PORTERÍA A CERO (desde MC) ────────────────────────────────────────────
-
-  {
-    const probCS = mcCS_home
-    const e      = edge(probCS, oddsMap, 'clean_sheet_home')
-    const fFor: string[] = [], fAg: string[] = []
-    if (homeXGA < 0.8)   fFor.push(`Defensa local muy sólida (xGA: ${fmt2(homeXGA)})`)
-    if (awayXG < 1.0)    fFor.push(`Ataque visitante limitado (xG: ${fmt2(awayXG)})`)
-    if (isKnockout)      fFor.push('Eliminatoria — defensa prioritaria')
-    if (awayXG > 1.3)    fAg.push(`Visitante genera ${fmt2(awayXG)} xG/p — amenaza real`)
-
-    add({
-      id: 'cs_home', label: `${homeName} portería a cero`, category: 'porteria',
-      prob: probCS, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `${homeName} mantuvo portería a cero en ${pctStr(probCS)} de ${N.toLocaleString()} simulaciones.`,
-        `λ visitante ajustado: ${fmt2(lA)} · xG visitante: ${fmt2(awayXG)}.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  {
-    const probCS = mcCS_away
-    const e      = edge(probCS, oddsMap, 'clean_sheet_away')
-    const fFor: string[] = [], fAg: string[] = []
-    if (awayXGA < 0.8)   fFor.push(`Defensa visitante compacta (xGA: ${fmt2(awayXGA)})`)
-    if (homeXG < 1.0)    fFor.push(`Ataque local moderado (xG: ${fmt2(homeXG)})`)
-    if (homeXG > 1.3)    fAg.push(`${homeName} genera ${fmt2(homeXG)} xG en casa`)
-
-    add({
-      id: 'cs_away', label: `${awayName} portería a cero`, category: 'porteria',
-      prob: probCS, edgePct: e, analytic: false,
-      factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
-      justParts: [
-        `${awayName} mantuvo portería a cero en ${pctStr(probCS)} de ${N.toLocaleString()} simulaciones.`,
-        `λ local ajustado: ${fmt2(lH)} · xG local: ${fmt2(homeXG)}.`,
-        e != null ? `Edge vs mercado: ${e > 0 ? '+' : ''}${fmt1(e)}%.` : '',
-      ],
-    })
-  }
-
-  // ─ CORNERS (analítico) ───────────────────────────────────────────────────
-
-  for (const { k, id, label } of [
-    { k: 8,  id: 'corners_8_5',  label: 'Más de 8.5 corners'  },
-    { k: 9,  id: 'corners_9_5',  label: 'Más de 9.5 corners'  },
-    { k: 10, id: 'corners_10_5', label: 'Más de 10.5 corners' },
+  // Corners (solo si hay datos)
+  for (const { line, id } of [
+    { line: 8.5,  id: 'corners_8_5'  },
+    { line: 9.5,  id: 'corners_9_5'  },
+    { line: 10.5, id: 'corners_10_5' },
   ]) {
-    const prob = poissonOver(expCorners, k)
-    add({
-      id, label, category: 'corners',
-      prob, edgePct: null, analytic: true,
-      factors: {
-        for: [`Media combinada: ${fmt1(homeCorners + awayCorners)} corners/p`, isBadW ? 'Lluvia aumenta corners' : ''].filter(Boolean),
-        against: [expCorners < k + 1 ? 'Media muy cerca del umbral' : ''].filter(Boolean),
-      },
-      justParts: [
-        `Media corners: ${fmt1(homeCorners + awayCorners)}/p. P(>${k}.5): ${Math.round(prob * 100)}% (analítico).`,
-        `P80 goles MC: ${mce.p80Goals} — indica intensidad ofensiva del partido.`,
-      ],
-    })
+    add(scoreCorners(h, a, line, id))
   }
 
-  // ─ TARJETAS (analítico) ──────────────────────────────────────────────────
-
-  for (const { k, id, label } of [
-    { k: 2, id: 'cards_2_5', label: 'Más de 2.5 amarillas' },
-    { k: 3, id: 'cards_3_5', label: 'Más de 3.5 amarillas' },
-    { k: 4, id: 'cards_4_5', label: 'Más de 4.5 amarillas' },
+  // Tarjetas
+  for (const { line, id } of [
+    { line: 2.5, id: 'cards_2_5' },
+    { line: 3.5, id: 'cards_3_5' },
+    { line: 4.5, id: 'cards_4_5' },
   ]) {
-    const cardsF = isKnockout ? 1.05 : 1.0
-    const prob   = poissonOver(expYellow * cardsF, k)
-    add({
-      id, label, category: 'tarjetas',
-      prob, edgePct: null, analytic: true,
-      factors: {
-        for: [`Media: ${fmt1(expYellow)} amarillas/p`, isKnockout ? 'Eliminatoria — mayor tensión' : ''].filter(Boolean),
-        against: [expYellow < k + 0.5 ? 'Media no garantiza superar el umbral' : ''].filter(Boolean),
-      },
-      justParts: [
-        `Media amarillas: ${fmt1(expYellow)}/p${isKnockout ? ' (+5% eliminatoria)' : ''}. P(>${k}.5): ${Math.round(prob * 100)}%.`,
-      ],
-    })
+    add(scoreCards(h, a, line, id, isKnockout))
   }
 
-  // ─ DISPAROS (analítico) ──────────────────────────────────────────────────
+  // ── Capa 7: Ranking por confianza descendente ────────────────────────────────
+  const ranked = [...candidates].sort((x, y) => y.confidence - x.confidence)
 
-  for (const { k, id, label } of [
-    { k: 5, id: 'shots_ot_5_5', label: 'Más de 5.5 disparos a puerta' },
-    { k: 7, id: 'shots_ot_7_5', label: 'Más de 7.5 disparos a puerta' },
-  ]) {
-    const prob = poissonOver(expShotsOT * (isBadW ? 0.96 : 1.0), k)
-    add({
-      id, label, category: 'disparos',
-      prob, edgePct: null, analytic: true,
-      factors: {
-        for:     [`Media: ${fmt1(expShotsOT)} disparos/p`],
-        against: [isBadW ? 'Condiciones adversas reducen precisión' : ''].filter(Boolean),
-      },
-      justParts: [`Media disparos a puerta: ${fmt1(expShotsOT)}/p. P(>${k}.5): ${Math.round(prob * 100)}%.`],
-    })
+  // Mapa de market IDs para edge vs cuotas
+  const marketOddsId: Record<string, string> = {
+    home_win: 'home_win', draw: 'draw', away_win: 'away_win',
+    dc_1x: 'dc_1x', dc_x2: 'dc_x2',
+    over_0_5: 'over_0_5', over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
+    btts_yes: 'btts_yes', btts_no: 'btts_no',
+    cs_home: 'clean_sheet_home', cs_away: 'clean_sheet_away',
+    corners_8_5: 'corners_8_5', corners_9_5: 'corners_9_5', corners_10_5: 'corners_10_5',
+    cards_2_5: 'cards_2_5', cards_3_5: 'cards_3_5', cards_4_5: 'cards_4_5',
   }
 
-  // ── CAPA 8: Ranking por ventaja matemática ───────────────────────────────────
-  const ranked = candidates
-    .filter(c => c.prob >= 0.05)
-    .sort((a, b) => rankScore(b, consensus, hasOdds) - rankScore(a, consensus, hasOdds))
-
-  // ── CAPA 9: Diversidad (máx 1 por familia) + top 5 ──────────────────────────
+  // ── Capa 8: Deduplicar por familia + top 5 ──────────────────────────────────
   const seen = new Set<string>()
   const top5: SmartBetRecommendation[] = []
 
@@ -687,20 +807,21 @@ export function computeSmartBets(
     if (seen.has(fam)) continue
     seen.add(fam)
 
-    const pct100 = Math.min(96, Math.max(0, Math.round(c.prob * 100)))
+    const edgeVal = calcEdge(c.confidence / 100, oddsMap, marketOddsId[c.id] ?? c.id)
+
     top5.push({
       id:             c.id,
       label:          c.label,
       category:       c.category,
       rank:           top5.length + 1,
-      confidence:     pct100,
-      tier:           toTier(pct100),
-      edge:           c.edgePct,
-      mcFrequency:    Math.round(c.prob * 1000) / 10,
-      consensusScore: consensus,
+      confidence:     c.confidence,
+      tier:           toTier(c.confidence),
+      edge:           edgeVal,
+      mcFrequency:    Math.round(c.freq * 1000) / 10,
+      consensusScore: consensusScoreVal,
       volatility,
       mcEvidence:     mce,
-      justification:  c.justParts.filter(Boolean).join(' '),
+      justification:  c.justification,
       factors:        c.factors,
     })
   }
