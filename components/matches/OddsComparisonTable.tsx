@@ -98,7 +98,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
     <div className="space-y-4">
 
       {/* Market movement signal */}
-      <div className="card p-4 space-y-3">
+      <div className="card p-3 space-y-2.5">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-blue-400" />
           <h3 className="text-sm font-semibold text-white">Movimiento de Mercado</h3>
@@ -113,17 +113,17 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
           <p className="text-xs text-zinc-600">Sin datos de cuotas para analizar movimiento de mercado.</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {/* Signal */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <div className="flex justify-center mb-1">{SIGNAL_ICON[mkt.signal]}</div>
                 <p className={cn('text-xs font-bold', mkt.signalColor)}>{mkt.signalLabel}</p>
                 <p className="text-[9px] text-zinc-600 mt-0.5">Señal</p>
               </div>
 
               {/* Consensus */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
-                <p className="text-lg font-black mono text-zinc-200">{Math.round(mkt.consensusStrength * 100)}%</p>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
+                <p className="text-base font-black mono text-zinc-200">{Math.round(mkt.consensusStrength * 100)}%</p>
                 <p className="text-[9px] text-zinc-600">Consenso</p>
                 <div className="mt-1 h-0.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                   <div className="h-full bg-blue-500 rounded-full" style={{ width: `${mkt.consensusStrength * 100}%` }} />
@@ -131,16 +131,16 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
               </div>
 
               {/* Bookmakers */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <div className="flex justify-center mb-1"><Users className="h-3.5 w-3.5 text-zinc-500" /></div>
-                <p className="text-lg font-black mono text-zinc-200">{mkt.bookmakerCount}</p>
+                <p className="text-base font-black mono text-zinc-200">{mkt.bookmakerCount}</p>
                 <p className="text-[9px] text-zinc-600">Casas</p>
               </div>
 
               {/* Sharpest */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-center">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <p className="text-[10px] font-bold text-amber-400 truncate">{mkt.sharpestBook ?? '—'}</p>
-                <p className="text-[9px] text-zinc-600 mt-1">Casa más sharp</p>
+                <p className="text-[9px] text-zinc-600 mt-0.5">Casa más sharp</p>
               </div>
             </div>
 
@@ -200,8 +200,8 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
 
       {/* 1X2 table */}
       {hasMain && (
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="card p-3">
+          <div className="flex items-center gap-2 mb-3">
             <Award className="h-4 w-4 text-amber-400" />
             <h3 className="text-sm font-semibold text-white">1X2 — Comparativa de Casas</h3>
             <span className="ml-auto text-[10px] text-zinc-600">Mejor cuota en verde</span>
@@ -226,17 +226,17 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                 {/* Modelo row */}
                 {prediction && (
                   <tr className="border-b border-zinc-800/40 bg-violet-500/5">
-                    <td className="py-2.5 pr-4 text-violet-400 font-semibold">Modelo</td>
-                    <td className="text-center py-2.5 px-3 mono font-bold text-emerald-400">
+                    <td className="py-2 pr-4 text-violet-400 font-semibold">Modelo</td>
+                    <td className="text-center py-2 px-2 mono font-bold text-emerald-400">
                       {(1 / prediction.home_win_probability).toFixed(2)}
                     </td>
-                    <td className="text-center py-2.5 px-3 mono font-bold text-amber-400">
+                    <td className="text-center py-2 px-2 mono font-bold text-amber-400">
                       {(1 / prediction.draw_probability).toFixed(2)}
                     </td>
-                    <td className="text-center py-2.5 px-3 mono font-bold text-red-400">
+                    <td className="text-center py-2 px-2 mono font-bold text-red-400">
                       {(1 / prediction.away_win_probability).toFixed(2)}
                     </td>
-                    <td className="text-center py-2.5 pl-3 text-zinc-600 mono text-[11px]">—</td>
+                    <td className="text-center py-2 pl-2 text-zinc-600 mono text-[11px]">—</td>
                   </tr>
                 )}
 
@@ -250,10 +250,10 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                       key={bk}
                       className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors"
                     >
-                      <td className="py-2.5 pr-4 text-zinc-300 font-medium">{bk}</td>
+                      <td className="py-2 pr-4 text-zinc-300 font-medium">{bk}</td>
                       <td
                         className={cn(
-                          'text-center py-2.5 px-3 mono font-bold',
+                          'text-center py-2 px-2 mono font-bold',
                           hw && hw.odds_value === bestOf('home_win')
                             ? 'text-emerald-400'
                             : 'text-zinc-400'
@@ -263,7 +263,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                       </td>
                       <td
                         className={cn(
-                          'text-center py-2.5 px-3 mono font-bold',
+                          'text-center py-2 px-2 mono font-bold',
                           dr && dr.odds_value === bestOf('draw')
                             ? 'text-emerald-400'
                             : 'text-zinc-400'
@@ -273,7 +273,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                       </td>
                       <td
                         className={cn(
-                          'text-center py-2.5 px-3 mono font-bold',
+                          'text-center py-2 px-2 mono font-bold',
                           aw && aw.odds_value === bestOf('away_win')
                             ? 'text-emerald-400'
                             : 'text-zinc-400'
@@ -281,7 +281,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                       >
                         {aw ? aw.odds_value.toFixed(2) : <span className="text-zinc-700">—</span>}
                       </td>
-                      <td className="text-center py-2.5 pl-3 text-zinc-500 mono text-[11px]">
+                      <td className="text-center py-2 pl-2 text-zinc-500 mono text-[11px]">
                         {margin1x2(bk)}%
                       </td>
                     </tr>
@@ -300,28 +300,28 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
 
       {/* Otros mercados */}
       {otherMarkets.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="card p-3">
+          <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="h-4 w-4 text-blue-400" />
             <h3 className="text-sm font-semibold text-white">Otros Mercados</h3>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {otherMarkets.map((market) => {
               const rows = byMarket[market] ?? []
               const best = Math.max(...rows.map((o) => o.odds_value))
 
               return (
-                <div key={market} className="border-b border-zinc-800/50 pb-3 last:border-0">
-                  <p className="text-[10px] text-zinc-500 mb-2">
+                <div key={market} className="border-b border-zinc-800/50 pb-2 last:border-0">
+                  <p className="text-[10px] text-zinc-500 mb-1.5">
                     {MARKET_LABEL[market] ?? market}
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {rows.map((o) => (
                       <div
                         key={o.bookmaker}
                         className={cn(
-                          'flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[11px] border',
+                          'flex items-center gap-1.5 rounded px-2 py-1 text-[11px] border',
                           o.odds_value === best
                             ? 'bg-emerald-500/10 border-emerald-500/30'
                             : 'bg-zinc-800/60 border-zinc-800'

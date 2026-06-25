@@ -15,11 +15,11 @@ import {
 // ─── Configuración visual por tier ─────────────────────────────────────────────
 
 const TIER: Record<SmartBetTier, { label: string; text: string; badge: string; border: string; stroke: string }> = {
-  premium:    { label: 'Premium',    text: 'text-amber-400',   badge: 'bg-amber-500/15 border-amber-500/30',    border: 'border-amber-500/20',   stroke: '#f59e0b' },
-  muy_fuerte: { label: 'Muy Fuerte', text: 'text-emerald-400', badge: 'bg-emerald-500/15 border-emerald-500/30', border: 'border-emerald-500/20', stroke: '#10b981' },
-  fuerte:     { label: 'Fuerte',     text: 'text-blue-400',    badge: 'bg-blue-500/15 border-blue-500/30',      border: 'border-blue-500/20',    stroke: '#3b82f6' },
-  moderada:   { label: 'Moderada',   text: 'text-zinc-400',    badge: 'bg-zinc-700/30 border-zinc-700',         border: 'border-zinc-700/30',    stroke: '#71717a' },
-  evitar:     { label: 'Evitar',     text: 'text-red-500',     badge: 'bg-red-900/20 border-red-900/30',        border: 'border-red-900/20',     stroke: '#ef4444' },
+  premium:    { label: 'Premium',    text: 'text-amber-400',   badge: 'bg-amber-500/15 border-amber-500/30',    border: 'border-glow-success', stroke: '#00FFCC' },
+  muy_fuerte: { label: 'Muy Fuerte', text: 'text-emerald-400', badge: 'bg-emerald-500/15 border-emerald-500/30', border: 'border-glow-success', stroke: '#00FFCC' },
+  fuerte:     { label: 'Fuerte',     text: 'text-blue-400',    badge: 'bg-blue-500/15 border-blue-500/30',      border: 'border-glow-warning', stroke: '#FFCC00' },
+  moderada:   { label: 'Moderada',   text: 'text-zinc-400',    badge: 'bg-zinc-700/30 border-zinc-700',         border: 'border-glow-neutral', stroke: '#71717a' },
+  evitar:     { label: 'Evitar',     text: 'text-red-500',     badge: 'bg-red-900/20 border-red-900/30',        border: 'border-glow-risk',    stroke: '#FF3366' },
 }
 
 const CATEGORY_LABEL: Record<SmartBetCategory, string> = {
@@ -363,7 +363,7 @@ function BetCard({
   const hasRealOdds = coOdds.some((x) => x.fromDb)
 
   return (
-    <div className={cn('card overflow-hidden border', cfg.border)}>
+    <div className={cn('card overflow-hidden', cfg.border)}>
       {/* Barra de color superior */}
       <div className="h-0.5 w-full" style={{ backgroundColor: cfg.stroke }} />
 
@@ -404,19 +404,19 @@ function BetCard({
         <div className="grid grid-cols-4 gap-px rounded-lg overflow-hidden bg-zinc-800/40 border border-zinc-800/60 text-center">
           <div className="bg-zinc-900/70 px-2 py-1.5">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles L.</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p50Goals}/p</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5 mono">{rec.mcEvidence.p50Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles V.</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p80Goals}/p</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5 mono">{rec.mcEvidence.p80Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Goles Tot.</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">{rec.mcEvidence.p95Goals}/p</p>
+            <p className="text-xs font-bold text-zinc-300 mt-0.5 mono">{rec.mcEvidence.p95Goals}/p</p>
           </div>
           <div className="bg-zinc-900/70 px-2 py-1.5">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Resultado</p>
-            <p className="text-xs font-bold text-zinc-300 mt-0.5">
+            <p className="text-xs font-bold text-zinc-300 mt-0.5 mono">
               {rec.mcEvidence.topScore === 'W' ? 'V' : rec.mcEvidence.topScore === 'D' ? 'E' : rec.mcEvidence.topScore === 'L' ? 'P' : rec.mcEvidence.topScore}
               <span className="text-zinc-600 font-normal text-[9px] ml-0.5">({rec.mcEvidence.topScoreFreq}%)</span>
             </p>

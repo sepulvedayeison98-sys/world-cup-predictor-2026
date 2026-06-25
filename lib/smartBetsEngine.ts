@@ -327,6 +327,51 @@ function processTeamForm(
   }
 }
 
+// ─── Motor de coherencia matemática ──────────────────────────────────────────
+
+/**
+ * Después de puntuar todos los candidatos, garantiza que los mercados
+ * derivados de 1X2 (resultado + doble oportunidad) no se desvíen más de
+ * MAX_DEV puntos porcentuales de la probabilidad matemática del modelo.
+ * Esto evita que mezclas de forma contradigan la predicción base.
+ */
+function enforceCoherence(candidates: Candidate[], hw: number, dr: number, aw: number): Candidate[] {
+  const modelTarget: Partial<Record<string, number>> = {
+    home_win: Math.round(hw * 100),
+    draw:     Math.round(dr * 100),
+    away_win: Math.round(aw * 100),
+    dc_1x:   Math.round((hw + dr) * 100),
+    dc_x2:   Math.round((dr + aw) * 100),
+  }
+  const MAX_DEV = 9
+  return candidates.map(c => {
+    const target = modelTarget[c.id]
+    if (target == null) return c
+    if (c.confidence > target + MAX_DEV) c.confidence = target + MAX_DEV
+    if (c.confidence < Math.max(5, target - MAX_DEV)) c.confidence = Math.max(5, target - MAX_DEV)
+    return c
+  })
+}
+
+/**
+ * home_win y dc_x2 son complementos (suman ~100%).
+ * away_win y dc_1x también.
+ * Si dos complementos aparecen juntos con suma > 112%, uno es contradictorio.
+ */
+function isContradiction(candidateId: string, candidateConf: number, existing: SmartBetRecommendation[]): boolean {
+  const COMPLEMENTS: [string, string][] = [
+    ['home_win', 'dc_x2'],
+    ['away_win', 'dc_1x'],
+  ]
+  for (const [a, b] of COMPLEMENTS) {
+    const paired = candidateId === a ? b : candidateId === b ? a : null
+    if (!paired) continue
+    const existingRec = existing.find(r => r.id === paired)
+    if (existingRec && existingRec.confidence + candidateConf > 112) return true
+  }
+  return false
+}
+
 // ─── Market scorers ───────────────────────────────────────────────────────────
 
 /**
@@ -520,7 +565,10 @@ function scoreCards(
   line: number,
   marketId: string,
   isKnockout: boolean,
-): Candidate {
+): Candidate | null {
+  // Sin datos reales de forma, el fallback (1.8+1.7=3.5) produce el mismo score
+  // para todos los partidos — no aporta valor diferencial
+  if (h.n === 0 && a.n === 0) return null
   const totalCards = h.yellowCards + a.yellowCards + (isKnockout ? 0.6 : 0)
   const probOver   = poissonOver(totalCards, Math.floor(line))
   const confidence = Math.min(88, Math.round(probOver * 100))
@@ -555,10 +603,10 @@ function scoreResult(
     market === 'draw'     ? (h.drawFreq + a.drawFreq) / 2 :
                             a.winFreq
 
-  // Blend: si ambos equipos tienen >= 3 partidos, mezclar al 50/50
-  const bothHaveForm = h.n >= 3 && a.n >= 3
-  const blended      = bothHaveForm ? modelProb * 0.5 + formFreq * 0.5 : modelProb
-  const confidence   = Math.round(Math.min(92, blended * 100))
+  // Modelo es señal primaria (80-100%); forma solo afina cuando hay datos reales
+  const formW    = h.n >= 3 && a.n >= 3 ? 0.20 : h.n >= 1 || a.n >= 1 ? 0.10 : 0.0
+  const blended  = modelProb * (1 - formW) + formFreq * formW
+  const confidence = Math.round(Math.min(92, blended * 100))
 
   const fFor: string[] = []
   const fAg: string[]  = []
@@ -633,11 +681,12 @@ function scoreDoubleChance(
   const awayWin = prediction.away_win_probability ?? 0.33
 
   if (market === 'dc_1x') {
-    const modelProb    = homeWin + draw
-    const formNotLoss  = 1 - a.winFreq
-    const bothHaveForm = h.n >= 3 && a.n >= 3
-    const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
-    const confidence   = Math.round(Math.min(96, blended * 100))
+    const modelProb   = homeWin + draw
+    const formNotLoss = 1 - a.winFreq
+    // Modelo ancla la confianza; la forma ajusta ≤12% cuando hay datos reales
+    const formW       = h.n >= 3 && a.n >= 3 ? 0.12 : 0.0
+    const blended     = modelProb * (1 - formW) + formNotLoss * formW
+    const confidence  = Math.round(Math.min(96, blended * 100))
 
     return {
       id: 'dc_1x', label: `${h.name} o empate (1X)`, category: 'resultado',
@@ -654,11 +703,11 @@ function scoreDoubleChance(
   }
 
   // dc_x2
-  const modelProb    = draw + awayWin
-  const formNotLoss  = 1 - h.winFreq
-  const bothHaveForm = h.n >= 3 && a.n >= 3
-  const blended      = bothHaveForm ? modelProb * 0.5 + formNotLoss * 0.5 : modelProb
-  const confidence   = Math.round(Math.min(96, blended * 100))
+  const modelProb   = draw + awayWin
+  const formNotLoss = 1 - h.winFreq
+  const formW       = h.n >= 3 && a.n >= 3 ? 0.12 : 0.0
+  const blended     = modelProb * (1 - formW) + formNotLoss * formW
+  const confidence  = Math.round(Math.min(96, blended * 100))
 
   return {
     id: 'dc_x2', label: `${a.name} o empate (X2)`, category: 'resultado',
@@ -770,12 +819,13 @@ export function computeSmartBets(
   add(scoreResult(h, a, prediction, 'draw'))
   add(scoreResult(h, a, prediction, 'away_win'))
 
-  // Doble oportunidad
+  // Doble oportunidad — solo si el resultado complementario tiene probabilidad real (≥12%)
+  // Evita mostrar apuestas trivialmente ciertas (ej: dc_1x cuando P(away)=5%)
   const homeWin = prediction.home_win_probability ?? 0.33
   const draw    = prediction.draw_probability     ?? 0.33
   const awayWin = prediction.away_win_probability ?? 0.33
-  if (homeWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_1x'))
-  if (awayWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
+  if ((homeWin >= 0.28 || draw >= 0.25) && awayWin >= 0.12) add(scoreDoubleChance(h, a, prediction, 'dc_1x'))
+  if ((awayWin >= 0.28 || draw >= 0.25) && homeWin >= 0.12) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
 
   // Goles
   add(scoreOver(h, a, 1.5, 'over_1_5', 'Más de 1.5 goles'))
@@ -808,8 +858,11 @@ export function computeSmartBets(
     add(scoreCards(h, a, line, id, isKnockout))
   }
 
+  // ── Capa 6.5: Coherencia matemática — anclar 1X2-derivados al modelo ─────────
+  const coherentCandidates = enforceCoherence(candidates, homeWin, draw, awayWin)
+
   // ── Capa 7: Ranking por confianza descendente ────────────────────────────────
-  const ranked = [...candidates].sort((x, y) => y.confidence - x.confidence)
+  const ranked = [...coherentCandidates].sort((x, y) => y.confidence - x.confidence)
 
   // Mapa de market IDs para edge vs cuotas
   const marketOddsId: Record<string, string> = {
@@ -822,7 +875,7 @@ export function computeSmartBets(
     cards_2_5: 'cards_2_5', cards_3_5: 'cards_3_5', cards_4_5: 'cards_4_5',
   }
 
-  // ── Capa 8: Deduplicar por familia + top 5 ──────────────────────────────────
+  // ── Capa 8: Deduplicar por familia + validar coherencia + top 5 ─────────────
   const seen = new Set<string>()
   const top5: SmartBetRecommendation[] = []
 
@@ -830,6 +883,8 @@ export function computeSmartBets(
     if (top5.length >= 5) break
     const fam = family(c.id)
     if (seen.has(fam)) continue
+    // Descartar si contradice matemáticamente a un candidato ya seleccionado
+    if (isContradiction(c.id, c.confidence, top5)) continue
     seen.add(fam)
 
     const edgeVal = calcEdge(c.confidence / 100, oddsMap, marketOddsId[c.id] ?? c.id)
