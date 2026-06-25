@@ -3,22 +3,30 @@
 import { cn, formatProbability } from '@/lib/utils'
 import { Shield, TrendingUp, Target, AlertTriangle } from 'lucide-react'
 
-const MARKET_ROWS = [
-  { key: 'home_win', label: 'Victoria Local' },
-  { key: 'draw', label: 'Empate' },
-  { key: 'away_win', label: 'Victoria Visitante' },
-]
+// P(X <= k) para X ~ Poisson(lambda)
+function poissonCDF(lambda: number, k: number): number {
+  if (lambda <= 0) return k >= 0 ? 1 : 0
+  let cum = 0, term = Math.exp(-lambda)
+  for (let i = 0; i <= k; i++) { cum += term; term *= lambda / (i + 1) }
+  return Math.min(1, cum)
+}
 
-const EXTRA_MARKETS = [
-  { label: 'Más de 0.5 goles', prob: 0.91 },
-  { label: 'Más de 1.5 goles', prob: 0.68 },
-  { label: 'Más de 2.5 goles', prob: 0.42 },
-  { label: 'Más de 3.5 goles', prob: 0.20 },
-  { label: 'Ambos marcan: Sí', prob: 0.45 },
-  { label: 'Ambos marcan: No', prob: 0.55 },
-  { label: 'Portería a 0 Local', prob: 0.48 },
-  { label: 'Portería a 0 Visitante', prob: 0.30 },
-]
+function computeMarketProbs(lambdaHome: number, lambdaAway: number) {
+  const lambdaTotal = lambdaHome + lambdaAway
+  const pHome0 = poissonCDF(lambdaHome, 0)
+  const pAway0 = poissonCDF(lambdaAway, 0)
+  const bttsYes = (1 - pHome0) * (1 - pAway0)
+  return [
+    { label: 'Más de 0.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 0) },
+    { label: 'Más de 1.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 1) },
+    { label: 'Más de 2.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 2) },
+    { label: 'Más de 3.5 goles',     prob: 1 - poissonCDF(lambdaTotal, 3) },
+    { label: 'Ambos marcan: Sí',     prob: bttsYes },
+    { label: 'Ambos marcan: No',     prob: 1 - bttsYes },
+    { label: 'Portería a 0 Local',   prob: pAway0 },
+    { label: 'Portería a 0 Visitante', prob: pHome0 },
+  ]
+}
 
 interface Props {
   prediction: any
@@ -64,6 +72,10 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
   const homeWin = prediction.home_win_probability
   const draw   = prediction.draw_probability
   const away   = prediction.away_win_probability
+
+  const lambdaHome = prediction.expected_home_goals ?? prediction.predicted_home_score ?? 1.3
+  const lambdaAway = prediction.expected_away_goals ?? prediction.predicted_away_score ?? 1.1
+  const extraMarkets = computeMarketProbs(lambdaHome, lambdaAway)
 
   const topOutcome =
     homeWin >= draw && homeWin >= away
@@ -150,7 +162,7 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
         </div>
 
         <div className="space-y-1">
-          {EXTRA_MARKETS.map((market) => (
+          {extraMarkets.map((market) => (
             <div key={market.label} className="flex items-center justify-between py-1.5 border-b border-zinc-800/50 last:border-0">
               <span className="text-xs text-zinc-400">{market.label}</span>
               <div className="flex items-center gap-3">
