@@ -194,14 +194,19 @@ export function MonteCarloPanel({ prediction, homeStats, awayStats, match, injur
     const baseCards   = (homeStats?.avg_yellow_cards ?? 1.8) + (awayStats?.avg_yellow_cards ?? 1.7)
     const baseShotsOT = (homeStats?.avg_shots_on_target ?? 3.5) + (awayStats?.avg_shots_on_target ?? 3.0)
 
-    // Factor lesiones
-    const injuryImpact = injuries
+    // Factor lesiones — separado por equipo
+    const homeInjuryImpact = injuries
+      .filter((inj: any) => inj.team_id === match?.home_team_id)
       .reduce((sum: number, inj: any) => sum + (inj.impact_score ?? 0), 0)
-    const injF = Math.max(0.8, 1 - injuryImpact / 100)
+    const awayInjuryImpact = injuries
+      .filter((inj: any) => inj.team_id === match?.away_team_id)
+      .reduce((sum: number, inj: any) => sum + (inj.impact_score ?? 0), 0)
+    const homeInjF = Math.max(0.80, 1 - homeInjuryImpact / 100)
+    const awayInjF = Math.max(0.80, 1 - awayInjuryImpact / 100)
 
     return runMonteCarloModel({
-      lambdaHome:    baseHome   * injF,
-      lambdaAway:    baseAway   * injF,
+      lambdaHome:    baseHome   * homeInjF,
+      lambdaAway:    baseAway   * awayInjF,
       lambdaCorners: baseCorners,
       lambdaCards:   baseCards,
       lambdaShotsOT: baseShotsOT,

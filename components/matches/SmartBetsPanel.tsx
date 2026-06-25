@@ -257,7 +257,7 @@ export function SmartBetsPanel({
           <div>
             <h3 className="text-sm font-semibold text-white">Smart Bets AI · Motor de Forma</h3>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              {mce ? `Últimos ${mce.simulations} partidos analizados` : 'Análisis basado en forma reciente'} ·
+              {mce && mce.simulations > 0 ? `Últimos ${mce.simulations} partidos analizados` : 'Análisis basado en forma reciente'} ·
               top {recs.length} mercados
             </p>
           </div>
@@ -417,7 +417,7 @@ function BetCard({
           <div className="bg-zinc-900/70 px-2 py-1.5">
             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Resultado</p>
             <p className="text-xs font-bold text-zinc-300 mt-0.5">
-              {rec.mcEvidence.topScore}
+              {rec.mcEvidence.topScore === 'W' ? 'V' : rec.mcEvidence.topScore === 'D' ? 'E' : rec.mcEvidence.topScore === 'L' ? 'P' : rec.mcEvidence.topScore}
               <span className="text-zinc-600 font-normal text-[9px] ml-0.5">({rec.mcEvidence.topScoreFreq}%)</span>
             </p>
           </div>

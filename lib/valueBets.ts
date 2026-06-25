@@ -102,7 +102,7 @@ export function buildValueBet(
 
 // ─── Smart Bets AI ───────────────────────────────────────────────────────────
 
-export type SmartBetTier = 'premium' | 'muy_fuerte' | 'fuerte' | 'moderada'
+type SmartBetTier = 'premium' | 'muy_fuerte' | 'fuerte' | 'moderada'
 
 /** Clasifica una apuesta en uno de los 4 niveles de confianza del sistema AI. */
 export function getSmartBetTier(vb: {

@@ -64,16 +64,17 @@ export function runPredictionEngineAgent(
   }
 
   // ── Modelo Mercado ────────────────────────────────────────────────────────
-  const oddsLines1x2 = odds.filter((o: any) => o.market === 'h2h' || o.market === '1x2')
   const oddsGrouped = new Map<string, { home: number; draw: number; away: number }>()
-  for (const o of oddsLines1x2 as any[]) {
+  for (const o of odds as any[]) {
+    if (o.market !== 'home_win' && o.market !== 'draw' && o.market !== 'away_win') continue
+    if (!o.odds_value || o.odds_value <= 1) continue
     if (!oddsGrouped.has(o.bookmaker)) {
       oddsGrouped.set(o.bookmaker, { home: 0, draw: 0, away: 0 })
     }
     const entry = oddsGrouped.get(o.bookmaker)!
-    if (o.market_outcome === 'home' || o.name === 'home') entry.home = o.odds_value
-    if (o.market_outcome === 'draw' || o.name === 'draw') entry.draw = o.odds_value
-    if (o.market_outcome === 'away' || o.name === 'away') entry.away = o.odds_value
+    if (o.market === 'home_win') entry.home = o.odds_value
+    if (o.market === 'draw')     entry.draw = o.odds_value
+    if (o.market === 'away_win') entry.away = o.odds_value
   }
   const oddsLinesParsed = Array.from(oddsGrouped.entries())
     .filter(([, v]) => v.home > 1 && v.draw > 1 && v.away > 1)

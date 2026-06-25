@@ -330,7 +330,8 @@ function processTeamForm(
 // ─── Market scorers ───────────────────────────────────────────────────────────
 
 /**
- * Over goals: over_0_5, over_1_5, over_2_5, over_3_5
+ * Over goals: over_1_5, over_2_5, over_3_5
+ * Usa probabilidad Poisson analítica como señal principal (bounded), blendada con frecuencia de forma.
  */
 function scoreOver(
   h: TeamFormData,
@@ -344,19 +345,18 @@ function scoreOver(
 
   // Frecuencia base en over_2_5, ajustada para otras líneas
   let adjustedFreq = (h.over25Freq + a.over25Freq) / 2
-  if (goals <= 0.5)       adjustedFreq = Math.min(0.99, adjustedFreq + 0.40)
-  else if (goals <= 1.5)  adjustedFreq = Math.min(0.99, adjustedFreq + 0.20)
+  if (goals <= 1.5)       adjustedFreq = Math.min(0.98, adjustedFreq + 0.20)
   else if (goals >= 3.5)  adjustedFreq = Math.max(0.01, adjustedFreq - 0.20)
 
-  // Referencia de goles según línea
-  const goalRef = Math.max(0.5, goals)
+  // Probabilidad Poisson analítica: P(goles totales > k)
+  const poissonProb = poissonOver(expected, Math.floor(goals))
 
   // Bonus si hay datos reales de forma
-  const dataBonus = (h.n >= 3 && a.n >= 3) ? 5 : 0
+  const dataBonus = (h.n >= 3 && a.n >= 3) ? 3 : 0
 
-  // Confianza compuesta
-  const raw = (expected / goalRef) * 30 + adjustedFreq * 50 + (h.shotsOT / 12) * 15 + dataBonus
-  const confidence = Math.min(94, Math.round(raw))
+  // Confianza: blend Poisson (60%) + frecuencia de forma (35%) + tiros a puerta (5%)
+  const blended = poissonProb * 0.60 + adjustedFreq * 0.35 + Math.min(1, h.shotsOT / 12) * 0.05
+  const confidence = Math.min(92, Math.round(blended * 100) + dataBonus)
 
   const fFor: string[] = []
   const fAg: string[]  = []
@@ -381,8 +381,8 @@ function scoreOver(
     confidence, freq: adjustedFreq,
     justification: [
       `${h.name} marcó ${fmt1(h.goalsScored)} goles/p · ${a.name} marcó ${fmt1(a.goalsScored)} goles/p en forma reciente.`,
-      `Goles esperados combinados: ${fmt1(expected)}.`,
-      `Over ${goals} en ${Math.round(adjustedFreq * 100)}% de partidos recientes.`,
+      `Goles esperados combinados: ${fmt1(expected)}. P(>${goals}): ${Math.round(poissonProb * 100)}% (Poisson).`,
+      `Over ${goals} registrado en el ${Math.round(adjustedFreq * 100)}% de partidos recientes.`,
       `${h.name} concede ${fmt1(h.goalsConceded)}/p · ${a.name} concede ${fmt1(a.goalsConceded)}/p.`,
     ].join(' '),
     factors: { for: fFor.slice(0, 3), against: fAg.slice(0, 2) },
@@ -418,7 +418,7 @@ function scoreBtts(h: TeamFormData, a: TeamFormData, isYes: boolean): Candidate 
       fAg.push(`${a.name} genera poco en ataque (${fmt1(a.goalsScored)} goles/p)`)
   } else {
     const csSignal    = Math.min(1, (h.cleanSheetFreq + a.cleanSheetFreq) / 2)
-    const defStrength = Math.min(1, 1 - (h.goalsConceded + a.goalsConceded) / 4)
+    const defStrength = Math.min(1, Math.max(0, 1 - (h.goalsConceded + a.goalsConceded) / 4))
     const raw = adjustedFreq * 55 + csSignal * 25 + defStrength * 15 + (h.n >= 3 && a.n >= 3 ? 5 : 0)
     confidence = Math.min(90, Math.round(raw))
 
@@ -703,7 +703,33 @@ export function computeSmartBets(
 
   // ── Contexto de partido ───────────────────────────────────────────────────────
   const ctx = getMatchContext(match)
-  const { isKnockout } = ctx
+  const { isKnockout, goalMult, cornersF, homeRestF, awayRestF } = ctx
+
+  // ── C2: Penalización de lesiones por equipo ───────────────────────────────────
+  const homeInjuryImpact = (injuries ?? [])
+    .filter((i: any) => i.team_id === homeTeam?.id)
+    .reduce((sum: number, i: any) => sum + (i.impact_score ?? 0), 0)
+  const awayInjuryImpact = (injuries ?? [])
+    .filter((i: any) => i.team_id === awayTeam?.id)
+    .reduce((sum: number, i: any) => sum + (i.impact_score ?? 0), 0)
+  const homePenalty = Math.min(0.20, homeInjuryImpact / 100)
+  const awayPenalty = Math.min(0.20, awayInjuryImpact / 100)
+
+  // ── C3: Aplicar contexto + lesiones a métricas de forma ─────────────────────
+  const hMult = goalMult * homeRestF * (1 - homePenalty)
+  const aMult = goalMult * awayRestF * (1 - awayPenalty)
+  h.goalsScored    *= hMult
+  h.xg             *= hMult
+  h.shotsOT        *= hMult
+  h.bigChances     *= hMult
+  h.corners        *= cornersF
+  h.goalsConceded  *= goalMult
+  a.goalsScored    *= aMult
+  a.xg             *= aMult
+  a.shotsOT        *= aMult
+  a.bigChances     *= aMult
+  a.corners        *= cornersF
+  a.goalsConceded  *= goalMult
 
   // ── Capa 3: Consenso basado en calidad de datos ──────────────────────────────
   const dataPoints        = h.n + a.n
@@ -752,7 +778,6 @@ export function computeSmartBets(
   if (awayWin >= 0.28 || draw >= 0.25) add(scoreDoubleChance(h, a, prediction, 'dc_x2'))
 
   // Goles
-  add(scoreOver(h, a, 0.5, 'over_0_5', 'Más de 0.5 goles'))
   add(scoreOver(h, a, 1.5, 'over_1_5', 'Más de 1.5 goles'))
   add(scoreOver(h, a, 2.5, 'over_2_5', 'Más de 2.5 goles'))
   add(scoreOver(h, a, 3.5, 'over_3_5', 'Más de 3.5 goles'))
@@ -790,7 +815,7 @@ export function computeSmartBets(
   const marketOddsId: Record<string, string> = {
     home_win: 'home_win', draw: 'draw', away_win: 'away_win',
     dc_1x: 'dc_1x', dc_x2: 'dc_x2',
-    over_0_5: 'over_0_5', over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
+    over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
     btts_yes: 'btts_yes', btts_no: 'btts_no',
     cs_home: 'clean_sheet_home', cs_away: 'clean_sheet_away',
     corners_8_5: 'corners_8_5', corners_9_5: 'corners_9_5', corners_10_5: 'corners_10_5',
