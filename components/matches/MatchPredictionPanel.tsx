@@ -11,6 +11,25 @@ function poissonCDF(lambda: number, k: number): number {
   return Math.min(1, cum)
 }
 
+function deriveLambdas(prediction: any, match: any): { lambdaHome: number; lambdaAway: number } {
+  const hStat = match?.home_team?.team_statistics?.[0]
+  const aStat = match?.away_team?.team_statistics?.[0]
+  const homeXg  = hStat?.avg_xg  ?? hStat?.avg_goals_scored  ?? 1.3
+  const awayXg  = aStat?.avg_xg  ?? aStat?.avg_goals_scored  ?? 1.1
+  const homeXga = hStat?.avg_xga ?? hStat?.avg_goals_conceded ?? 1.1
+  const awayXga = aStat?.avg_xga ?? aStat?.avg_goals_conceded ?? 1.3
+  const baseHome = Math.max(0.20, (homeXg + awayXga) / 2)
+  const baseAway = Math.max(0.20, (awayXg + homeXga) / 2)
+  const total    = Math.min(baseHome + baseAway, 5.5)
+  const hw = prediction.home_win_probability ?? 0.40
+  const aw = prediction.away_win_probability ?? 0.28
+  const hs = Math.max(0.20, Math.min(0.80, hw / Math.max(0.01, hw + aw)))
+  return {
+    lambdaHome: Math.max(0.10, total * hs),
+    lambdaAway: Math.max(0.10, total * (1 - hs)),
+  }
+}
+
 function computeMarketProbs(lambdaHome: number, lambdaAway: number) {
   const lambdaTotal = lambdaHome + lambdaAway
   const pHome0 = poissonCDF(lambdaHome, 0)
@@ -73,8 +92,7 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
   const draw   = prediction.draw_probability
   const away   = prediction.away_win_probability
 
-  const lambdaHome = prediction.expected_home_goals ?? prediction.predicted_home_score ?? 1.3
-  const lambdaAway = prediction.expected_away_goals ?? prediction.predicted_away_score ?? 1.1
+  const { lambdaHome, lambdaAway } = deriveLambdas(prediction, match)
   const extraMarkets = computeMarketProbs(lambdaHome, lambdaAway)
 
   const topOutcome =
