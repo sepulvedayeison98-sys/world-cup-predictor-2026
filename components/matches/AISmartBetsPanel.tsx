@@ -652,6 +652,57 @@ function ConclusionSection({ analysis, isLoading }: { analysis: MatchAnalysis | 
   )
 }
 
+// ─── Client-side fallback (mirrors server generateFallbackAnalysis) ──────────
+
+function buildFallback(ctx: AnalysisContext, bets: SmartBetRecommendation[]): MatchAnalysis {
+  const home  = ctx.homeTeam.name
+  const away  = ctx.awayTeam.name
+  const hw    = Math.round(ctx.prediction.home_win_probability * 100)
+  const aw    = Math.round(ctx.prediction.away_win_probability * 100)
+  const hXg   = ctx.homeStats?.avg_xg  ?? 1.2
+  const aXg   = ctx.awayStats?.avg_xg  ?? 1.0
+  const hXga  = ctx.homeStats?.avg_xga ?? 1.1
+  const aXga  = ctx.awayStats?.avg_xga ?? 1.2
+  const favor = hw > aw ? home : aw > hw ? away : 'ambos equipos'
+
+  return {
+    tactical: {
+      homeStyle: `${home} desarrolla un juego de presión alta con producción ofensiva de ${hXg.toFixed(1)} xG por partido, privilegiando el control de zonas centrales y la transición rápida tras recuperar el balón.`,
+      awayStyle: `${away} apuesta por una estructura defensiva compacta concediendo solo ${aXga.toFixed(1)} xG por partido, buscando hacer daño mediante el contraataque y la pelota parada.`,
+      homeStrengths: `Potencia ofensiva de ${hXg.toFixed(1)} xG por partido, ventaja ELO (${ctx.homeTeam.elo_rating}) y solidez en mediocampo. Favorito estadístico del modelo híbrido.`,
+      awayStrengths: `Disciplina táctica defensiva, capacidad de absorber presión y eficiencia en contraataques. Solvencia en partidos de alta tensión.`,
+      homeWeaknesses: `Con ${hXga.toFixed(1)} xGA por partido, vulnerable al contragolpe si el visitante cierra bien los espacios y explota la profundidad.`,
+      awayWeaknesses: `Producción ofensiva de ${aXg.toFixed(1)} xG por partido puede ser insuficiente si el local establece dominio posesional desde el inicio.`,
+      keyBattleground: `El mediocampo será el campo de batalla decisivo. Quien controle las segundas jugadas y limite las transiciones del rival definirá el ritmo y las oportunidades de gol.`,
+      possessionEdge: hw > aw + 10 ? 'home' : aw > hw + 10 ? 'away' : 'balanced',
+      possessionReason: `${hw > aw ? home : away} tiene ventaja en posesión basada en el diferencial ELO y su estilo de juego predominante.`,
+      transitionEdge: 'balanced',
+      transitionReason: `Ambos equipos presentan capacidades similares en transición, con el visitante favoreciendo el contragolpe y el local la presión inmediata.`,
+      firstHalf: `Inicio cauteloso mientras ambos equipos se estudian. ${home} buscará establecer control posesional mientras ${away} aguarda estructurado para aprovechar los espacios al contragolpe.`,
+      secondHalf: `Mayor apertura de espacios a medida que avance el partido. La fatiga y la presión del marcador provocarán ajustes tácticos significativos, con mayor intensidad en los últimos 20 minutos.`,
+    },
+    context: {
+      homeNeed: `${home} necesita los tres puntos para consolidar su posición en el grupo y mantener vivas sus aspiraciones de clasificación en el Mundial 2026.`,
+      awayNeed: `${away} busca un resultado positivo —mínimo un punto— que le permita mantener opciones vigentes en la fase de grupos del torneo.`,
+      intensityLevel: hw > 65 || aw > 65 ? 'Alta' : 'Media',
+      intensityReason: `La diferencia entre equipos y el momento del torneo generan una intensidad elevada donde un resultado negativo puede comprometer seriamente la clasificación de uno o ambos equipos.`,
+      competitiveDescription: `Este encuentro en la ${ctx.phase} del Mundial 2026 tiene peso crítico. El marcador final definirá posiblemente las opciones de clasificación al siguiente ronda, elevando la presión y la intensidad competitiva del partido.`,
+    },
+    betExplanations: Object.fromEntries(
+      bets.map(b => [
+        b.id,
+        `El modelo asigna ${b.confidence}% de probabilidad a esta apuesta basándose en el análisis conjunto de xG (${hXg.toFixed(1)} vs ${aXg.toFixed(1)}), ELO rating, forma reciente y diferencial estadístico entre ${home} y ${away}. Nivel de confianza ${b.tier}.`,
+      ])
+    ),
+    risks: [
+      `Posibles rotaciones o cambios de alineación no reflejados en los datos estadísticos actuales podrían alterar las proyecciones del modelo.`,
+      `La presión psicológica de un partido de Mundial puede generar variaciones de rendimiento difíciles de cuantificar estadísticamente.`,
+      `Factores externos como el clima (${ctx.weather_condition}, ${ctx.weather_temp_celsius}°C) o decisiones arbitrales pueden influir significativamente en el resultado final.`,
+    ],
+    conclusion: `El análisis posiciona a ${favor} como favorito estadístico con ${Math.max(hw, aw)}% de probabilidad. ${bets[0] ? `La apuesta con mejor equilibrio riesgo-valor es "${bets[0].label}" (${bets[0].confidence}% de confianza), respaldada por los indicadores xG y el diferencial ELO acumulado.` : 'El modelo no detecta apuestas con valor diferencial claro para este partido.'} El principal factor de riesgo es la imprevisibilidad inherente a los partidos de fase de grupos del Mundial, donde la presión puede distorsionar los patrones estadísticos habituales. Se recomienda un enfoque conservador de gestión del riesgo.`,
+  }
+}
+
 // ─── Main component ───────────────────────────────────────────
 
 export function AISmartBetsPanel({
@@ -730,6 +781,12 @@ export function AISmartBetsPanel({
     bets: smartBets.map(b => ({ id: b.id, label: b.label, confidence: b.confidence, tier: b.tier })),
   }), [match.id, prediction?.id, homeStats, awayStats, homeRecentMatches, awayRecentMatches, injuries, smartBets])
 
+  // Fallback determinístico calculado en cliente (siempre disponible)
+  const fallbackAnalysis = useMemo(
+    () => buildFallback(context, smartBets),
+    [context, smartBets]
+  )
+
   // Fetch AI analysis
   const { data: analysis, isLoading } = useQuery<MatchAnalysis>({
     queryKey: ['match-analysis', match.id, smartBets.map(b => b.id).join(',')],
@@ -754,6 +811,9 @@ export function AISmartBetsPanel({
     enabled: !!prediction,
   })
 
+  // Mientras carga → skeleton; si falla o no hay API key → fallback; si ok → AI
+  const displayAnalysis: MatchAnalysis | null = isLoading ? null : (analysis ?? fallbackAnalysis)
+
   if (!prediction) {
     return (
       <div className="card p-8 text-center">
@@ -769,7 +829,7 @@ export function AISmartBetsPanel({
       <AISummarySection prediction={prediction} smartBets={smartBets} match={match} />
 
       {/* 2. Tactical Analysis */}
-      <TacticalSection match={match} analysis={analysis ?? null} isLoading={isLoading} />
+      <TacticalSection match={match} analysis={displayAnalysis} isLoading={isLoading} />
 
       {/* 3. Form Status */}
       <FormSection
@@ -781,12 +841,12 @@ export function AISmartBetsPanel({
       />
 
       {/* 4. World Cup Context */}
-      <ContextSection match={match} analysis={analysis ?? null} isLoading={isLoading} />
+      <ContextSection match={match} analysis={displayAnalysis} isLoading={isLoading} />
 
       {/* 5 + 6. Smart Bets + Value Indicator */}
       <SmartBetsSection
         smartBets={smartBets}
-        analysis={analysis ?? null}
+        analysis={displayAnalysis}
         odds={odds}
         isLoading={isLoading}
         match={match}
@@ -794,14 +854,14 @@ export function AISmartBetsPanel({
 
       {/* 7. Risk Factors */}
       <RisksSection
-        analysis={analysis ?? null}
+        analysis={displayAnalysis}
         injuries={injuries}
         match={match}
         isLoading={isLoading}
       />
 
       {/* 8. AI Conclusion */}
-      <ConclusionSection analysis={analysis ?? null} isLoading={isLoading} />
+      <ConclusionSection analysis={displayAnalysis} isLoading={isLoading} />
     </div>
   )
 }
