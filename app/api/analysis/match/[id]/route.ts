@@ -221,9 +221,10 @@ export async function POST(
 
   try {
     const client = new Anthropic({ apiKey })
+    // Haiku: respuesta en ~2-4s, dentro del límite de 10s del plan Hobby
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2500,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1800,
       messages: [{ role: 'user', content: buildPrompt(ctx) }],
     })
 
