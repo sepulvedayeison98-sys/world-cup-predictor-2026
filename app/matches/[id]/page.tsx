@@ -27,7 +27,7 @@ async function fetchTeamForm(
     .eq('status', 'finished')
     .neq('id', excludeMatchId)
     .order('kickoff_time', { ascending: false })
-    .limit(6)
+    .limit(10)
 
   if (!data) return []
 
