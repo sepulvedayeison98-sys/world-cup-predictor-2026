@@ -69,21 +69,23 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
 
           <div className="space-y-0.5">
             {standings.map((s: any, idx: number) => {
-              const isQualified = idx < 2
+              const isDirectQ = idx < 2
+              const isMaybeQ  = idx === 2
               return (
                 <div
                   key={s.id}
                   className={cn(
                     'grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-1 rounded px-1 py-1.5',
                     'hover:bg-zinc-800/50 transition-colors',
-                    isQualified && 'border-l-2 border-emerald-500/40'
+                    isDirectQ ? 'border-l-2 border-emerald-500/40'
+                    : isMaybeQ ? 'border-l-2 border-amber-500/40' : ''
                   )}
                 >
                   {/* Position + Team */}
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={cn(
                       'text-[10px] font-bold w-3 shrink-0',
-                      isQualified ? 'text-emerald-400' : 'text-zinc-600'
+                      isDirectQ ? 'text-emerald-400' : isMaybeQ ? 'text-amber-400' : 'text-zinc-600'
                     )}>
                       {idx + 1}
                     </span>
@@ -125,7 +127,8 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
           </div>
 
           <p className="mt-2 text-[9px] text-zinc-600">
-            ■ = Clasificados a 1/16 de final
+            <span className="text-emerald-700">■</span> Directos &nbsp;·&nbsp;
+            <span className="text-amber-700">■</span> Posible mejor 3ro
           </p>
         </>
       )}

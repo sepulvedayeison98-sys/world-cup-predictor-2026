@@ -32,7 +32,7 @@ export function SimulationResultsWidget() {
         .select("simulation_run_id")
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (runError) {
         console.error("Error fetching latest simulation run:", runError);

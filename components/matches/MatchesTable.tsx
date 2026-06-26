@@ -78,7 +78,7 @@ function Stars({ level }: { level: number }) {
 function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: string }) {
   // If DB says "live" but match started >3h ago, it's almost certainly finished
   const effectiveStatus =
-    status === 'live' && kickoffTime && Date.now() - new Date(kickoffTime).getTime() > 3 * 60 * 60 * 1000
+    status === 'live' && kickoffTime && Date.now() - new Date(kickoffTime).getTime() > 4.5 * 60 * 60 * 1000
       ? 'finished'
       : status
 
@@ -137,7 +137,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
               </span>
             </div>
             {m.status === 'finished' || m.status === 'live' ? (
-              <span className="mono text-sm font-bold text-white">{m.home_score}</span>
+              <span className="mono text-sm font-bold text-white">{m.home_score ?? '—'}</span>
             ) : null}
           </div>
         )
@@ -152,7 +152,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
         return (
           <div className="flex items-center gap-2 min-w-[100px]">
             {m.status === 'finished' || m.status === 'live' ? (
-              <span className="mono text-sm font-bold text-white">{m.away_score}</span>
+              <span className="mono text-sm font-bold text-white">{m.away_score ?? '—'}</span>
             ) : null}
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-zinc-100">
@@ -333,7 +333,7 @@ export function MatchesTable() {
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <p className="text-xs text-zinc-500">
           {isLoading ? '…' : `${data?.count ?? 0} partidos`}
-          {Object.values(filters).some(Boolean) && ' (filtrado)'}
+          {(filters.search || filters.status || filters.group_id || filters.team_id || filters.min_confidence) && ' (filtrado)'}
         </p>
         <p className="text-[10px] text-zinc-600">
           Página {pageIndex + 1} de {data?.total_pages ?? 1}
@@ -407,7 +407,9 @@ export function MatchesTable() {
       {/* Pagination */}
       <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
         <p className="text-xs text-zinc-500">
-          Mostrando {pageIndex * PAGE_SIZE + 1}–{Math.min((pageIndex + 1) * PAGE_SIZE, data?.count ?? 0)} de {data?.count ?? 0}
+          {(data?.count ?? 0) === 0
+            ? '0 resultados'
+            : `Mostrando ${pageIndex * PAGE_SIZE + 1}–${Math.min((pageIndex + 1) * PAGE_SIZE, data?.count ?? 0)} de ${data?.count ?? 0}`}
         </p>
         <div className="flex items-center gap-1">
           <button

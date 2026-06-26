@@ -88,12 +88,28 @@ function ProbabilityGauge({ value, color }: { value: number; color: string }) {
 }
 
 export function MatchPredictionPanel({ prediction, match }: Props) {
-  const homeWin = prediction.home_win_probability
-  const draw   = prediction.draw_probability
-  const away   = prediction.away_win_probability
+  const homeWin = prediction.home_win_probability ?? 0
+  const draw   = prediction.draw_probability ?? 0
+  const away   = prediction.away_win_probability ?? 0
+
+  // Normalize 1X2 bar so it always fills 100% regardless of floating-point drift
+  const probTotal = homeWin + draw + away || 1
+  const hBarPct = (homeWin / probTotal) * 100
+  const dBarPct = (draw / probTotal) * 100
+  const aBarPct = (away / probTotal) * 100
 
   const { lambdaHome, lambdaAway } = deriveLambdas(prediction, match)
   const extraMarkets = computeMarketProbs(lambdaHome, lambdaAway)
+
+  // Weight bar: scale so largest weight fills 100% of the bar
+  const weights = [
+    { label: 'xG y capacidad ofensiva', weight: prediction.xg_weight ?? 0.40 },
+    { label: 'ELO Rating',               weight: prediction.elo_weight ?? 0.25 },
+    { label: 'Forma reciente',            weight: prediction.form_weight ?? 0.15 },
+    { label: 'Mercado de apuestas',        weight: prediction.market_weight ?? 0.10 },
+    { label: 'Noticias y lesiones',        weight: prediction.news_weight ?? 0.10 },
+  ]
+  const maxWeight = Math.max(...weights.map(w => w.weight), 0.01)
 
   const topOutcome =
     homeWin >= draw && homeWin >= away
@@ -133,11 +149,11 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
           </div>
         </div>
 
-        {/* Stacked bar */}
+        {/* Stacked bar — normalized so bars always fill 100% */}
         <div className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800 mb-1">
-          <div className="bg-emerald-500 transition-all" style={{ width: `${homeWin * 100}%` }} />
-          <div className="bg-amber-500 transition-all"  style={{ width: `${draw * 100}%` }} />
-          <div className="bg-red-500 transition-all"    style={{ width: `${away * 100}%` }} />
+          <div className="bg-emerald-500 transition-all" style={{ width: `${hBarPct}%` }} />
+          <div className="bg-amber-500 transition-all"  style={{ width: `${dBarPct}%` }} />
+          <div className="bg-red-500 transition-all"    style={{ width: `${aBarPct}%` }} />
         </div>
 
         {/* Marcador predicho */}
@@ -219,19 +235,13 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
           <h3 className="text-sm font-semibold text-white">Pesos del Modelo</h3>
         </div>
         <div className="space-y-1.5">
-          {[
-            { label: 'xG y capacidad ofensiva', weight: prediction.xg_weight ?? 0.40 },
-            { label: 'ELO Rating',               weight: prediction.elo_weight ?? 0.25 },
-            { label: 'Forma reciente',            weight: prediction.form_weight ?? 0.15 },
-            { label: 'Mercado de apuestas',        weight: prediction.market_weight ?? 0.10 },
-            { label: 'Noticias y lesiones',        weight: prediction.news_weight ?? 0.10 },
-          ].map((item) => (
+          {weights.map((item) => (
             <div key={item.label} className="flex items-center gap-2">
               <span className="text-[10px] text-zinc-500 w-32 shrink-0">{item.label}</span>
               <div className="flex-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-violet-500/60"
-                  style={{ width: `${item.weight * 100 * 2.5}%` }}
+                  style={{ width: `${(item.weight / maxWeight) * 100}%` }}
                 />
               </div>
               <span className="text-[10px] mono text-zinc-400 w-7 text-right">
@@ -239,6 +249,7 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
               </span>
             </div>
           ))}
+
         </div>
       </div>
     </div>

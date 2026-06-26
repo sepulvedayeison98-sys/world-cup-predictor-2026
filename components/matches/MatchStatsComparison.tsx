@@ -43,7 +43,7 @@ function StatRow({ label, home, away, unit = '', higherIsBetter = true, format: 
           style={{ width: `${homePct}%` }}
         />
         <div
-          className={cn('transition-all duration-700', !homeWins && home !== away ? 'bg-blue-500' : 'bg-zinc-700')}
+          className={cn('transition-all duration-700', !homeWins && home !== away ? 'bg-red-500' : 'bg-zinc-700')}
           style={{ width: `${awayPct}%` }}
         />
       </div>
@@ -52,21 +52,25 @@ function StatRow({ label, home, away, unit = '', higherIsBetter = true, format: 
 }
 
 export function MatchStatsComparison({ stats, homeTeam, awayTeam }: Props) {
-  const home = stats.find((s: any) => s.team_id === homeTeam.id) ?? {}
-  const away = stats.find((s: any) => s.team_id === awayTeam.id) ?? {}
+  const hMatch = stats.find((s: any) => s.team_id === homeTeam.id) ?? {}
+  const aMatch = stats.find((s: any) => s.team_id === awayTeam.id) ?? {}
+  // Fallback a estadísticas históricas del equipo cuando no hay datos del partido
+  const hAvg = homeTeam.team_statistics?.[0] ?? {}
+  const aAvg = awayTeam.team_statistics?.[0] ?? {}
+  const v = (matchVal: any, avgVal: any) => matchVal ?? avgVal ?? 0
 
   const rows: StatRowProps[] = [
-    { label: 'Posesión', home: home.possession ?? 50, away: away.possession ?? 50, unit: '%' },
-    { label: 'Tiros',    home: home.shots ?? 0,       away: away.shots ?? 0 },
-    { label: 'A puerta', home: home.shots_on_target ?? 0, away: away.shots_on_target ?? 0 },
-    { label: 'xG',       home: home.xg ?? 0, away: away.xg ?? 0, format: (v) => v.toFixed(2) },
-    { label: 'Córners',  home: home.corners ?? 0, away: away.corners ?? 0 },
-    { label: 'Faltas',   home: home.fouls ?? 0, away: away.fouls ?? 0, higherIsBetter: false },
-    { label: 'Amarillas', home: home.yellow_cards ?? 0, away: away.yellow_cards ?? 0, higherIsBetter: false },
-    { label: 'Pases',    home: home.passes ?? 0, away: away.passes ?? 0 },
-    { label: 'Precisión pase', home: home.pass_accuracy ?? 0, away: away.pass_accuracy ?? 0, unit: '%' },
-    { label: 'Paradas',  home: home.saves ?? 0, away: away.saves ?? 0 },
-  ]
+    { label: 'Posesión',      home: v(hMatch.possession, 50),              away: v(aMatch.possession, 50),              unit: '%' },
+    { label: 'Tiros',         home: v(hMatch.shots, hAvg.avg_shots),        away: v(aMatch.shots, aAvg.avg_shots) },
+    { label: 'A puerta',      home: v(hMatch.shots_on_target, null),        away: v(aMatch.shots_on_target, null) },
+    { label: 'xG',            home: v(hMatch.xg, hAvg.avg_xg),             away: v(aMatch.xg, aAvg.avg_xg),            format: (n: number) => n.toFixed(2) },
+    { label: 'Córners',       home: v(hMatch.corners, hAvg.avg_corners),   away: v(aMatch.corners, aAvg.avg_corners) },
+    { label: 'Faltas',        home: v(hMatch.fouls, null),                  away: v(aMatch.fouls, null),                higherIsBetter: false },
+    { label: 'Amarillas',     home: v(hMatch.yellow_cards, null),           away: v(aMatch.yellow_cards, null),         higherIsBetter: false },
+    { label: 'Goles marcados',home: v(null, hAvg.avg_goals_scored),         away: v(null, aAvg.avg_goals_scored),       format: (n: number) => n.toFixed(1) },
+    { label: 'Goles recibidos',home: v(null, hAvg.avg_goals_conceded),      away: v(null, aAvg.avg_goals_conceded),     higherIsBetter: false, format: (n: number) => n.toFixed(1) },
+    { label: 'Paradas',       home: v(hMatch.saves, null),                  away: v(aMatch.saves, null) },
+  ].filter(r => r.home !== 0 || r.away !== 0) // ocultar filas sin datos
 
   return (
     <div className="card p-4">
@@ -79,7 +83,7 @@ export function MatchStatsComparison({ stats, homeTeam, awayTeam }: Props) {
         <div className="flex items-center gap-4 text-xs">
           <span className="text-emerald-400 font-semibold">{homeTeam.code}</span>
           <span className="text-zinc-600">vs</span>
-          <span className="text-blue-400 font-semibold">{awayTeam.code}</span>
+          <span className="text-red-400 font-semibold">{awayTeam.code}</span>
         </div>
       </div>
 

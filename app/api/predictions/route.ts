@@ -173,8 +173,6 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const matchId = req.nextUrl.searchParams.get('match_id')
   let query = supabase.from('predictions').select('*, exact_score_predictions(*)')

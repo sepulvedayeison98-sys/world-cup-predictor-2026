@@ -40,7 +40,7 @@ const VALUE_CONFIG: Record<ValueGrade, { label: string; color: string; bg: strin
 const MARKET_ID_MAP: Record<string, string> = {
   home_win: 'home_win', draw: 'draw', away_win: 'away_win',
   dc_1x: 'dc_1x', dc_x2: 'dc_x2',
-  over_1_5: 'over_1.5', over_2_5: 'over_2.5', over_3_5: 'over_3.5',
+  over_1_5: 'over_1_5', over_2_5: 'over_2_5', over_3_5: 'over_3_5',
   btts_yes: 'btts', btts_no: 'btts',
   corners_8_5: 'corners', corners_9_5: 'corners', corners_10_5: 'corners',
   cards_2_5: 'yellow_cards', cards_3_5: 'yellow_cards',
@@ -58,9 +58,9 @@ function computeValueGrade(confidence: number, betId: string, odds: any[]): Valu
   const modelProb = confidence / 100
   const avgOdds = getAvgOdds(betId, odds)
   if (avgOdds == null) {
-    if (confidence >= 78) return 'muy_buena'
-    if (confidence >= 68) return 'buena'
-    if (confidence >= 58) return 'neutral'
+    // Sin cuotas reales no podemos calcular valor esperado → cap en 'buena'
+    if (confidence >= 75) return 'buena'
+    if (confidence >= 60) return 'neutral'
     return 'evitar'
   }
   const ev = modelProb * avgOdds - 1
@@ -684,7 +684,7 @@ function buildFallback(ctx: AnalysisContext, bets: SmartBetRecommendation[]): Ma
     context: {
       homeNeed: `${home} necesita los tres puntos para consolidar su posición en el grupo y mantener vivas sus aspiraciones de clasificación en el Mundial 2026.`,
       awayNeed: `${away} busca un resultado positivo —mínimo un punto— que le permita mantener opciones vigentes en la fase de grupos del torneo.`,
-      intensityLevel: hw > 65 || aw > 65 ? 'Alta' : 'Media',
+      intensityLevel: hw > 75 || aw > 75 ? 'Muy Alta' : hw > 60 || aw > 60 ? 'Alta' : (hw < 40 && aw < 40) ? 'Baja' : 'Media',
       intensityReason: `La diferencia entre equipos y el momento del torneo generan una intensidad elevada donde un resultado negativo puede comprometer seriamente la clasificación de uno o ambos equipos.`,
       competitiveDescription: `Este encuentro en la ${ctx.phase} del Mundial 2026 tiene peso crítico. El marcador final definirá posiblemente las opciones de clasificación al siguiente ronda, elevando la presión y la intensidad competitiva del partido.`,
     },
@@ -697,7 +697,9 @@ function buildFallback(ctx: AnalysisContext, bets: SmartBetRecommendation[]): Ma
     risks: [
       `Posibles rotaciones o cambios de alineación no reflejados en los datos estadísticos actuales podrían alterar las proyecciones del modelo.`,
       `La presión psicológica de un partido de Mundial puede generar variaciones de rendimiento difíciles de cuantificar estadísticamente.`,
-      `Factores externos como el clima (${ctx.weather_condition}, ${ctx.weather_temp_celsius}°C) o decisiones arbitrales pueden influir significativamente en el resultado final.`,
+      ctx.weather_condition !== 'Despejado' || ctx.weather_temp_celsius !== 22
+        ? `Condiciones climáticas (${ctx.weather_condition}, ${ctx.weather_temp_celsius}°C) podrían afectar el ritmo e intensidad del partido.`
+        : `Factores externos como el estado del terreno de juego y las decisiones arbitrales pueden inclinar el balance en un partido ajustado.`,
     ],
     conclusion: `El análisis posiciona a ${favor} como favorito estadístico con ${Math.max(hw, aw)}% de probabilidad. ${bets[0] ? `La apuesta con mejor equilibrio riesgo-valor es "${bets[0].label}" (${bets[0].confidence}% de confianza), respaldada por los indicadores xG y el diferencial ELO acumulado.` : 'El modelo no detecta apuestas con valor diferencial claro para este partido.'} El principal factor de riesgo es la imprevisibilidad inherente a los partidos de fase de grupos del Mundial, donde la presión puede distorsionar los patrones estadísticos habituales. Se recomienda un enfoque conservador de gestión del riesgo.`,
   }
@@ -784,7 +786,10 @@ export function AISmartBetsPanel({
   // Fallback determinístico calculado en cliente (siempre disponible)
   const fallbackAnalysis = useMemo(
     () => buildFallback(context, smartBets),
-    [context, smartBets]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [match.id, prediction?.home_win_probability, prediction?.draw_probability,
+     prediction?.away_win_probability, prediction?.confidence_score, homeStats, awayStats,
+     homeRecentMatches, awayRecentMatches, injuries, smartBets]
   )
 
   // Fetch AI analysis

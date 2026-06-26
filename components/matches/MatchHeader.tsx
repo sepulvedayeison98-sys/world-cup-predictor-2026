@@ -74,7 +74,7 @@ export function MatchHeader({ match }: Props) {
                   <span className="text-2xl text-zinc-600">—</span>
                   <span className="text-5xl font-black mono text-white">{match.away_score}</span>
                 </div>
-                {match.home_score_ht !== null && (
+                {match.home_score_ht != null && match.away_score_ht != null && (
                   <p className="text-[10px] text-zinc-600 mono">
                     ({match.home_score_ht} — {match.away_score_ht}) MT
                   </p>
@@ -134,7 +134,7 @@ export function MatchHeader({ match }: Props) {
             <span>{match.attendance.toLocaleString('es-CO')} espectadores</span>
           </div>
         )}
-        {match.home_rest_days !== null && (
+        {match.home_rest_days != null && match.away_rest_days != null && (
           <div className="text-xs text-zinc-500">
             Descanso: <span className="text-zinc-300">{match.home_rest_days}d</span> vs <span className="text-zinc-300">{match.away_rest_days}d</span>
           </div>

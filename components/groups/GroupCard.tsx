@@ -53,22 +53,23 @@ export function GroupCard({ group }: Props) {
           </thead>
           <tbody>
             {standings.map((s: any, idx: number) => {
-              const isQualified = idx < 2
+              const isDirectQ = idx < 2      // top 2: clasificación directa (verde)
+              const isMaybeQ  = idx === 2    // 3ro: posible clasificación como mejor tercero (ámbar)
               const gd = s.goal_difference ?? (s.goals_for - s.goals_against)
               return (
                 <tr
                   key={s.id}
                   className={cn(
                     'transition-colors',
-                    isQualified
-                      ? 'border-l-2 border-emerald-500/50 hover:bg-emerald-500/5'
-                      : 'hover:bg-zinc-800/30'
+                    isDirectQ ? 'border-l-2 border-emerald-500/50 hover:bg-emerald-500/5'
+                    : isMaybeQ ? 'border-l-2 border-amber-500/40 hover:bg-amber-500/5'
+                    : 'hover:bg-zinc-800/30'
                   )}
                 >
                   <td className="px-3 py-2">
                     <span className={cn(
                       'text-[10px] font-bold',
-                      isQualified ? 'text-emerald-400' : 'text-zinc-600'
+                      isDirectQ ? 'text-emerald-400' : isMaybeQ ? 'text-amber-400' : 'text-zinc-600'
                     )}>
                       {idx + 1}
                     </span>
@@ -148,7 +149,9 @@ export function GroupCard({ group }: Props) {
       )}
 
       <div className="px-3 py-1.5 text-[9px] text-zinc-700 border-t border-zinc-800/50">
-        ▌ = Clasificados · Clasif. = % de clasificación · Líder = % de liderar grupo
+        <span className="text-emerald-700">▌</span> Clasificación directa &nbsp;·&nbsp;
+        <span className="text-amber-700">▌</span> Posible mejor 3ro &nbsp;·&nbsp;
+        Clasif. = % de clasificación
       </div>
     </div>
   )
