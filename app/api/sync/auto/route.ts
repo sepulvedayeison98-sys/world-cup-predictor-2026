@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSyncWindow } from '@/lib/syncWindow'
-import { syncResults } from '@/services/sync/results'
+import { syncESPNResults } from '@/services/sync/espn-results'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/sync/auto — punto unico para pingers externos (cron-job.org, etc).
+ * GET /api/sync/auto — punto único para el cron de GitHub Actions (cada 15 min).
  *
- * Hace el chequeo de ventana y, si corresponde, sincroniza resultados en la
- * misma llamada. Pensado para reemplazar el patron de 2 pasos (window +
- * results) cuando el disparador externo solo puede pegarle a una URL fija sin
- * logica condicional — asi un ping de alta frecuencia (ej. cada 5 min) no
- * gasta cuota de The Odds API salvo que haya partido en ventana de juego.
+ * Chequea la ventana de partido y, si corresponde, sincroniza desde ESPN API
+ * (gratuita, sin límite de cuota). ESPN provee: marcadores en vivo, estado
+ * del partido, sede, asistencia y árbitro.
  *
- * Protegido por CRON_SECRET (mismo header que los otros /api/sync/*).
+ * Protegido por CRON_SECRET (header: Authorization: Bearer <secret>).
  */
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
@@ -30,7 +28,7 @@ export async function GET(req: NextRequest) {
     if (!window.shouldSyncResults) {
       return NextResponse.json({ skipped: true, window })
     }
-    const result = await syncResults()
+    const result = await syncESPNResults()
     return NextResponse.json({ skipped: false, window, ...result })
   } catch (err: any) {
     console.error('[GET /api/sync/auto]', err)
