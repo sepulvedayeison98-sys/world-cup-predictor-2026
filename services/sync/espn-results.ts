@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveTeamCode } from '@/lib/teamMapping'
+import { syncESPNMatchStats } from './espn-stats'
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
 const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
@@ -124,6 +125,7 @@ export async function syncESPNResults(): Promise<{
     .from('matches')
     .select(`
       id, status, home_score, away_score, venue, city, attendance, referee,
+      home_team_id, away_team_id,
       home_team:teams!matches_home_team_id_fkey(code),
       away_team:teams!matches_away_team_id_fkey(code)
     `)
@@ -139,6 +141,7 @@ export async function syncESPNResults(): Promise<{
 
   let updated = 0
   const unmatched: string[] = []
+  const statsPromises: Promise<void>[] = []
 
   for (const event of allEvents) {
     const comp = event.competitions?.[0]
@@ -183,20 +186,28 @@ export async function syncESPNResults(): Promise<{
     }
 
     // Solo escribir si algo cambió
-    if (
-      match.status === status &&
-      match.home_score === homeScore &&
-      match.away_score === awayScore &&
-      Object.keys(enriched).length === 0
-    ) continue
+    const scoreChanged = match.status !== status || match.home_score !== homeScore || match.away_score !== awayScore
+    if (scoreChanged || Object.keys(enriched).length > 0) {
+      const { error } = await supabase
+        .from('matches')
+        .update({ status, home_score: homeScore, away_score: awayScore, ...enriched })
+        .eq('id', match.id)
+      if (error) throw error
+      updated++
+    }
 
-    const { error } = await supabase
-      .from('matches')
-      .update({ status, home_score: homeScore, away_score: awayScore, ...enriched })
-      .eq('id', match.id)
-    if (error) throw error
-    updated++
+    // Para partidos terminados, sincronizar estadísticas desde el summary endpoint
+    if (status === 'finished') {
+      statsPromises.push(
+        syncESPNMatchStats(event.id, match.id, match.home_team_id, match.away_team_id)
+          .then(() => undefined)
+          .catch(() => undefined)
+      )
+    }
   }
+
+  // Esperar estadísticas en paralelo (no bloquea si fallan)
+  await Promise.allSettled(statsPromises)
 
   await supabase.from('sync_logs').insert({
     source: 'espn_api',

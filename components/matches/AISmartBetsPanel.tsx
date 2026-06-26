@@ -645,7 +645,14 @@ function ConclusionSection({ analysis, isLoading }: { analysis: MatchAnalysis | 
       <div className="flex items-center gap-2 mb-3">
         <Shield className="h-4 w-4 text-emerald-400" />
         <h3 className="text-sm font-semibold text-white">Conclusión IA</h3>
-        <span className="ml-auto text-[9px] text-zinc-600 mono">Generado por IA</span>
+        <span className={cn(
+          'ml-auto text-[9px] mono px-1.5 py-0.5 rounded border',
+          analysis.is_fallback
+            ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
+            : 'text-zinc-600 border-transparent'
+        )}>
+          {analysis.is_fallback ? 'Estimación del modelo' : 'Generado por IA'}
+        </span>
       </div>
       <p className="text-[12px] text-zinc-300 leading-relaxed">{analysis.conclusion}</p>
     </div>
@@ -702,6 +709,7 @@ function buildFallback(ctx: AnalysisContext, bets: SmartBetRecommendation[]): Ma
         : `Factores externos como el estado del terreno de juego y las decisiones arbitrales pueden inclinar el balance en un partido ajustado.`,
     ],
     conclusion: `El análisis posiciona a ${favor} como favorito estadístico con ${Math.max(hw, aw)}% de probabilidad. ${bets[0] ? `La apuesta con mejor equilibrio riesgo-valor es "${bets[0].label}" (${bets[0].confidence}% de confianza), respaldada por los indicadores xG y el diferencial ELO acumulado.` : 'El modelo no detecta apuestas con valor diferencial claro para este partido.'} El principal factor de riesgo es la imprevisibilidad inherente a los partidos de fase de grupos del Mundial, donde la presión puede distorsionar los patrones estadísticos habituales. Se recomienda un enfoque conservador de gestión del riesgo.`,
+    is_fallback: true,
   }
 }
 

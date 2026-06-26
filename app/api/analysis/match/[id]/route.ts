@@ -59,6 +59,7 @@ export interface MatchAnalysis {
   betExplanations: Record<string, string>
   risks: string[]
   conclusion: string
+  is_fallback?: boolean
 }
 
 function buildPrompt(ctx: AnalysisContext): string {
@@ -197,6 +198,7 @@ function generateFallbackAnalysis(ctx: Partial<AnalysisContext>): MatchAnalysis 
       `Factores externos como el clima, el estado del terreno de juego o las decisiones arbitrales pueden influir significativamente en el resultado final.`,
     ],
     conclusion: `El análisis del modelo posiciona a ${favor !== 'ninguno' ? favor : `ambos equipos de forma equilibrada`} como favorito con ${Math.max(hw, aw)}% de probabilidad. La apuesta con mejor equilibrio entre probabilidad y valor esperado es "${bets[0]?.label ?? 'la principal recomendación del motor'}", respaldada por los datos xG y el diferencial ELO acumulado en el torneo. El principal factor de riesgo es la imprevisibilidad inherente a los partidos eliminatorios del Mundial, donde la presión puede distorsionar los patrones estadísticos habituales. Se recomienda un enfoque de gestión de riesgo conservador.`,
+    is_fallback: true,
   }
 }
 
