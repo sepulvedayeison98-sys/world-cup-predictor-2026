@@ -254,9 +254,8 @@ export function MatchesTable() {
   // Por defecto muestra los partidos del día actual
   const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
   const dateParam = searchParams.get('date') ?? todayStr
-  // Convertir medianoche y fin del día en hora local a UTC para que Supabase filtre correctamente
-  const date_from = new Date(`${dateParam}T00:00:00`).toISOString()
-  const date_to   = new Date(`${dateParam}T23:59:59`).toISOString()
+  const date_from = `${dateParam}T00:00:00`
+  const date_to   = `${dateParam}T23:59:59`
 
   const filters = {
     search: searchParams.get('q') ?? undefined,
