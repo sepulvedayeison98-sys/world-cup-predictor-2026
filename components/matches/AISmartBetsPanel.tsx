@@ -734,16 +734,23 @@ export function AISmartBetsPanel({
   const { data: analysis, isLoading } = useQuery<MatchAnalysis>({
     queryKey: ['match-analysis', match.id, smartBets.map(b => b.id).join(',')],
     queryFn: async () => {
-      const res = await fetch(`/api/analysis/match/${match.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context }),
-      })
-      if (!res.ok) throw new Error('Analysis failed')
-      return res.json()
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 8000)
+      try {
+        const res = await fetch(`/api/analysis/match/${match.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context }),
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error('Analysis failed')
+        return res.json()
+      } finally {
+        clearTimeout(timer)
+      }
     },
     staleTime: 30 * 60 * 1000,
-    retry: 1,
+    retry: false,
     enabled: !!prediction,
   })
 

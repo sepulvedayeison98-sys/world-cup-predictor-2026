@@ -75,17 +75,23 @@ function Stars({ level }: { level: number }) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: string }) {
+  // If DB says "live" but match started >3h ago, it's almost certainly finished
+  const effectiveStatus =
+    status === 'live' && kickoffTime && Date.now() - new Date(kickoffTime).getTime() > 3 * 60 * 60 * 1000
+      ? 'finished'
+      : status
+
   const map: Record<string, { label: string; className: string }> = {
     scheduled: { label: 'Programado', className: 'bg-zinc-800 text-zinc-400 border-zinc-700' },
     live:      { label: 'En vivo',    className: 'bg-red-500/10 text-red-400 border-red-500/20' },
     finished:  { label: 'Finalizado', className: 'bg-zinc-800 text-zinc-500 border-zinc-700' },
     postponed: { label: 'Aplazado',   className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   }
-  const cfg = map[status] ?? map.scheduled
+  const cfg = map[effectiveStatus] ?? map.scheduled
   return (
     <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider border', cfg.className)}>
-      {status === 'live' && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />}
+      {effectiveStatus === 'live' && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />}
       {cfg.label}
     </span>
   )
@@ -111,7 +117,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
     }),
     col.accessor('status', {
       header: 'Estado',
-      cell: (info) => <StatusBadge status={info.getValue()} />,
+      cell: (info) => <StatusBadge status={info.getValue()} kickoffTime={info.row.original.kickoff_time} />,
       size: 100,
     }),
     col.display({
@@ -248,8 +254,9 @@ export function MatchesTable() {
   // Por defecto muestra los partidos del día actual
   const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
   const dateParam = searchParams.get('date') ?? todayStr
-  const date_from = `${dateParam}T00:00:00`
-  const date_to   = `${dateParam}T23:59:59`
+  // Convertir medianoche y fin del día en hora local a UTC para que Supabase filtre correctamente
+  const date_from = new Date(`${dateParam}T00:00:00`).toISOString()
+  const date_to   = new Date(`${dateParam}T23:59:59`).toISOString()
 
   const filters = {
     search: searchParams.get('q') ?? undefined,
