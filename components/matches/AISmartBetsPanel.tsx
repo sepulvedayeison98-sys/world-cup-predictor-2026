@@ -327,7 +327,7 @@ function FormSection({ match, homeRecentMatches, awayRecentMatches, homeStats, a
 
               {/* Last 5 results */}
               <div className="flex gap-1 mb-3">
-                {form.slice(0, 5).map((m, i) => (
+                {form.slice(0, 6).map((m, i) => (
                   <div key={i} className={cn(
                     'w-6 h-6 rounded-sm text-[10px] font-bold flex items-center justify-center',
                     m.result === 'W' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -703,8 +703,8 @@ export function AISmartBetsPanel({
     away_rest_days: match.away_rest_days ?? 4,
     homeStats: homeStats ?? {},
     awayStats: awayStats ?? {},
-    homeForm: homeRecentMatches.slice(0, 5),
-    awayForm: awayRecentMatches.slice(0, 5),
+    homeForm: homeRecentMatches.slice(0, 6),
+    awayForm: awayRecentMatches.slice(0, 6),
     homeInjuries: injuries
       .filter((i: any) => i.team_id === match.home_team_id && i.is_active)
       .map((i: any) => ({

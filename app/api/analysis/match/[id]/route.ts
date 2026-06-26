@@ -62,10 +62,10 @@ export interface MatchAnalysis {
 }
 
 function buildPrompt(ctx: AnalysisContext): string {
-  const homeFormStr = ctx.homeForm.slice(0, 5)
+  const homeFormStr = ctx.homeForm.slice(0, 6)
     .map(m => `${m.result} ${m.goals_scored}-${m.goals_conceded} vs ${m.opponent_name}`)
     .join(', ')
-  const awayFormStr = ctx.awayForm.slice(0, 5)
+  const awayFormStr = ctx.awayForm.slice(0, 6)
     .map(m => `${m.result} ${m.goals_scored}-${m.goals_conceded} vs ${m.opponent_name}`)
     .join(', ')
 
