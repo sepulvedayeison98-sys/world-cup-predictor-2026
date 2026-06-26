@@ -11,6 +11,7 @@ import { OddsComparisonTable } from './OddsComparisonTable'
 import { LineupDisplay } from './LineupDisplay'
 import { InjuriesPanel } from './InjuriesPanel'
 import { SmartBetsPanel } from './SmartBetsPanel'
+import { AISmartBetsPanel } from './AISmartBetsPanel'
 import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
@@ -171,7 +172,7 @@ export function MatchAnalysisTabs({
 
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
-          <SmartBetsPanel
+          <AISmartBetsPanel
             prediction={prediction}
             homeStats={homeStats}
             awayStats={awayStats}
