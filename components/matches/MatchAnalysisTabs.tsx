@@ -46,6 +46,27 @@ interface Props {
   awayGroupContext?: import('@/app/api/analysis/match/[id]/route').GroupContext
 }
 
+function computeStatsFromForm(form: MatchFormEntry[]): Record<string, number | null> | null {
+  if (!form || form.length === 0) return null
+  const n = form.length
+  function avg(key: keyof MatchFormEntry): number | null {
+    const vals = form.map(m => m[key] as number | null | undefined).filter((v): v is number => v != null)
+    return vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null
+  }
+  return {
+    avg_goals_scored:    form.reduce((s, m) => s + m.goals_scored, 0) / n,
+    avg_goals_conceded:  form.reduce((s, m) => s + m.goals_conceded, 0) / n,
+    avg_xg:              avg('xg'),
+    avg_xga:             avg('xga'),
+    avg_corners:         avg('corners'),
+    avg_yellow_cards:    avg('yellow_cards'),
+    avg_red_cards:       avg('red_cards'),
+    avg_possession:      avg('possession'),
+    avg_shots:           avg('shots'),
+    avg_shots_on_target: avg('shots_on_target'),
+  }
+}
+
 export function MatchAnalysisTabs({
   match,
   prediction,
@@ -60,6 +81,10 @@ export function MatchAnalysisTabs({
   awayGroupContext,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
+
+  // Fallback: derive team stats from recent form when team_statistics table is empty
+  const effectiveHomeStats = homeStats ?? computeStatsFromForm(homeRecentMatches ?? [])
+  const effectiveAwayStats = awayStats ?? computeStatsFromForm(awayRecentMatches ?? [])
 
   return (
     <div>
@@ -123,19 +148,24 @@ export function MatchAnalysisTabs({
               />
             )}
 
-            {homeStats && awayStats ? (
+            {effectiveHomeStats && effectiveAwayStats ? (
               <>
+                {!homeStats && (
+                  <p className="text-[10px] text-zinc-600 text-center -mb-2">
+                    Medias calculadas a partir de los últimos partidos registrados
+                  </p>
+                )}
                 <TeamAvgStats
                   homeTeam={match.home_team}
                   awayTeam={match.away_team}
-                  homeStats={homeStats}
-                  awayStats={awayStats}
+                  homeStats={effectiveHomeStats}
+                  awayStats={effectiveAwayStats}
                 />
                 <TeamComparisonRadar
                   homeTeam={match.home_team}
                   awayTeam={match.away_team}
-                  homeStats={homeStats}
-                  awayStats={awayStats}
+                  homeStats={effectiveHomeStats}
+                  awayStats={effectiveAwayStats}
                 />
               </>
             ) : matchStats.length === 0 ? (
@@ -178,8 +208,8 @@ export function MatchAnalysisTabs({
         {active === 'smart-bets' && (
           <AISmartBetsPanel
             prediction={prediction}
-            homeStats={homeStats}
-            awayStats={awayStats}
+            homeStats={effectiveHomeStats}
+            awayStats={effectiveAwayStats}
             match={match}
             injuries={injuries}
             odds={odds}
@@ -193,8 +223,8 @@ export function MatchAnalysisTabs({
         {/* ── Digital Twin ── */}
         {active === 'digital-twin' && (
           <MatchDigitalTwin
-            homeStats={homeStats}
-            awayStats={awayStats}
+            homeStats={effectiveHomeStats}
+            awayStats={effectiveAwayStats}
             match={match}
           />
         )}
@@ -203,8 +233,8 @@ export function MatchAnalysisTabs({
         {active === 'montecarlo' && (
           <MonteCarloPanel
             prediction={prediction}
-            homeStats={homeStats}
-            awayStats={awayStats}
+            homeStats={effectiveHomeStats}
+            awayStats={effectiveAwayStats}
             match={match}
             injuries={injuries}
           />
@@ -214,8 +244,8 @@ export function MatchAnalysisTabs({
         {active === 'auditoria' && (
           <DataIntegrityPanel
             prediction={prediction}
-            homeStats={homeStats}
-            awayStats={awayStats}
+            homeStats={effectiveHomeStats}
+            awayStats={effectiveAwayStats}
             match={match}
             injuries={injuries}
             odds={odds}
