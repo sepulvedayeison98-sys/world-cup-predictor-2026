@@ -128,99 +128,104 @@ UPDATE matches SET status='finished',home_score=2,away_score=1 WHERE competition
 
 -- ═══════════════════════════════════════════════════════
 -- OCTAVOS DE FINAL — 16 partidos (29 jun – 2 jul 2026)
+-- Cuadro oficial FIFA WC 2026
 --
--- Clasificados:
---   1°: MEX BRA USA GER NED BEL ESP FRA ARG COL POR ENG  (12 grupos)
---   2°: KOR CAN MAR AUS ECU JPN IRN URU NOR AUT CRO (2K=POR, pero COL es 1K)
---   Mej.3°: CZE TUR CIV SWE SEN SCO GHA BOS
+-- IZQUIERDA: ALE-PAR · FRA-SUE · RSA-CAN · PBA-MAR
+--            POR-CRO · ESP-AUT · EEUU-BIH · BEL-SEN
+-- DERECHA:   BRA-JPN · CMA-NOR · MEX-ECU · ING-RDC
+--            ARG-CAV · AUS-EGI · SUI-AGL · COL-GHA
 -- ═══════════════════════════════════════════════════════
 INSERT INTO matches
   (competition_id, phase, match_number, status,
    home_team_id, away_team_id, kickoff_time, venue, city, country)
 VALUES
-  -- 29 jun
+  -- 29 jun — IZQUIERDA
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',201,'scheduled',
-   '10000000-0000-4000-a000-00000000002d','10000000-0000-4000-a000-000000000010',
+   '10000000-0000-4000-a000-000000000011','10000000-0000-4000-a000-000000000009',
    '2026-06-29 15:00:00 America/New_York','New York New Jersey Stadium','East Rutherford','USA'),
-   -- ENG vs BOS
+   -- ALE vs PAR
 
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',202,'scheduled',
-   '10000000-0000-4000-a000-000000000011','10000000-0000-4000-a000-00000000002f',
-   '2026-06-29 19:00:00 America/Chicago','Houston Stadium','Houston','USA'),
-   -- GER vs GHA
+   '10000000-0000-4000-a000-000000000021','10000000-0000-4000-a000-000000000017',
+   '2026-06-29 19:00:00 America/Chicago','Dallas Stadium','Dallas','USA'),
+   -- FRA vs SUE
 
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',203,'scheduled',
-   '10000000-0000-4000-a000-000000000021','10000000-0000-4000-a000-000000000004',
-   '2026-06-29 15:00:00 America/Chicago','Dallas Stadium','Dallas','USA'),
-   -- FRA vs SCO
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',204,'scheduled',
-   '10000000-0000-4000-a000-00000000001d','10000000-0000-4000-a000-000000000022',
-   '2026-06-29 19:00:00 America/New_York','Miami Stadium','Miami','USA'),
-   -- ESP vs SEN
-
-  -- 30 jun
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',205,'scheduled',
-   '10000000-0000-4000-a000-000000000025','10000000-0000-4000-a000-00000000000b',
-   '2026-06-30 15:00:00 America/Los_Angeles','Los Angeles Stadium','Los Angeles','USA'),
-   -- ARG vs TUR
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',206,'scheduled',
-   '10000000-0000-4000-a000-000000000001','10000000-0000-4000-a000-000000000013',
-   '2026-06-30 18:00:00 America/New_York','Atlanta Stadium','Atlanta','USA'),
-   -- BRA vs CIV
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',207,'scheduled',
-   '10000000-0000-4000-a000-000000000015','10000000-0000-4000-a000-00000000001b',
-   '2026-06-30 15:00:00 America/Vancouver','BC Place','Vancouver','Canada'),
-   -- NED vs IRN
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',208,'scheduled',
-   '10000000-0000-4000-a000-000000000019','10000000-0000-4000-a000-00000000000a',
-   '2026-06-30 19:00:00 America/Mexico_City','Estadio Azteca','Ciudad de Mexico','Mexico'),
-   -- BEL vs AUS
-
-  -- 1 jul
+  -- 29 jun — DERECHA
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',209,'scheduled',
-   '10000000-0000-4000-a000-00000000002c','10000000-0000-4000-a000-000000000016',
-   '2026-07-01 15:00:00 America/New_York','Miami Stadium','Miami','USA'),
-   -- COL vs JPN  ← Colombia en octavos
+   '10000000-0000-4000-a000-000000000001','10000000-0000-4000-a000-000000000016',
+   '2026-06-29 15:00:00 America/Los_Angeles','Los Angeles Stadium','Los Angeles','USA'),
+   -- BRA vs JPN
 
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',210,'scheduled',
-   '10000000-0000-4000-a000-000000000029','10000000-0000-4000-a000-00000000002e',
-   '2026-07-01 19:00:00 America/New_York','New York New Jersey Stadium','East Rutherford','USA'),
-   -- POR vs CRO
+   '10000000-0000-4000-a000-000000000013','10000000-0000-4000-a000-000000000024',
+   '2026-06-29 19:00:00 America/New_York','Boston Stadium','Boston','USA'),
+   -- CMA (CIV) vs NOR
 
+  -- 30 jun — IZQUIERDA
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',203,'scheduled',
+   '10000000-0000-4000-a000-00000000000d','10000000-0000-4000-a000-000000000005',
+   '2026-06-30 15:00:00 America/New_York','Atlanta Stadium','Atlanta','USA'),
+   -- RSA vs CAN
+
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',204,'scheduled',
+   '10000000-0000-4000-a000-000000000015','10000000-0000-4000-a000-000000000002',
+   '2026-06-30 19:00:00 America/Chicago','Houston Stadium','Houston','USA'),
+   -- PBA (NED) vs MAR
+
+  -- 30 jun — DERECHA
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',211,'scheduled',
-   '10000000-0000-4000-a000-00000000000c','10000000-0000-4000-a000-000000000024',
-   '2026-07-01 19:00:00 America/Mexico_City','Estadio Azteca','Ciudad de Mexico','Mexico'),
-   -- MEX vs NOR
+   '10000000-0000-4000-a000-00000000000c','10000000-0000-4000-a000-000000000014',
+   '2026-06-30 15:00:00 America/Mexico_City','Estadio Azteca','Ciudad de Mexico','Mexico'),
+   -- MEX vs ECU
 
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',212,'scheduled',
-   '10000000-0000-4000-a000-000000000007','10000000-0000-4000-a000-000000000014',
-   '2026-07-01 15:00:00 America/Chicago','Kansas City Stadium','Kansas City','USA'),
-   -- SUI vs ECU
+   '10000000-0000-4000-a000-00000000002d','10000000-0000-4000-a000-00000000002a',
+   '2026-06-30 19:00:00 America/New_York','Philadelphia Stadium','Philadelphia','USA'),
+   -- ING (ENG) vs RDC (COD)
 
-  -- 2 jul
+  -- 1 jul — IZQUIERDA
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',205,'scheduled',
+   '10000000-0000-4000-a000-000000000029','10000000-0000-4000-a000-00000000002e',
+   '2026-07-01 15:00:00 America/New_York','Miami Stadium','Miami','USA'),
+   -- POR vs CRO
+
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',206,'scheduled',
+   '10000000-0000-4000-a000-00000000001d','10000000-0000-4000-a000-000000000027',
+   '2026-07-01 19:00:00 America/Chicago','Kansas City Stadium','Kansas City','USA'),
+   -- ESP vs AUT
+
+  -- 1 jul — DERECHA
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',213,'scheduled',
-   '10000000-0000-4000-a000-000000000008','10000000-0000-4000-a000-000000000017',
-   '2026-07-02 15:00:00 America/Chicago','Dallas Stadium','Dallas','USA'),
-   -- USA vs SWE
+   '10000000-0000-4000-a000-000000000025','10000000-0000-4000-a000-00000000001e',
+   '2026-07-01 15:00:00 America/Los_Angeles','Los Angeles Stadium','Los Angeles','USA'),
+   -- ARG vs CAV (Cabo Verde)
 
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',214,'scheduled',
-   '10000000-0000-4000-a000-00000000000e','10000000-0000-4000-a000-000000000020',
-   '2026-07-02 18:00:00 America/Los_Angeles','Los Angeles Stadium','Los Angeles','USA'),
-   -- KOR vs URU
+   '10000000-0000-4000-a000-00000000000a','10000000-0000-4000-a000-00000000001a',
+   '2026-07-01 19:00:00 America/Vancouver','BC Place','Vancouver','Canada'),
+   -- AUS vs EGI (Egipto)
 
+  -- 2 jul — IZQUIERDA
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',207,'scheduled',
+   '10000000-0000-4000-a000-000000000008','10000000-0000-4000-a000-000000000010',
+   '2026-07-02 15:00:00 America/Chicago','Dallas Stadium','Dallas','USA'),
+   -- EEUU (USA) vs BIH (Bosnia)
+
+  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',208,'scheduled',
+   '10000000-0000-4000-a000-000000000019','10000000-0000-4000-a000-000000000022',
+   '2026-07-02 19:00:00 America/New_York','New York New Jersey Stadium','East Rutherford','USA'),
+   -- BEL vs SEN
+
+  -- 2 jul — DERECHA
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',215,'scheduled',
-   '10000000-0000-4000-a000-000000000005','10000000-0000-4000-a000-00000000000f',
-   '2026-07-02 15:00:00 America/Vancouver','BC Place','Vancouver','Canada'),
-   -- CAN vs CZE
+   '10000000-0000-4000-a000-000000000007','10000000-0000-4000-a000-000000000026',
+   '2026-07-02 15:00:00 America/New_York','Boston Stadium','Boston','USA'),
+   -- SUI vs AGL (Argelia)
 
   ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','knockout',216,'scheduled',
-   '10000000-0000-4000-a000-000000000002','10000000-0000-4000-a000-000000000027',
-   '2026-07-02 19:00:00 America/New_York','Boston Stadium','Boston','USA')
-   -- MAR vs AUT
+   '10000000-0000-4000-a000-00000000002c','10000000-0000-4000-a000-00000000002f',
+   '2026-07-02 19:00:00 America/New_York','Miami Stadium','Miami','USA')
+   -- COL vs GHA ← Colombia en octavos
 
 ON CONFLICT (competition_id, match_number) DO NOTHING;
 
