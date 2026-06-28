@@ -28,7 +28,7 @@ export default async function BracketPage() {
     supabase
       .from('matches')
       .select(`
-        id, phase, match_number, status, home_score, away_score, kickoff_time,
+        id, phase, match_number, status, home_score, away_score, kickoff_time, venue, city,
         home_team:teams!matches_home_team_id_fkey(id, name, short_name, code, confederation),
         away_team:teams!matches_away_team_id_fkey(id, name, short_name, code, confederation)
       `)
@@ -67,7 +67,8 @@ export default async function BracketPage() {
     let awayWinProb: number | undefined
 
     if (homeSim && awaySim) {
-      const phaseKey = m.phase === 'round_of_16' ? 'quarter_final_prob'
+      const phaseKey = m.phase === 'round_of_32' ? 'round_of_16_prob'
+        : m.phase === 'round_of_16' ? 'quarter_final_prob'
         : m.phase === 'quarter_final' ? 'semi_final_prob'
         : m.phase === 'semi_final' ? 'final_prob'
         : 'winner_prob'
@@ -91,6 +92,8 @@ export default async function BracketPage() {
       homeScore: m.home_score,
       awayScore: m.away_score,
       kickoffTime: m.kickoff_time,
+      venue: m.venue,
+      city: m.city,
       homeWinProb,
       awayWinProb,
     }
