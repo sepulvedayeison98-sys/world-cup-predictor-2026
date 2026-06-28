@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import { computeSmartBets } from '@/lib/smartBetsEngine'
 import type { MatchFormEntry, SmartBetRecommendation } from '@/lib/smartBetsEngine'
-import type { AnalysisContext, MatchAnalysis } from '@/app/api/analysis/match/[id]/route'
+import type { AnalysisContext, MatchAnalysis, GroupContext } from '@/app/api/analysis/match/[id]/route'
 
 // ─── Props (same as SmartBetsPanel) ──────────────────────────
 
@@ -22,6 +22,8 @@ interface Props {
   odds?: any[]
   homeRecentMatches?: MatchFormEntry[]
   awayRecentMatches?: MatchFormEntry[]
+  homeGroupContext?: GroupContext
+  awayGroupContext?: GroupContext
 }
 
 // ─── Utility helpers ──────────────────────────────────────────
@@ -833,12 +835,27 @@ function buildFallback(ctx: AnalysisContext, bets: SmartBetRecommendation[]): Ma
   let intensityLevel: 'Muy Alta' | 'Alta' | 'Media' | 'Baja' | 'Muy Baja'
   let intensityReason: string, competitiveDescription: string
 
+  function groupJourney(team: string, grp: GroupContext | undefined, xgVal: number, xgaVal: number): string {
+    if (!grp) return ''
+    const pos = grp.position === 1 ? 'primero' : grp.position === 2 ? 'segundo' : `${grp.position}º`
+    const rivals = grp.otherTeams.slice(0, 2).join(' y ')
+    const profile = xgVal > 1.6 ? ' mostrando un ataque potente'
+      : xgaVal < 1.0 ? ' con una sólida defensa'
+      : xgVal < 1.0 ? ' aunque con dudas en ataque'
+      : xgaVal > 1.4 ? ' aunque con algunas dudas defensivas'
+      : ''
+    return `${team} llega tras terminar ${pos} en el ${grp.groupName} por delante de ${rivals}${profile} (${grp.won}V-${grp.drawn}E-${grp.lost}D, ${grp.goalsFor}:${grp.goalsAgainst}).`
+  }
+
   if (isKnockout) {
+    const hGrpText = groupJourney(home, ctx.homeGroupContext, hXg, hXga)
+    const aGrpText = groupJourney(away, ctx.awayGroupContext, aXg, aXga)
+    const grpNarrative = [hGrpText, aGrpText].filter(Boolean).join(' ')
     homeNeed = `${home} necesita ganar para avanzar a ${nextRoundName}. La eliminación directa convierte cada acción en un evento de máxima trascendencia.`
     awayNeed = `${away} no tiene margen de error: perder significa la eliminación del Mundial 2026. Todo el torneo se juega en estos 90 minutos.`
     intensityLevel = 'Muy Alta'
     intensityReason = `Eliminatoria directa en ${phaseName} del Mundial 2026: el perdedor queda eliminado sin segunda oportunidad. La presión, motivación y tensión competitiva alcanzan su punto máximo.`
-    competitiveDescription = `${home} vs ${away} en ${phaseName} del Mundial 2026${ctx.city ? ` (${ctx.city})` : ''}. Un partido de todo o nada donde los datos estadísticos ceden protagonismo a la fortaleza mental, la experiencia bajo presión y la capacidad de ejecutar en el momento decisivo.`
+    competitiveDescription = `${grpNarrative ? grpNarrative + ' ' : ''}En cruces eliminatorios, la presión suele reducir el número de goles y aumentar el valor de la experiencia táctica. ${home} vs ${away} en ${phaseName}${ctx.city ? ` (${ctx.city})` : ''}: la fortaleza mental pesa tanto como las estadísticas.`
   } else {
     homeNeed = hw > 60
       ? `${home} necesita la victoria para consolidar su posición en la ${phaseName} y mantener vivas las aspiraciones de clasificación.`
@@ -952,6 +969,8 @@ export function AISmartBetsPanel({
   odds = [],
   homeRecentMatches = [],
   awayRecentMatches = [],
+  homeGroupContext,
+  awayGroupContext,
 }: Props) {
   // Compute smart bets using existing engine
   const smartBets = useMemo(() => {
@@ -1017,7 +1036,9 @@ export function AISmartBetsPanel({
       confidence_score: prediction?.confidence_score ?? 60,
     },
     bets: smartBets.map(b => ({ id: b.id, label: b.label, confidence: b.confidence, tier: b.tier })),
-  }), [match.id, prediction?.id, homeStats, awayStats, homeRecentMatches, awayRecentMatches, injuries, smartBets])
+    homeGroupContext,
+    awayGroupContext,
+  }), [match.id, prediction?.id, homeStats, awayStats, homeRecentMatches, awayRecentMatches, injuries, smartBets, homeGroupContext, awayGroupContext])
 
   // Fallback determinístico calculado en cliente (siempre disponible)
   const fallbackAnalysis = useMemo(

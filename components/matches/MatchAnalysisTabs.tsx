@@ -42,6 +42,8 @@ interface Props {
   odds: any[]
   homeRecentMatches?: MatchFormEntry[]
   awayRecentMatches?: MatchFormEntry[]
+  homeGroupContext?: import('@/app/api/analysis/match/[id]/route').GroupContext
+  awayGroupContext?: import('@/app/api/analysis/match/[id]/route').GroupContext
 }
 
 export function MatchAnalysisTabs({
@@ -54,6 +56,8 @@ export function MatchAnalysisTabs({
   odds,
   homeRecentMatches,
   awayRecentMatches,
+  homeGroupContext,
+  awayGroupContext,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -181,6 +185,8 @@ export function MatchAnalysisTabs({
             odds={odds}
             homeRecentMatches={homeRecentMatches}
             awayRecentMatches={awayRecentMatches}
+            homeGroupContext={homeGroupContext}
+            awayGroupContext={awayGroupContext}
           />
         )}
 

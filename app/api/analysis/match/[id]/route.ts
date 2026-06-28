@@ -5,6 +5,19 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+export interface GroupContext {
+  groupLetter: string   // 'A', 'B', …
+  groupName: string     // 'Group A'
+  position: number      // 1 = primero, 2 = segundo
+  won: number
+  drawn: number
+  lost: number
+  goalsFor: number
+  goalsAgainst: number
+  points: number
+  otherTeams: string[]  // short_name del resto de equipos del grupo (excl. este)
+}
+
 export interface AnalysisContext {
   matchId: string
   homeTeam: { name: string; code: string; fifa_ranking: number; elo_rating: number }
@@ -31,6 +44,8 @@ export interface AnalysisContext {
     confidence_score: number
   }
   bets: { id: string; label: string; confidence: number; tier: string }[]
+  homeGroupContext?: GroupContext
+  awayGroupContext?: GroupContext
 }
 
 export interface MatchAnalysis {
@@ -85,6 +100,15 @@ function buildPrompt(ctx: AnalysisContext): string {
   const dr = Math.round(ctx.prediction.draw_probability * 100)
   const aw = Math.round(ctx.prediction.away_win_probability * 100)
 
+  const homeGrp = ctx.homeGroupContext
+  const awayGrp = ctx.awayGroupContext
+  const homeGrpStr = homeGrp
+    ? `• Fase de grupos: ${homeGrp.groupName} — ${homeGrp.position}º lugar (${homeGrp.won}V-${homeGrp.drawn}E-${homeGrp.lost}D, ${homeGrp.goalsFor}:${homeGrp.goalsAgainst}, ${homeGrp.points}pts). Otros equipos del grupo: ${homeGrp.otherTeams.join(', ')}.`
+    : ''
+  const awayGrpStr = awayGrp
+    ? `• Fase de grupos: ${awayGrp.groupName} — ${awayGrp.position}º lugar (${awayGrp.won}V-${awayGrp.drawn}E-${awayGrp.lost}D, ${awayGrp.goalsFor}:${awayGrp.goalsAgainst}, ${awayGrp.points}pts). Otros equipos del grupo: ${awayGrp.otherTeams.join(', ')}.`
+    : ''
+
   return `Eres el analista jefe de inteligencia deportiva de World Cup Predictor 2026. Tu especialidad es el análisis táctico-estadístico profesional del fútbol. Analiza este partido del Mundial 2026 y genera un informe completo en ESPAÑOL.
 
 PARTIDO: ${ctx.homeTeam.name} vs ${ctx.awayTeam.name}
@@ -98,7 +122,7 @@ EQUIPO LOCAL — ${ctx.homeTeam.name} (FIFA #${ctx.homeTeam.fifa_ranking} | ELO 
 • Forma reciente: ${homeFormStr || 'Sin datos suficientes'}
 • Lesiones activas: ${homeInj}
 • Días desde último partido: ${ctx.home_rest_days ?? '?'}
-
+${homeGrpStr}
 EQUIPO VISITANTE — ${ctx.awayTeam.name} (FIFA #${ctx.awayTeam.fifa_ranking} | ELO ${ctx.awayTeam.elo_rating}):
 • xG/partido: ${ctx.awayStats?.avg_xg?.toFixed(2) ?? '—'} | xGA/partido: ${ctx.awayStats?.avg_xga?.toFixed(2) ?? '—'}
 • Goles marcados/partido: ${ctx.awayStats?.avg_goals_scored?.toFixed(2) ?? '—'} | recibidos: ${ctx.awayStats?.avg_goals_conceded?.toFixed(2) ?? '—'}
@@ -106,6 +130,7 @@ EQUIPO VISITANTE — ${ctx.awayTeam.name} (FIFA #${ctx.awayTeam.fifa_ranking} | 
 • Forma reciente: ${awayFormStr || 'Sin datos suficientes'}
 • Lesiones activas: ${awayInj}
 • Días desde último partido: ${ctx.away_rest_days ?? '?'}
+${awayGrpStr}
 
 PREDICCIÓN DEL MODELO HÍBRIDO (xG + ELO + Forma + Mercado):
 • Victoria ${ctx.homeTeam.name}: ${hw}% | Empate: ${dr}% | Victoria ${ctx.awayTeam.name}: ${aw}%
@@ -316,12 +341,28 @@ function generateFallbackAnalysis(ctx: Partial<AnalysisContext>): MatchAnalysis 
   let intensityLevel: 'Muy Alta' | 'Alta' | 'Media' | 'Baja' | 'Muy Baja'
   let intensityReason: string, competitiveDescription: string
 
+  // Group journey narrative helpers
+  const homeGrp = ctx.homeGroupContext
+  const awayGrp = ctx.awayGroupContext
+  function groupJourney(team: string, grp?: GroupContext, xg?: number, xga?: number): string {
+    if (!grp) return ''
+    const pos = grp.position === 1 ? 'primero' : grp.position === 2 ? 'segundo' : `${grp.position}º`
+    const rivals = grp.otherTeams.slice(0, 2).join(' y ')
+    const profile = xg !== undefined && xga !== undefined
+      ? xg > 1.6 ? ' mostrando un ataque potente' : xga < 1.0 ? ' con una sólida defensa' : xg < 1.0 ? ' pero con dudas en ataque' : xga > 1.4 ? ' aunque con algunas dudas defensivas' : ''
+      : ''
+    return `${team} llega tras terminar ${pos} en el ${grp.groupName} por delante de ${rivals}${profile} (${grp.won}V-${grp.drawn}E-${grp.lost}D, ${grp.goalsFor}:${grp.goalsAgainst}).`
+  }
+
   if (isKnockout) {
+    const hGrpText = groupJourney(home, homeGrp, hXg, hXga)
+    const aGrpText = groupJourney(away, awayGrp, aXg, aXga)
     homeNeed = `${home} necesita ganar para avanzar a ${nextRoundName}. La eliminación directa convierte cada acción en un evento de máxima trascendencia.`
     awayNeed = `${away} no tiene margen de error: perder significa la eliminación del Mundial 2026. Todo el torneo se juega en estos 90 minutos.`
     intensityLevel = 'Muy Alta'
     intensityReason = `Eliminatoria directa en ${phaseName} del Mundial 2026: el perdedor queda eliminado sin segunda oportunidad.`
-    competitiveDescription = `${home} vs ${away} en ${phaseName} del Mundial 2026${ctx.city ? ` (${ctx.city})` : ''}. Un partido de todo o nada donde la fortaleza mental, la experiencia bajo presión y la capacidad de ejecutar en el momento decisivo pesan tanto como las estadísticas.`
+    const grpCtx = [hGrpText, aGrpText].filter(Boolean).join(' ')
+    competitiveDescription = `${grpCtx ? grpCtx + ' ' : ''}Es el primer choque eliminatorio: la presión suele reducir el número de goles y aumentar el valor de la experiencia táctica. ${home} vs ${away} en ${phaseName}${ctx.city ? ` (${ctx.city})` : ''}: la fortaleza mental pesa tanto como las estadísticas.`
   } else {
     homeNeed = hw > 60
       ? `${home} necesita la victoria para consolidar su posición en la ${phaseName} y mantener las aspiraciones de clasificación.`

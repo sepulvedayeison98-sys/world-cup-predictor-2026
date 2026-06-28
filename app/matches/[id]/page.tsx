@@ -5,6 +5,7 @@ import { MatchHeader } from '@/components/matches/MatchHeader'
 import { MatchAnalysisTabs } from '@/components/matches/MatchAnalysisTabs'
 import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { computeModelPrediction, computeConfidenceLevel } from '@/lib/predictionEngine'
+import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -108,8 +109,48 @@ export default async function MatchDetailPage({ params }: Props) {
 
   const m = match as any
 
-  // Injuries y forma reciente en paralelo
-  const [{ data: injuriesData }, homeRecentMatches, awayRecentMatches] = await Promise.all([
+  const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','semi_final','final','third_place'])
+  const isKnockout = KNOCKOUT_PHASES.has(m.phase)
+
+  // Injuries, forma reciente y (para eliminatorias) contexto de grupo — en paralelo
+  const homeGroupId: string | null = m.home_team?.group_id ?? null
+  const awayGroupId: string | null = m.away_team?.group_id ?? null
+
+  async function fetchGroupContext(groupId: string | null, teamId: string): Promise<GroupContext | null> {
+    if (!groupId || !isKnockout) return null
+    const { data } = await supabase
+      .from('group_standings')
+      .select('won, drawn, lost, goals_for, goals_against, points, team_id, groups(letter, name), teams(id, name, short_name)')
+      .eq('group_id', groupId)
+      .order('points', { ascending: false })
+    if (!data || data.length === 0) return null
+    const rows = data as any[]
+    // Sort by points desc, goal_difference desc for position
+    const sorted = [...rows].sort((a, b) =>
+      (b.points - a.points) || ((b.goals_for - b.goals_against) - (a.goals_for - a.goals_against))
+    )
+    const pos = sorted.findIndex((r: any) => r.team_id === teamId)
+    const entry = rows.find((r: any) => r.team_id === teamId)
+    if (!entry) return null
+    const grp = entry.groups as any
+    const otherTeams = rows
+      .filter((r: any) => r.team_id !== teamId)
+      .map((r: any) => (r.teams as any)?.short_name ?? (r.teams as any)?.name ?? '?')
+    return {
+      groupLetter: grp?.letter ?? '',
+      groupName:   grp?.name  ?? '',
+      position:    pos >= 0 ? pos + 1 : 0,
+      won:         entry.won ?? 0,
+      drawn:       entry.drawn ?? 0,
+      lost:        entry.lost ?? 0,
+      goalsFor:    entry.goals_for ?? 0,
+      goalsAgainst:entry.goals_against ?? 0,
+      points:      entry.points ?? 0,
+      otherTeams,
+    }
+  }
+
+  const [{ data: injuriesData }, homeRecentMatches, awayRecentMatches, homeGroupContext, awayGroupContext] = await Promise.all([
     supabase
       .from('injuries')
       .select('*, player:players(name, short_name, position, photo_url)')
@@ -117,6 +158,8 @@ export default async function MatchDetailPage({ params }: Props) {
       .eq('is_active', true),
     fetchTeamForm(supabase, m.home_team_id, id),
     fetchTeamForm(supabase, m.away_team_id, id),
+    fetchGroupContext(homeGroupId, m.home_team_id),
+    fetchGroupContext(awayGroupId, m.away_team_id),
   ])
 
   // PostgREST returns predictions as object (UNIQUE match_id); handle array too
@@ -199,6 +242,8 @@ export default async function MatchDetailPage({ params }: Props) {
         odds={odds}
         homeRecentMatches={homeRecentMatches}
         awayRecentMatches={awayRecentMatches}
+        homeGroupContext={homeGroupContext ?? undefined}
+        awayGroupContext={awayGroupContext ?? undefined}
       />
     </div>
   )
