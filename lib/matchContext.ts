@@ -12,7 +12,7 @@ export interface MatchContext {
 }
 
 const KNOCKOUT_PHASES = new Set([
-  'round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place',
+  'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place',
 ])
 
 export function getMatchContext(match?: any): MatchContext {

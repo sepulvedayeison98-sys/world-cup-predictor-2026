@@ -66,7 +66,7 @@ function computeFairProbs(
   const lH = Math.max(0.1, prediction.predicted_home_score ?? 1.2)
   const lA = Math.max(0.1, prediction.predicted_away_score ?? 0.9)
 
-  const isKo = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place']
+  const isKo = ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place']
     .includes(match?.phase ?? '')
   const gm = isKo ? 0.88 : 1.0
   const aH = lH * gm
@@ -211,9 +211,9 @@ export function SmartBetsPanel({
 
   // Context chips
   const phase        = match?.phase ?? ''
-  const isKnockout   = ['round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
+  const isKnockout   = ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'third_place'].includes(phase)
   const phaseLabel: Record<string, string> = {
-    round_of_16: 'Octavos', quarter_final: 'Cuartos',
+    round_of_32: 'Dieciseisavos', round_of_16: 'Octavos', quarter_final: 'Cuartos',
     semi_final: 'Semifinal', final: 'Final', third_place: '3er puesto',
   }
   const weatherRaw   = (match?.weather_condition ?? '').toLowerCase()
