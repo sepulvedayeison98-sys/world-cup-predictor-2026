@@ -9,7 +9,7 @@ import {
   User,
   TrendingUp,
   Zap,
-  Grid3X3,
+
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -24,7 +24,6 @@ import { useMobileNav } from '@/components/layout/MobileNavContext'
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
   { href: '/matches',      label: 'Partidos',        icon: Calendar },
-  { href: '/groups',       label: 'Grupos',          icon: Grid3X3 },
   { href: '/predictions',  label: 'Predicciones',    icon: TrendingUp },
   { href: '/champion',     label: 'Campeón',         icon: Trophy },
   { href: '/bracket',      label: 'Eliminatorias',   icon: GitBranch },

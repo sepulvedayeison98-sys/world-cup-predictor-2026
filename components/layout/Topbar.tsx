@@ -9,7 +9,6 @@ import { useMobileNav } from '@/components/layout/MobileNavContext'
 const ROUTE_LABELS: Record<string, string> = {
   '/dashboard':   'Dashboard',
   '/matches':     'Partidos',
-  '/groups':      'Grupos',
   '/predictions': 'Predicciones',
   '/value-bets':  'Apuestas de Valor',
   '/teams':       'Equipos',
