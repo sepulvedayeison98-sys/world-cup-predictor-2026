@@ -38,7 +38,10 @@ export function useRealtimeMatches({ limit = 6, competitionId = COMPETITION_ID }
         .limit(limit)
 
       if (error) throw error
-      setMatches(data ?? [])
+      const sorted = [...(data ?? [])].sort(
+        (a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime()
+      )
+      setMatches(sorted)
     } catch (err) {
       console.error('Error cargando próximos partidos:', err)
     } finally {
