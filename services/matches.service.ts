@@ -23,15 +23,21 @@ export const matchesService = {
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
+    // Con min_confidence el join a predictions debe ser INNER y el filtro va
+    // en la query: filtrar despues de paginar rompia el count y las paginas.
+    const predCols = 'id,home_win_probability,draw_probability,away_win_probability,predicted_home_score,predicted_away_score,confidence_level,confidence_score'
+    const predJoin = filters.min_confidence ? `predictions!inner(${predCols})` : `predictions(${predCols})`
+
     let query = supabase
       .from('matches')
       .select(
-        `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), predictions(id,home_win_probability,draw_probability,away_win_probability,predicted_home_score,predicted_away_score,confidence_level,confidence_score)`,
+        `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), ${predJoin}`,
         { count: 'exact' }
       )
       .range(from, to)
       .order('kickoff_time', { ascending: true })
 
+    if (filters.min_confidence) query = query.gte('predictions.confidence_level', filters.min_confidence)
     if (filters.status?.length) query = query.in('status', filters.status)
     if (filters.phase?.length) query = query.in('phase', filters.phase)
     if (filters.group_id) query = query.eq('group_id', filters.group_id)
@@ -53,11 +59,7 @@ export const matchesService = {
       prediction: Array.isArray(m.predictions) ? (m.predictions[0] ?? null) : (m.predictions ?? null),
     }))
 
-    const filtered = filters.min_confidence
-      ? rows.filter((r: any) => r.prediction?.confidence_level >= filters.min_confidence!)
-      : rows
-
-    return { data: filtered, count: count ?? 0, page, page_size: pageSize, total_pages: Math.ceil((count ?? 0) / pageSize) }
+    return { data: rows, count: count ?? 0, page, page_size: pageSize, total_pages: Math.ceil((count ?? 0) / pageSize) }
   },
 
   async getMatches(filters: MatchFilters = {}, page = 1, pageSize = PAGE_SIZE): Promise<PaginatedResponse<Match>> {

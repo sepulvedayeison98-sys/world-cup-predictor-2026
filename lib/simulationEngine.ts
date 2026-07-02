@@ -1,4 +1,4 @@
-import { Probabilities, computeModelPrediction, ModelInput } from './predictionEngine';
+import { Probabilities, computeModelPrediction, computeKnockoutAdvance, ModelInput } from './predictionEngine';
 
 export interface Team {
   id: string;
@@ -55,15 +55,13 @@ function knockoutProbabilities(home: Team, away: Team): Probabilities {
   return computeModelPrediction(input);
 }
 
-// Resuelve un cruce de eliminatoria (sin empate posible: penaltis si hace falta)
-// y devuelve el id del equipo que avanza.
+// Resuelve un cruce de eliminatoria (sin empate posible) y devuelve el id
+// del equipo que avanza. Usa computeKnockoutAdvance: el empate de 90' se
+// reparte entre prórroga (ventaja ELO amortiguada) y penales (50/50).
 function playKnockout(home: Team, away: Team): string {
   const probs = knockoutProbabilities(home, away);
-  const rand = Math.random();
-  if (rand < probs.home) return home.id;
-  if (rand < probs.home + probs.away) return away.id;
-  // Empate en los 90' -> penaltis (50/50)
-  return Math.random() < 0.5 ? home.id : away.id;
+  const advance = computeKnockoutAdvance(probs, home.elo, away.elo);
+  return Math.random() < advance.home ? home.id : away.id;
 }
 
 interface Standing {

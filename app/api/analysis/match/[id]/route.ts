@@ -457,6 +457,44 @@ function generateFallbackAnalysis(ctx: Partial<AnalysisContext>): MatchAnalysis 
   }
 }
 
+// ─── Cache y rate limit en memoria ───────────────────────────────────────
+// La ruta es pública y cada llamada a la API de Anthropic cuesta dinero.
+// El análisis de un partido no cambia entre visitas, así que se cachea por
+// matchId. El rate limit por IP evita que un script queme crédito: al
+// superarlo se sirve el fallback estadístico (gratis) en vez de un 429,
+// para que la UI siga funcionando.
+const analysisCache = new Map<string, { data: MatchAnalysis; ts: number }>()
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 horas
+
+const rateBuckets = new Map<string, { count: number; windowStart: number }>()
+const RATE_LIMIT = 5             // llamadas a la IA por IP…
+const RATE_WINDOW_MS = 60_000    // …por minuto
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const bucket = rateBuckets.get(ip)
+  if (!bucket || now - bucket.windowStart > RATE_WINDOW_MS) {
+    rateBuckets.set(ip, { count: 1, windowStart: now })
+    return false
+  }
+  bucket.count++
+  return bucket.count > RATE_LIMIT
+}
+
+function pruneMaps() {
+  const now = Date.now()
+  if (analysisCache.size > 200) {
+    for (const [k, v] of analysisCache) {
+      if (now - v.ts > CACHE_TTL_MS) analysisCache.delete(k)
+    }
+  }
+  if (rateBuckets.size > 2000) {
+    for (const [k, v] of rateBuckets) {
+      if (now - v.windowStart > RATE_WINDOW_MS) rateBuckets.delete(k)
+    }
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -471,8 +509,23 @@ export async function POST(
   const ctx = body?.context
   if (!ctx) return NextResponse.json({ error: 'Missing context' }, { status: 400 })
 
+  const { id: matchId } = await params
+  pruneMaps()
+
+  // 1. Cache: el análisis de un partido se reutiliza durante 6h
+  const cached = analysisCache.get(matchId)
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    return NextResponse.json(cached.data)
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
+    return NextResponse.json(generateFallbackAnalysis(ctx))
+  }
+
+  // 2. Rate limit por IP: por encima del límite se sirve el fallback (sin costo)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (isRateLimited(ip)) {
     return NextResponse.json(generateFallbackAnalysis(ctx))
   }
 
@@ -489,6 +542,7 @@ export async function POST(
     if (!jsonMatch) return NextResponse.json(generateFallbackAnalysis(ctx))
 
     const analysis: MatchAnalysis = JSON.parse(jsonMatch[0])
+    analysisCache.set(matchId, { data: analysis, ts: Date.now() })
     return NextResponse.json(analysis)
   } catch (err: any) {
     console.error('[POST /api/analysis/match]', err?.message)

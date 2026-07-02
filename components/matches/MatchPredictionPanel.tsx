@@ -1,7 +1,12 @@
 'use client'
 
 import { cn, formatProbability } from '@/lib/utils'
-import { Shield, TrendingUp, Target, AlertTriangle } from 'lucide-react'
+import { computeKnockoutAdvance } from '@/lib/predictionEngine'
+import { Shield, TrendingUp, Target, AlertTriangle, Trophy } from 'lucide-react'
+
+const KNOCKOUT_PHASES = new Set([
+  'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final',
+])
 
 // P(X <= k) para X ~ Poisson(lambda)
 function poissonCDF(lambda: number, k: number): number {
@@ -101,6 +106,16 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
   const { lambdaHome, lambdaAway } = deriveLambdas(prediction, match)
   const extraMarkets = computeMarketProbs(lambdaHome, lambdaAway)
 
+  // En eliminatorias el empate no es resultado final: calculamos quién avanza
+  const isKnockout = KNOCKOUT_PHASES.has(match.phase)
+  const advance = isKnockout
+    ? computeKnockoutAdvance(
+        { home: homeWin, draw, away },
+        match.home_team?.elo_rating ?? 1500,
+        match.away_team?.elo_rating ?? 1500,
+      )
+    : null
+
   // Weight bar: scale so largest weight fills 100% of the bar
   const weights = [
     { label: 'xG y capacidad ofensiva', weight: prediction.xg_weight ?? 0.40 },
@@ -155,6 +170,34 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
           <div className="bg-amber-500 transition-all"  style={{ width: `${dBarPct}%` }} />
           <div className="bg-red-500 transition-all"    style={{ width: `${aBarPct}%` }} />
         </div>
+        {isKnockout && (
+          <p className="text-[10px] text-zinc-600 text-center">
+            Probabilidades en 90 minutos — el empate se resuelve en prórroga/penales
+          </p>
+        )}
+
+        {/* Clasificación (solo eliminatorias) */}
+        {advance && (
+          <div className="mt-4 rounded-lg bg-zinc-950 border border-zinc-800 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
+              <p className="text-[11px] font-semibold text-zinc-300">¿Quién clasifica?</p>
+              <span className="ml-auto text-[9px] text-zinc-600">incluye prórroga y penales</span>
+            </div>
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className={cn('font-bold mono', advance.home >= advance.away ? 'text-emerald-400' : 'text-zinc-300')}>
+                {match.home_team?.code} {formatProbability(advance.home)}
+              </span>
+              <span className={cn('font-bold mono', advance.away > advance.home ? 'text-blue-400' : 'text-zinc-300')}>
+                {match.away_team?.code} {formatProbability(advance.away)}
+              </span>
+            </div>
+            <div className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="bg-emerald-500 transition-all" style={{ width: `${advance.home * 100}%` }} />
+              <div className="bg-blue-500 transition-all" style={{ width: `${advance.away * 100}%` }} />
+            </div>
+          </div>
+        )}
 
         {/* Marcador predicho */}
         <div className="mt-4 flex items-center justify-between rounded-lg bg-zinc-950 border border-zinc-800 px-4 py-3">

@@ -157,6 +157,24 @@ export function simulateMatch(lambdaHome: number, lambdaAway: number): {
   return { probabilities: { home: round4(home), draw: round4(draw), away: round4(away) }, exactScores }
 }
 
+/**
+ * Probabilidad de clasificación en un cruce eliminatorio. El 1X2 de 90'
+ * sigue siendo válido como mercado, pero el empate no es un resultado final:
+ * ~50% de los empates se deciden en prórroga (donde la ventaja ELO opera
+ * amortiguada, x0.6) y ~50% en penales (moneda al aire).
+ */
+export function computeKnockoutAdvance(
+  probs: Probabilities,
+  homeElo: number,
+  awayElo: number,
+): { home: number; away: number } {
+  const eloEdge = normalizeELO(homeElo, awayElo)
+  const etEdge = 0.5 + (eloEdge - 0.5) * 0.6
+  const pDrawToHome = 0.5 * etEdge + 0.5 * 0.5
+  const home = clamp01(probs.home + probs.draw * pDrawToHome)
+  return { home: round4(home), away: round4(1 - home) }
+}
+
 /** Quita el margen de la casa de las cuotas 1X2 -> probabilidades de mercado. */
 export function devigMarket(oddsHome: number, oddsDraw: number, oddsAway: number): Probabilities | null {
   if (!(oddsHome > 1 && oddsDraw > 1 && oddsAway > 1)) return null
