@@ -171,6 +171,28 @@ export default async function MatchDetailPage({ params }: Props) {
   const homeStats  = m.home_team?.team_statistics?.[0] ?? null
   const awayStats  = m.away_team?.team_statistics?.[0] ?? null
 
+  // Medias del torneo derivadas de la forma reciente: es la mejor fuente
+  // disponible cuando team_statistics está vacía (los partidos del Mundial
+  // ya tienen xG/estadísticas por partido en match_statistics).
+  function tournamentAverages(form: MatchFormEntry[]) {
+    if (form.length === 0) return null
+    const n = form.length
+    const avg = (sel: (e: MatchFormEntry) => number | null | undefined): number | null => {
+      const vals = form.map(sel).filter((v): v is number => v != null)
+      return vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null
+    }
+    const goals    = form.reduce((s, e) => s + e.goals_scored, 0) / n
+    const conceded = form.reduce((s, e) => s + e.goals_conceded, 0) / n
+    return {
+      xg:    avg(e => e.xg)  ?? goals,
+      xga:   avg(e => e.xga) ?? conceded,
+      goals,
+      sot:   avg(e => e.shots_on_target) ?? undefined,
+      // Cronológico ascendente: formToScore pondera los últimos del array
+      form:  [...form].reverse().map(e => e.result),
+    }
+  }
+
   // Si no hay predicción guardada (partidos nuevos como octavos R32), calculamos al vuelo
   let prediction = savedPrediction
   if (!savedPrediction && m.status !== 'finished') {
@@ -181,23 +203,27 @@ export default async function MatchDetailPage({ params }: Props) {
       .filter((i: any) => i.team_id === m.away_team_id)
       .reduce((s: number, i: any) => s + (i.impact_score ?? 0), 0)
 
+    const hDerived = tournamentAverages(homeRecentMatches)
+    const aDerived = tournamentAverages(awayRecentMatches)
+
     const result = computeModelPrediction({
       homeElo: m.home_team?.elo_rating ?? 1500,
       awayElo: m.away_team?.elo_rating ?? 1500,
-      homeForm: homeStats?.form ?? [],
-      awayForm: awayStats?.form ?? [],
-      // Defaults simétricos: en un Mundial no hay ventaja real de "local",
-      // la falta de datos no debe favorecer a ningún equipo.
-      homeXg:   homeStats?.avg_xg  ?? 1.1,
-      awayXg:   awayStats?.avg_xg  ?? 1.1,
-      homeXga:  homeStats?.avg_xga ?? 1.1,
-      awayXga:  awayStats?.avg_xga ?? 1.1,
-      homeShotsOnTarget: homeStats?.avg_shots_on_target,
-      awayShotsOnTarget: awayStats?.avg_shots_on_target,
-      homeGoalsScored: homeStats?.avg_goals_scored,
-      awayGoalsScored: awayStats?.avg_goals_scored,
+      homeForm: homeStats?.form ?? hDerived?.form ?? [],
+      awayForm: awayStats?.form ?? aDerived?.form ?? [],
+      // Prioridad: stats de temporada → medias reales del torneo → default
+      // simétrico (en un Mundial no hay ventaja de "local").
+      homeXg:   homeStats?.avg_xg  ?? hDerived?.xg  ?? 1.1,
+      awayXg:   awayStats?.avg_xg  ?? aDerived?.xg  ?? 1.1,
+      homeXga:  homeStats?.avg_xga ?? hDerived?.xga ?? 1.1,
+      awayXga:  awayStats?.avg_xga ?? aDerived?.xga ?? 1.1,
+      homeShotsOnTarget: homeStats?.avg_shots_on_target ?? hDerived?.sot,
+      awayShotsOnTarget: awayStats?.avg_shots_on_target ?? aDerived?.sot,
+      homeGoalsScored: homeStats?.avg_goals_scored ?? hDerived?.goals,
+      awayGoalsScored: awayStats?.avg_goals_scored ?? aDerived?.goals,
       homeInjuryImpact: homeInjury,
       awayInjuryImpact: awayInjury,
+      isKnockout,
     })
 
     prediction = {

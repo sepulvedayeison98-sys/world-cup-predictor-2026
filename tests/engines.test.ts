@@ -119,6 +119,35 @@ test('normalizeELO y computeConfidenceLevel: rangos válidos', () => {
   assert.equal(computeConfidenceLevel(50), 1)
 })
 
+test('Dixon-Coles: infla los empates frente al Poisson independiente', () => {
+  const withDC    = simulateMatch(1.25, 1.15)          // rho por defecto (-0.11)
+  const withoutDC = simulateMatch(1.25, 1.15, 0)       // Poisson puro
+  assert.ok(withDC.probabilities.draw > withoutDC.probabilities.draw,
+    `empate con DC ${withDC.probabilities.draw} debe superar ${withoutDC.probabilities.draw}`)
+  const sum = withDC.probabilities.home + withDC.probabilities.draw + withDC.probabilities.away
+  assert.ok(Math.abs(sum - 1) < 0.005, 'sigue sumando 1 tras la corrección')
+})
+
+test('eliminatorias: menos goles esperados y más probabilidad de empate en 90 min', () => {
+  const group    = computeModelPrediction(baseInput())
+  const knockout = computeModelPrediction(baseInput({ isKnockout: true }))
+  assert.ok(knockout.draw >= group.draw,
+    `empate eliminatoria ${knockout.draw} >= grupos ${group.draw}`)
+  const kSum = knockout.home + knockout.draw + knockout.away
+  assert.ok(Math.abs(kSum - 1) < 0.005)
+})
+
+test('mezcla de mercado: acerca las probabilidades a las cuotas devigueadas', () => {
+  const solo = computeModelPrediction(baseInput())
+  const conMercado = computeModelPrediction(baseInput({
+    marketProbabilities: { home: 0.60, draw: 0.25, away: 0.15 },
+  }))
+  assert.ok(conMercado.home > solo.home,
+    `mercado favorable al local debe subir su prob: ${conMercado.home} > ${solo.home}`)
+  const sum = conMercado.home + conMercado.draw + conMercado.away
+  assert.ok(Math.abs(sum - 1) < 0.005, 'suma 1 tras la mezcla')
+})
+
 test('lesiones simétricas no crean sesgo', () => {
   const r = computeModelPrediction(baseInput({ homeInjuryImpact: 45, awayInjuryImpact: 45 }))
   assert.ok(Math.abs(r.home - r.away) < 0.02, `home ${r.home} vs away ${r.away} con lesiones iguales`)

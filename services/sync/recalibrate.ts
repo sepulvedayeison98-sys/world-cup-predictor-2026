@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeModelPrediction, computeConfidenceLevel, type Probabilities } from '@/lib/predictionEngine'
-import { COMPETITION_ID } from '@/lib/constants'
+import { COMPETITION_ID, MODEL_VERSION } from '@/lib/constants'
+
+const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
 
 
 /**
@@ -43,7 +45,7 @@ export async function recalibratePredictions(): Promise<{
   const { data: matches, error: mErr } = await supabase
     .from('matches')
     .select(`
-      id, home_team_id, away_team_id,
+      id, home_team_id, away_team_id, phase,
       home_team:teams!matches_home_team_id_fkey(elo_rating, team_statistics(form, avg_xg, avg_xga, avg_shots_on_target, avg_goals_scored)),
       away_team:teams!matches_away_team_id_fkey(elo_rating, team_statistics(form, avg_xg, avg_xga, avg_shots_on_target, avg_goals_scored)),
       predictions(id)
@@ -77,12 +79,13 @@ export async function recalibratePredictions(): Promise<{
     const final = computeModelPrediction({
       homeElo: m.home_team?.elo_rating ?? 1500, awayElo: m.away_team?.elo_rating ?? 1500,
       homeForm: hStats?.form ?? [], awayForm: aStats?.form ?? [],
-      homeXg: hStats?.avg_xg ?? 1.2, awayXg: aStats?.avg_xg ?? 1.0,
-      homeXga: hStats?.avg_xga ?? 1.0, awayXga: aStats?.avg_xga ?? 1.2,
+      homeXg: hStats?.avg_xg ?? 1.1, awayXg: aStats?.avg_xg ?? 1.1,
+      homeXga: hStats?.avg_xga ?? 1.1, awayXga: aStats?.avg_xga ?? 1.1,
       homeShotsOnTarget: hStats?.avg_shots_on_target, awayShotsOnTarget: aStats?.avg_shots_on_target,
       homeGoalsScored: hStats?.avg_goals_scored, awayGoalsScored: aStats?.avg_goals_scored,
       homeInjuryImpact, awayInjuryImpact,
       marketProbabilities,
+      isKnockout: KNOCKOUT_PHASES.has(m.phase),
     })
 
     const { error: uErr } = await supabase.from('predictions').update({
@@ -93,7 +96,7 @@ export async function recalibratePredictions(): Promise<{
       predicted_away_score: final.predictedAway,
       confidence_level: computeConfidenceLevel(final.confidenceScore),
       confidence_score: final.confidenceScore,
-      model_version: '2.0.0',
+      model_version: MODEL_VERSION,
       xg_weight: 0.40, elo_weight: 0.25, form_weight: 0.15, market_weight: 0.10, news_weight: 0.10,
     }).eq('id', pred.id)
     if (uErr) throw uErr
@@ -112,7 +115,7 @@ export async function recalibratePredictions(): Promise<{
   await supabase.from('sync_logs').insert({
     source: 'recalibrate', entity_type: 'predictions', status: 'success',
     records_processed: withMarket + modelOnly, records_failed: 0,
-    metadata: { withMarket, modelOnly, model_version: '2.0.0' }, duration_ms: Date.now() - started,
+    metadata: { withMarket, modelOnly, model_version: MODEL_VERSION }, duration_ms: Date.now() - started,
   })
 
   return { ok: true, matches: withMarket + modelOnly, withMarket, modelOnly }

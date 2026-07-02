@@ -43,6 +43,7 @@ export interface ModelInput {
   homeGoalsScored?: number; awayGoalsScored?: number
   homeInjuryImpact: number; awayInjuryImpact: number
   marketProbabilities?: Probabilities // cuotas 1X2 ya "devigueadas" (suman 1)
+  isKnockout?: boolean // eliminatoria directa: menos goles por juego conservador
 }
 
 export interface Probabilities { home: number; draw: number; away: number }
@@ -117,11 +118,32 @@ function factorial(n: number): number {
 }
 
 /**
- * Resuelve la rejilla de Poisson (home x away) y devuelve las probabilidades
- * 1X2 y el top-10 de marcadores exactos. Equivalente al resultado de una
- * simulacion de Montecarlo de 100,000 iteraciones sobre los mismos lambdas.
+ * Correlación de marcadores bajos (Dixon-Coles 1997): el Poisson
+ * independiente subestima sistemáticamente los empates 0-0 y 1-1 en fútbol
+ * real. Rho negativo infla esas celdas y deflacta 1-0/0-1. Valor estándar
+ * de la literatura para fútbol de selecciones: ~-0.11.
  */
-export function simulateMatch(lambdaHome: number, lambdaAway: number): {
+const DIXON_COLES_RHO = -0.11
+
+function dixonColesTau(h: number, a: number, lh: number, la: number, rho: number): number {
+  if (h === 0 && a === 0) return 1 - lh * la * rho
+  if (h === 0 && a === 1) return 1 + lh * rho
+  if (h === 1 && a === 0) return 1 + la * rho
+  if (h === 1 && a === 1) return 1 - rho
+  return 1
+}
+
+/**
+ * Resuelve la rejilla de Poisson (home x away) con corrección Dixon-Coles
+ * y devuelve las probabilidades 1X2 y el top-10 de marcadores exactos.
+ * Equivalente al resultado de una simulacion de Montecarlo de 100,000
+ * iteraciones sobre los mismos lambdas.
+ */
+export function simulateMatch(
+  lambdaHome: number,
+  lambdaAway: number,
+  rho: number = DIXON_COLES_RHO,
+): {
   probabilities: Probabilities; exactScores: ExactScore[]
 } {
   const maxGoals = 8
@@ -132,8 +154,9 @@ export function simulateMatch(lambdaHome: number, lambdaAway: number): {
     cellProb[h] = []
     for (let a = 0; a <= maxGoals; a++) {
       const p = poissonPMF(h, lambdaHome) * poissonPMF(a, lambdaAway)
-      cellProb[h][a] = p
-      totalProb += p
+        * dixonColesTau(h, a, lambdaHome, lambdaAway, rho)
+      cellProb[h][a] = Math.max(0, p)
+      totalProb += cellProb[h][a]
     }
   }
 
@@ -212,12 +235,28 @@ export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT
 
   const baseHomeGoals = Math.max(0.2, (i.homeXg + i.awayXga) / 2)
   const baseAwayGoals = Math.max(0.2, (i.awayXg + i.homeXga) / 2)
-  const totalGoals = clamp(baseHomeGoals + baseAwayGoals, 1, 6)
+  // En eliminatorias directas el juego es más conservador: históricamente
+  // se anota ~10% menos que en fase de grupos con equipos equivalentes.
+  const knockoutDamping = i.isKnockout ? 0.90 : 1
+  const totalGoals = clamp((baseHomeGoals + baseAwayGoals) * knockoutDamping, 1, 6)
 
   const lambdaHome = clamp(totalGoals * hs, 0.15, 5)
   const lambdaAway = clamp(totalGoals * (1 - hs), 0.15, 5)
 
-  const { probabilities, exactScores } = simulateMatch(lambdaHome, lambdaAway)
+  const { probabilities: gridProbs, exactScores } = simulateMatch(lambdaHome, lambdaAway)
+
+  // Mezcla con el mercado a nivel de probabilidad: las cuotas devigueadas
+  // contienen información del empate que el reparto de lambdas ignora.
+  // 80% modelo / 20% mercado, renormalizado.
+  let probabilities = gridProbs
+  if (i.marketProbabilities) {
+    const mp = i.marketProbabilities
+    const bh = gridProbs.home * 0.8 + mp.home * 0.2
+    const bd = gridProbs.draw * 0.8 + mp.draw * 0.2
+    const ba = gridProbs.away * 0.8 + mp.away * 0.2
+    const sum = bh + bd + ba
+    probabilities = { home: round4(bh / sum), draw: round4(bd / sum), away: round4(ba / sum) }
+  }
 
   const decisiveness = Math.max(probabilities.home, probabilities.draw, probabilities.away) - 1 / 3
   const totalInjury = i.homeInjuryImpact + i.awayInjuryImpact

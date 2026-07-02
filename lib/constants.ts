@@ -4,7 +4,7 @@
 
 // Versión del motor de predicción. Fuente única de verdad: se muestra en
 // el sidebar, dashboard y predicciones para evitar desincronización.
-export const MODEL_VERSION = '1.1.0'
+export const MODEL_VERSION = '1.2.0'
 
 // Competición activa (Mundial FIFA 2026). Fuente única de verdad: antes
 // estaba copiado como literal en ~10 archivos.

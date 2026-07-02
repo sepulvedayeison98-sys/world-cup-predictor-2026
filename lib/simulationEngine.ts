@@ -51,6 +51,7 @@ function knockoutProbabilities(home: Team, away: Team): Probabilities {
     awayXga: 1.2,
     homeInjuryImpact: 0,
     awayInjuryImpact: 0,
+    isKnockout: true,
   };
   return computeModelPrediction(input);
 }

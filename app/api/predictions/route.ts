@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { computeModelPrediction, computeConfidenceLevel, devigMarket } from '@/lib/predictionEngine'
+import { MODEL_VERSION } from '@/lib/constants'
 
 /**
  * POST /api/predictions
@@ -83,15 +84,18 @@ export async function POST(req: NextRequest) {
         ? devigMarket(latestByMarket.home_win, latestByMarket.draw, latestByMarket.away_win) ?? undefined
         : undefined
 
+    const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
+
     const final = computeModelPrediction({
       homeElo: m.home_team?.elo_rating ?? 1500,
       awayElo: m.away_team?.elo_rating ?? 1500,
       homeForm: homeStats.form ?? [],
       awayForm: awayStats.form ?? [],
-      homeXg: homeStats.avg_xg ?? 1.2,
-      awayXg: awayStats.avg_xg ?? 1.0,
-      homeXga: homeStats.avg_xga ?? 1.0,
-      awayXga: awayStats.avg_xga ?? 1.2,
+      homeXg: homeStats.avg_xg ?? 1.1,
+      awayXg: awayStats.avg_xg ?? 1.1,
+      homeXga: homeStats.avg_xga ?? 1.1,
+      awayXga: awayStats.avg_xga ?? 1.1,
+      isKnockout: KNOCKOUT_PHASES.has(m.phase),
       homeShotsOnTarget: homeStats.avg_shots_on_target,
       awayShotsOnTarget: awayStats.avg_shots_on_target,
       homeGoalsScored: homeStats.avg_goals_scored,
@@ -110,7 +114,7 @@ export async function POST(req: NextRequest) {
       predicted_away_score: final.predictedAway,
       confidence_level: computeConfidenceLevel(final.confidenceScore),
       confidence_score: final.confidenceScore,
-      model_version: '2.0.0',
+      model_version: MODEL_VERSION,
       xg_weight: 0.40,
       elo_weight: 0.25,
       form_weight: 0.15,
