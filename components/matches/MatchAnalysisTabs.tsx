@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical, Crosshair, Swords, Star, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
@@ -11,15 +12,37 @@ import { TeamAvgStats } from './TeamAvgStats'
 import { OddsComparisonTable } from './OddsComparisonTable'
 import { LineupDisplay } from './LineupDisplay'
 import { InjuriesPanel } from './InjuriesPanel'
-import { SmartBetsPanel } from './SmartBetsPanel'
-import { AISmartBetsPanel } from './AISmartBetsPanel'
 import type { MatchFormEntry } from '@/lib/smartBetsEngine'
-import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
-import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
-import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
 import { ResponsibleGamingNotice } from '@/components/ui/ResponsibleGamingNotice'
-import { MonteCarloPanel } from '@/components/intelligence/MonteCarloPanel'
-import { MatchDigitalTwin } from '@/components/digital-twin/MatchDigitalTwin'
+
+// Paneles pesados con code-splitting: cada chunk se descarga solo al abrir
+// su pestaña, en vez de cargar todo junto en la visita inicial.
+const PanelSkeleton = () => <div className="card h-72 animate-pulse bg-zinc-900/60" />
+
+const AISmartBetsPanel = dynamic(
+  () => import('./AISmartBetsPanel').then(m => m.AISmartBetsPanel),
+  { loading: PanelSkeleton },
+)
+const MatchDigitalTwin = dynamic(
+  () => import('@/components/digital-twin/MatchDigitalTwin').then(m => m.MatchDigitalTwin),
+  { loading: PanelSkeleton },
+)
+const MonteCarloPanel = dynamic(
+  () => import('@/components/intelligence/MonteCarloPanel').then(m => m.MonteCarloPanel),
+  { loading: PanelSkeleton },
+)
+const DataIntegrityPanel = dynamic(
+  () => import('@/components/intelligence/DataIntegrityPanel').then(m => m.DataIntegrityPanel),
+  { loading: PanelSkeleton },
+)
+const TeamComparisonRadar = dynamic(
+  () => import('@/components/charts/TeamComparisonRadar').then(m => m.TeamComparisonRadar),
+  { loading: PanelSkeleton },
+)
+const ProbabilityHistoryChart = dynamic(
+  () => import('@/components/charts/ProbabilityHistoryChart').then(m => m.ProbabilityHistoryChart),
+  { loading: PanelSkeleton },
+)
 
 const TABS = [
   { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp    },
@@ -208,6 +231,19 @@ function TeamPowerComparison({ match, homeGroupCtx, awayGroupCtx, homeFormStats,
   )
 }
 
+// Badge de procedencia: visible cuando las medias no vienen de team_statistics
+// sino derivadas de los últimos partidos registrados.
+function DerivedDataBadge() {
+  return (
+    <div className="flex w-fit items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5">
+      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+      <span className="text-[10px] font-medium text-amber-400">
+        Métricas derivadas de los últimos partidos registrados
+      </span>
+    </div>
+  )
+}
+
 function computeStatsFromForm(form: MatchFormEntry[]): Record<string, number | null> | null {
   if (!form || form.length === 0) return null
   const n = form.length
@@ -321,11 +357,7 @@ export function MatchAnalysisTabs({
 
             {effectiveHomeStats && effectiveAwayStats && (
               <>
-                {!homeStats && (
-                  <p className="text-[10px] text-zinc-600 text-center -mb-2">
-                    Medias calculadas a partir de los últimos partidos registrados
-                  </p>
-                )}
+                {!homeStats && <DerivedDataBadge />}
                 <TeamAvgStats
                   homeTeam={match.home_team}
                   awayTeam={match.away_team}
@@ -377,6 +409,7 @@ export function MatchAnalysisTabs({
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
           <div className="space-y-4">
+            {!homeStats && <DerivedDataBadge />}
             <AISmartBetsPanel
               prediction={prediction}
               homeStats={effectiveHomeStats}
@@ -395,34 +428,43 @@ export function MatchAnalysisTabs({
 
         {/* ── Digital Twin ── */}
         {active === 'digital-twin' && (
-          <MatchDigitalTwin
-            homeStats={effectiveHomeStats}
-            awayStats={effectiveAwayStats}
-            match={match}
-          />
+          <div className="space-y-4">
+            {!homeStats && <DerivedDataBadge />}
+            <MatchDigitalTwin
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+            />
+          </div>
         )}
 
         {/* ── Monte Carlo ── */}
         {active === 'montecarlo' && (
-          <MonteCarloPanel
-            prediction={prediction}
-            homeStats={effectiveHomeStats}
-            awayStats={effectiveAwayStats}
-            match={match}
-            injuries={injuries}
-          />
+          <div className="space-y-4">
+            {!homeStats && <DerivedDataBadge />}
+            <MonteCarloPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+            />
+          </div>
         )}
 
         {/* ── Auditoría AI ── */}
         {active === 'auditoria' && (
-          <DataIntegrityPanel
-            prediction={prediction}
-            homeStats={effectiveHomeStats}
-            awayStats={effectiveAwayStats}
-            match={match}
-            injuries={injuries}
-            odds={odds}
-          />
+          <div className="space-y-4">
+            {!homeStats && <DerivedDataBadge />}
+            <DataIntegrityPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+              odds={odds}
+            />
+          </div>
         )}
       </div>
     </div>
