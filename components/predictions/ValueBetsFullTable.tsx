@@ -112,7 +112,7 @@ export function ValueBetsFullTable({ bets }: Props) {
       )}>
         {label}
         <ArrowUpDown className="h-2.5 w-2.5" />
-        {active && <span className="text-[8px]">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+        {active && <span className="text-[10px]">{sortDir === 'desc' ? '↓' : '↑'}</span>}
       </button>
     )
   }
@@ -189,11 +189,11 @@ export function ValueBetsFullTable({ bets }: Props) {
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5">
                     {isTop && (
-                      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-violet-500/15 border border-violet-500/30 text-violet-400">
+                      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-violet-500/15 border border-violet-500/30 text-violet-400">
                         <Star className="h-2 w-2" /> TOP
                       </span>
                     )}
-                    <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border', grade.bg, grade.border, grade.text)}>
+                    <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border', grade.bg, grade.border, grade.text)}>
                       <span className={cn('h-1 w-1 rounded-full', grade.dot)} />
                       {grade.label}
                     </span>
@@ -213,17 +213,17 @@ export function ValueBetsFullTable({ bets }: Props) {
                     {MARKET_LABELS[bet.market] ?? bet.market} · {bet.bookmaker}
                   </p>
                   {timeInfo && (
-                    <span className={cn('inline-flex items-center gap-0.5 rounded border px-1 py-0 text-[9px] font-semibold', URGENCY_COLOR[timeInfo.urgency])}>
+                    <span className={cn('inline-flex items-center gap-0.5 rounded border px-1 py-0 text-[10px] font-semibold', URGENCY_COLOR[timeInfo.urgency])}>
                       <Clock className="h-2 w-2" />{timeInfo.label}
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-4 gap-1 text-center mt-2">
-                  <div><p className="text-[9px] text-zinc-600">Cuota</p><p className="text-xs font-bold mono text-white">{bet.odds_value?.toFixed(2)}</p></div>
-                  <div><p className="text-[9px] text-zinc-600">Modelo</p><p className="text-xs font-semibold mono text-emerald-400">{((bet.model_probability ?? 0) * 100).toFixed(0)}%</p></div>
-                  <div><p className="text-[9px] text-zinc-600">Edge</p><p className={cn('text-xs font-semibold mono', edge > 0 ? 'text-emerald-400' : 'text-red-400')}>{edge > 0 ? '+' : ''}{edge.toFixed(1)}%</p></div>
-                  <div><p className="text-[9px] text-zinc-600">Kelly</p><p className="text-xs font-semibold mono text-violet-400">{bet.stake_suggestion_percent > 0 ? `${bet.stake_suggestion_percent?.toFixed(1)}%` : '—'}</p></div>
+                  <div><p className="text-[10px] text-zinc-600">Cuota</p><p className="text-xs font-bold mono text-white">{bet.odds_value?.toFixed(2)}</p></div>
+                  <div><p className="text-[10px] text-zinc-600">Modelo</p><p className="text-xs font-semibold mono text-emerald-400">{((bet.model_probability ?? 0) * 100).toFixed(0)}%</p></div>
+                  <div><p className="text-[10px] text-zinc-600">Edge</p><p className={cn('text-xs font-semibold mono', edge > 0 ? 'text-emerald-400' : 'text-red-400')}>{edge > 0 ? '+' : ''}{edge.toFixed(1)}%</p></div>
+                  <div><p className="text-[10px] text-zinc-600">Kelly</p><p className="text-xs font-semibold mono text-violet-400">{bet.stake_suggestion_percent > 0 ? `${bet.stake_suggestion_percent?.toFixed(1)}%` : '—'}</p></div>
                 </div>
 
                 {bet.ai_justification && (
@@ -364,7 +364,7 @@ export function ValueBetsFullTable({ bets }: Props) {
 
                     {/* Grade */}
                     <td className="text-center">
-                      <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border', grade.bg, grade.border, grade.text)}>
+                      <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border', grade.bg, grade.border, grade.text)}>
                         <span className={cn('h-1 w-1 rounded-full', grade.dot)} />
                         {grade.label}
                       </span>
@@ -373,7 +373,7 @@ export function ValueBetsFullTable({ bets }: Props) {
                     {/* Time to kickoff */}
                     <td className="text-center">
                       {timeInfo ? (
-                        <span className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[9px] font-semibold', URGENCY_COLOR[timeInfo.urgency])}>
+                        <span className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-semibold', URGENCY_COLOR[timeInfo.urgency])}>
                           <Clock className="h-2.5 w-2.5" />{timeInfo.label}
                         </span>
                       ) : <span className="text-zinc-700">—</span>}

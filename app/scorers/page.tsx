@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import { Crosshair } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { TopScorersPrediction } from '@/components/scorers/TopScorersPrediction'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Predicción Goleadores | WC Predictor 2026',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function ScorersPage() {
   const supabase = await createServerSupabaseClient()

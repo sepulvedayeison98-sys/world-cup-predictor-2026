@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeModelPrediction, computeConfidenceLevel, type Probabilities } from '@/lib/predictionEngine'
+import { COMPETITION_ID } from '@/lib/constants'
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 /**
  * Recalcula la prediccion de TODOS los partidos de la competicion con el

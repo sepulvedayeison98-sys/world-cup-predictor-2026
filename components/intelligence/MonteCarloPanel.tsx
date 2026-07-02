@@ -51,7 +51,7 @@ function PercentilesCard({ p50, p80, p95, homeCode, awayCode }: {
           </tbody>
         </table>
       </div>
-      <p className="text-[9px] text-zinc-700 mt-2">
+      <p className="text-[10px] text-zinc-700 mt-2">
         P50: el 50% de simulaciones resulta igual o menor · P80: 80% · P95: 95%
       </p>
     </div>

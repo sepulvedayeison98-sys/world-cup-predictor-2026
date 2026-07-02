@@ -109,7 +109,7 @@ export function ProbabilityHistoryChart({ matchId }: Props) {
             scheduled: '🕒 Auto',
           }
           return d.trigger !== 'scheduled' ? (
-            <span key={i} className="rounded px-1.5 py-0.5 text-[9px] bg-zinc-800 text-zinc-500 border border-zinc-700">
+            <span key={i} className="rounded px-1.5 py-0.5 text-[10px] bg-zinc-800 text-zinc-500 border border-zinc-700">
               {d.time}: {triggerMap[d.trigger] ?? d.trigger}
             </span>
           ) : null

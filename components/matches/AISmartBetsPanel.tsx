@@ -522,7 +522,7 @@ function SmartBetsSection({ smartBets, analysis, odds, isLoading, match }: {
                       {bet.confidence}%
                     </span>
                   </div>
-                  <p className="text-[9px] text-zinc-500">Probabilidad</p>
+                  <p className="text-[10px] text-zinc-500">Probabilidad</p>
                 </div>
 
                 {/* Value indicator + odds */}
@@ -570,7 +570,7 @@ function SmartBetsSection({ smartBets, analysis, odds, isLoading, match }: {
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {bet.factors?.for?.length > 0 && (
                     <div>
-                      <p className="text-[9px] text-emerald-500 font-semibold mb-1">A favor</p>
+                      <p className="text-[10px] text-emerald-500 font-semibold mb-1">A favor</p>
                       {bet.factors.for.slice(0, 2).map((f, i) => (
                         <p key={i} className="text-[10px] text-zinc-500 leading-relaxed">• {f}</p>
                       ))}
@@ -578,7 +578,7 @@ function SmartBetsSection({ smartBets, analysis, odds, isLoading, match }: {
                   )}
                   {bet.factors?.against?.length > 0 && (
                     <div>
-                      <p className="text-[9px] text-red-500 font-semibold mb-1">En contra</p>
+                      <p className="text-[10px] text-red-500 font-semibold mb-1">En contra</p>
                       {bet.factors.against.slice(0, 2).map((f, i) => (
                         <p key={i} className="text-[10px] text-zinc-500 leading-relaxed">• {f}</p>
                       ))}
@@ -626,7 +626,7 @@ function RisksSection({ analysis, injuries, match, isLoading }: {
         {allRisks.map((risk, i) => (
           <div key={i} className="flex gap-2.5 items-start">
             <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full bg-amber-500/15 flex items-center justify-center">
-              <span className="text-[9px] font-bold text-amber-400">{i + 1}</span>
+              <span className="text-[10px] font-bold text-amber-400">{i + 1}</span>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">{risk}</p>
           </div>
@@ -648,7 +648,7 @@ function ConclusionSection({ analysis, isLoading }: { analysis: MatchAnalysis | 
         <Shield className="h-4 w-4 text-emerald-400" />
         <h3 className="text-sm font-semibold text-white">Conclusión IA</h3>
         <span className={cn(
-          'ml-auto text-[9px] mono px-1.5 py-0.5 rounded border',
+          'ml-auto text-[10px] mono px-1.5 py-0.5 rounded border',
           analysis.is_fallback
             ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
             : 'text-zinc-600 border-transparent'

@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { COMPETITION_ID } from '@/lib/constants'
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 const MIN = 60 * 1000
 
 export interface SyncWindow {

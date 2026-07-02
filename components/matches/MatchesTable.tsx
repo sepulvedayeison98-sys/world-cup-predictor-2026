@@ -53,7 +53,7 @@ function ProbBar({ home, draw, away }: { home: number; draw: number; away: numbe
         <div className="bg-amber-500"   style={{ width: `${d}%` }} />
         <div className="bg-red-500"     style={{ width: `${a}%` }} />
       </div>
-      <div className="flex justify-between text-[9px] mono">
+      <div className="flex justify-between text-[11px] mono">
         <span className="text-emerald-400">{h}%</span>
         <span className="text-amber-400">{d}%</span>
         <span className="text-red-400">{a}%</span>
@@ -66,7 +66,7 @@ function Stars({ level }: { level: number }) {
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < level ? 'text-amber-400' : 'text-zinc-700'} style={{ fontSize: 10 }}>
+        <span key={i} className={i < level ? 'text-amber-400' : 'text-zinc-700'} style={{ fontSize: 12 }}>
           ★
         </span>
       ))}
@@ -89,7 +89,7 @@ function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: st
   }
   const cfg = map[effectiveStatus] ?? map.scheduled
   return (
-    <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider border', cfg.className)}>
+    <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider border', cfg.className)}>
       {effectiveStatus === 'live' && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />}
       {cfg.label}
     </span>
@@ -420,20 +420,30 @@ export function MatchesTable() {
             <ChevronLeft className="h-4 w-4" />
           </button>
 
-          {Array.from({ length: Math.min(data?.total_pages ?? 1, 5) }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setPageIndex(i)}
-              className={cn(
-                'h-7 w-7 rounded-lg text-xs font-medium transition-colors',
-                pageIndex === i
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-              )}
-            >
-              {i + 1}
-            </button>
-          ))}
+          {(() => {
+            // Ventana de 5 páginas centrada en la actual: siempre se puede
+            // navegar a cualquier página, no solo a las primeras 5
+            const total = data?.total_pages ?? 1
+            const windowSize = Math.min(total, 5)
+            const start = Math.max(0, Math.min(pageIndex - 2, total - windowSize))
+            return Array.from({ length: windowSize }).map((_, idx) => {
+              const i = start + idx
+              return (
+                <button
+                  key={i}
+                  onClick={() => setPageIndex(i)}
+                  className={cn(
+                    'h-7 w-7 rounded-lg text-xs font-medium transition-colors',
+                    pageIndex === i
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+                  )}
+                >
+                  {i + 1}
+                </button>
+              )
+            })
+          })()}
 
           <button
             onClick={() => setPageIndex((p) => Math.min((data?.total_pages ?? 1) - 1, p + 1))}

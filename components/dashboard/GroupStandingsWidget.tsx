@@ -25,7 +25,7 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
 
   const FormBadge = ({ r }: { r: string }) => (
     <span className={cn(
-      'inline-flex h-4 w-4 items-center justify-center rounded-sm text-[9px] font-bold',
+      'inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] font-bold',
       r === 'W' && 'bg-emerald-500/20 text-emerald-400',
       r === 'D' && 'bg-amber-500/20 text-amber-400',
       r === 'L' && 'bg-red-500/20 text-red-400',
@@ -59,12 +59,12 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
         <>
           {/* Header */}
           <div className="mb-1 grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-1 px-1">
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</span>
-            <span className="w-5 text-center text-[9px] text-zinc-600">PJ</span>
-            <span className="w-5 text-center text-[9px] text-zinc-600">GD</span>
-            <span className="w-6 text-center text-[9px] font-bold text-zinc-500">PTS</span>
-            <span className="w-12 text-right text-[9px] text-zinc-600">Clasif.</span>
-            <span className="w-10 text-right text-[9px] text-zinc-600">Forma</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</span>
+            <span className="w-5 text-center text-[10px] text-zinc-600">PJ</span>
+            <span className="w-5 text-center text-[10px] text-zinc-600">GD</span>
+            <span className="w-6 text-center text-[10px] font-bold text-zinc-500">PTS</span>
+            <span className="w-12 text-right text-[10px] text-zinc-600">Clasif.</span>
+            <span className="w-10 text-right text-[10px] text-zinc-600">Forma</span>
           </div>
 
           <div className="space-y-0.5">
@@ -126,7 +126,7 @@ export function GroupStandingsWidget({ competitionId, groupLetter }: Props) {
             })}
           </div>
 
-          <p className="mt-2 text-[9px] text-zinc-600">
+          <p className="mt-2 text-[10px] text-zinc-600">
             <span className="text-emerald-700">■</span> Directos &nbsp;·&nbsp;
             <span className="text-amber-700">■</span> Posible mejor 3ro
           </p>

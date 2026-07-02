@@ -16,7 +16,7 @@ export function GroupCard({ group }: Props) {
 
   const FormPill = ({ r }: { r: string }) => (
     <span className={cn(
-      'inline-flex h-4 w-4 items-center justify-center rounded-sm text-[9px] font-bold',
+      'inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] font-bold',
       r === 'W' && 'bg-emerald-500/20 text-emerald-400',
       r === 'D' && 'bg-amber-500/20 text-amber-400',
       r === 'L' && 'bg-red-500/20 text-red-400',
@@ -38,17 +38,17 @@ export function GroupCard({ group }: Props) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-800/50">
-              <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-zinc-600 w-5">#</th>
-              <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">PJ</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">PG</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">PE</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">PP</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">GF</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">GC</th>
-              <th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-600">DG</th>
-              <th className="px-2 py-2 text-center text-[9px] font-bold uppercase tracking-wider text-zinc-500">PTS</th>
-              <th className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Clasif.</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600 w-5">#</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PJ</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PG</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PE</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PP</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">GF</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">GC</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">DG</th>
+              <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">PTS</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Clasif.</th>
             </tr>
           </thead>
           <tbody>
@@ -133,7 +133,7 @@ export function GroupCard({ group }: Props) {
                   )}
                 </div>
                 <div className="flex items-center gap-1 text-right">
-                  <span className="text-[9px] text-zinc-600">Líder:</span>
+                  <span className="text-[10px] text-zinc-600">Líder:</span>
                   <span className={cn(
                     'text-[10px] font-semibold mono',
                     s.top_spot_probability >= 50 ? 'text-emerald-400' :
@@ -148,7 +148,7 @@ export function GroupCard({ group }: Props) {
         </div>
       )}
 
-      <div className="px-3 py-1.5 text-[9px] text-zinc-700 border-t border-zinc-800/50">
+      <div className="px-3 py-1.5 text-[10px] text-zinc-700 border-t border-zinc-800/50">
         <span className="text-emerald-700">▌</span> Clasificación directa &nbsp;·&nbsp;
         <span className="text-amber-700">▌</span> Posible mejor 3ro &nbsp;·&nbsp;
         Clasif. = % de clasificación

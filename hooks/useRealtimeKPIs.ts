@@ -8,13 +8,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { DashboardKPIs } from '@/types'
+import { COMPETITION_ID } from '@/lib/constants'
 
 interface UseRealtimeKPIsOptions {
   initialKPIs: DashboardKPIs
   competitionId?: string
 }
 
-export function useRealtimeKPIs({ initialKPIs, competitionId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' }: UseRealtimeKPIsOptions) {
+export function useRealtimeKPIs({ initialKPIs, competitionId = COMPETITION_ID }: UseRealtimeKPIsOptions) {
   const supabase = createClient()
   const [kpis, setKPIs] = useState<DashboardKPIs>(initialKPIs)
   const [isLive, setIsLive] = useState(false)

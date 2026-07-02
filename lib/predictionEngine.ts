@@ -197,9 +197,11 @@ export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT
   const marketScore = i.marketProbabilities
     ? clamp01(i.marketProbabilities.home / Math.max(i.marketProbabilities.home + i.marketProbabilities.away, 0.0001))
     : 0.5
-  const newsScore = clamp01(
-    Math.max(0.1, 1 - i.homeInjuryImpact / 50) - Math.max(0, 1 - i.awayInjuryImpact / 50) + 0.5
-  )
+  // Simétrico: mismo piso para ambos equipos (antes el local tenía piso 0.1
+  // y el visitante 0, sesgando el factor cuando ambos acumulaban bajas).
+  const homeFit = Math.max(0, 1 - i.homeInjuryImpact / 50)
+  const awayFit = Math.max(0, 1 - i.awayInjuryImpact / 50)
+  const newsScore = clamp01(homeFit - awayFit + 0.5)
 
   // Fuerza local combinada (0.05..0.95): reparte el total de goles esperados.
   const hs = clamp(
@@ -223,8 +225,10 @@ export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT
 
   return {
     ...probabilities,
-    predictedHome: Math.round(lambdaHome),
-    predictedAway: Math.round(lambdaAway),
+    // Marcador estimado = el más probable de la matriz (su moda), para que
+    // nunca contradiga la tabla de marcadores exactos mostrada al lado.
+    predictedHome: exactScores[0]?.home ?? Math.round(lambdaHome),
+    predictedAway: exactScores[0]?.away ?? Math.round(lambdaAway),
     confidenceScore: Math.round(confidenceScore * 100) / 100,
     exactScores,
   }

@@ -97,7 +97,7 @@ function MatchCard({ slot, simulations }: { slot: MatchSlot; simulations: Props[
             <span className="text-zinc-500 mono font-medium">{kickoffTime}</span>
           )}
           {hasCol && !isEmpty && (
-            <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">🇨🇴</span>
+            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">🇨🇴</span>
           )}
         </div>
       </div>
@@ -151,7 +151,7 @@ function MatchCard({ slot, simulations }: { slot: MatchSlot; simulations: Props[
       {slot.city && !isEmpty && (
         <div className="flex items-center gap-1 px-3 py-1 border-t border-zinc-800/60">
           <MapPin className="h-2.5 w-2.5 text-zinc-700" />
-          <span className="text-[9px] text-zinc-700">{slot.city}</span>
+          <span className="text-[10px] text-zinc-700">{slot.city}</span>
         </div>
       )}
     </div>

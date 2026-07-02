@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { PredictionsTable } from '@/components/predictions/PredictionsTable'
-import { MODEL_VERSION } from '@/lib/constants'
+import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Predicciones | World Cup Predictor',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function PredictionsPage() {
   const supabase = await createServerSupabaseClient()

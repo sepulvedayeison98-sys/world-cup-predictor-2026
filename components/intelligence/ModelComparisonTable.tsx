@@ -65,7 +65,7 @@ export function ModelComparisonTable({ models, homeCode, awayCode }: Props) {
                     {model.label}
                   </p>
                   {model.note && (
-                    <p className="text-[9px] text-zinc-600 mt-0.5">{model.note}</p>
+                    <p className="text-[10px] text-zinc-600 mt-0.5">{model.note}</p>
                   )}
                 </div>
               </div>

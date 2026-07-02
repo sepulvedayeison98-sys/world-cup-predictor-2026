@@ -331,7 +331,7 @@ export function MatchDigitalTwin({ homeStats, awayStats, match, homeLineup, away
 
         {/* Leyenda zona calor */}
         {showZones && (
-          <div className="flex items-center justify-center gap-4 pb-3 text-[9px] text-zinc-600">
+          <div className="flex items-center justify-center gap-4 pb-3 text-[10px] text-zinc-600">
             <div className="flex items-center gap-1">
               <div className="h-2 w-4 rounded-sm bg-emerald-500/50" />
               <span>Presión {homeCode}</span>
@@ -401,11 +401,11 @@ export function MatchDigitalTwin({ homeStats, awayStats, match, homeLineup, away
                 <>
                   <div className="h-full bg-emerald-500 flex items-center justify-center"
                     style={{ width: `${homePct}%` }}>
-                    <span className="text-[9px] text-white font-bold">{homePct}%</span>
+                    <span className="text-[10px] text-white font-bold">{homePct}%</span>
                   </div>
                   <div className="h-full bg-red-500 flex items-center justify-center"
                     style={{ width: `${awayPct}%` }}>
-                    <span className="text-[9px] text-white font-bold">{awayPct}%</span>
+                    <span className="text-[10px] text-white font-bold">{awayPct}%</span>
                   </div>
                 </>
               )
@@ -413,7 +413,7 @@ export function MatchDigitalTwin({ homeStats, awayStats, match, homeLineup, away
           </div>
           <span className="text-xs text-red-400 font-bold w-8">{awayCode}</span>
         </div>
-        <p className="text-[9px] text-zinc-700 mt-2">
+        <p className="text-[10px] text-zinc-700 mt-2">
           Estimado a partir de xG, posesión media y forma reciente. No refleja alineaciones confirmadas.
         </p>
       </div>

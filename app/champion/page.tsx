@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import { Trophy } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ChampionProbabilityBracket } from '@/components/champion/ChampionProbabilityBracket'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Predicción de Campeón | WC Predictor 2026',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function ChampionPage() {
   const supabase = await createServerSupabaseClient()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncESPNResults } from '@/services/sync/espn-results'
+import { isAuthorizedCron } from '@/lib/cronAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,11 +11,7 @@ export const dynamic = 'force-dynamic'
  * Las estadísticas se sincronizan automáticamente dentro de syncESPNResults
  * para los partidos terminados.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  return req.headers.get('authorization') === `Bearer ${secret}`
-}
+const authorized = isAuthorizedCron
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

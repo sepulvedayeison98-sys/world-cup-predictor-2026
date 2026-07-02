@@ -175,7 +175,7 @@ export function TeamComparisonRadar({ homeTeam, awayTeam, homeStats, awayStats }
               <div className="flex gap-0.5">
                 {(homeStats.form ?? []).slice(-5).map((r: string, i: number) => (
                   <span key={i} className={cn(
-                    'inline-flex h-5 w-5 items-center justify-center rounded-sm text-[9px] font-bold',
+                    'inline-flex h-5 w-5 items-center justify-center rounded-sm text-[10px] font-bold',
                     r === 'W' && 'bg-emerald-500/20 text-emerald-400',
                     r === 'D' && 'bg-amber-500/20 text-amber-400',
                     r === 'L' && 'bg-red-500/20 text-red-400',
@@ -185,7 +185,7 @@ export function TeamComparisonRadar({ homeTeam, awayTeam, homeStats, awayStats }
               <div className="flex gap-0.5">
                 {(awayStats.form ?? []).slice(-5).map((r: string, i: number) => (
                   <span key={i} className={cn(
-                    'inline-flex h-5 w-5 items-center justify-center rounded-sm text-[9px] font-bold',
+                    'inline-flex h-5 w-5 items-center justify-center rounded-sm text-[10px] font-bold',
                     r === 'W' && 'bg-emerald-500/20 text-emerald-400',
                     r === 'D' && 'bg-amber-500/20 text-amber-400',
                     r === 'L' && 'bg-red-500/20 text-red-400',

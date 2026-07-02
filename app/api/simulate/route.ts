@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runMonteCarloSimulation, type Team, type Match } from '@/lib/simulationEngine'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 /** phase del esquema -> stage que espera el motor de simulación. */
 function mapStage(phase: string): Match['stage'] {

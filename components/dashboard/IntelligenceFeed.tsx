@@ -60,7 +60,7 @@ export function IntelligenceFeed({ entries }: Props) {
           >
             <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
               <div className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
-              <span className="text-[8px] font-bold tracking-wider text-zinc-600 mono">{meta.label}</span>
+              <span className="text-[10px] font-bold tracking-wider text-zinc-600 mono">{meta.label}</span>
             </div>
 
             <div className={cn('mt-0.5 shrink-0', meta.color)}>
@@ -72,7 +72,7 @@ export function IntelligenceFeed({ entries }: Props) {
                 {entry.code1 && <Flag code={entry.code1} />}
                 {entry.code2 && (
                   <>
-                    <span className="text-[9px] text-zinc-700">vs</span>
+                    <span className="text-[10px] text-zinc-700">vs</span>
                     <Flag code={entry.code2} />
                   </>
                 )}
@@ -81,7 +81,7 @@ export function IntelligenceFeed({ entries }: Props) {
               <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">{entry.detail}</p>
             </div>
 
-            <span className="text-[9px] text-zinc-600 mono shrink-0 mt-0.5">{timeAgo(entry.timestamp)}</span>
+            <span className="text-[10px] text-zinc-600 mono shrink-0 mt-0.5">{timeAgo(entry.timestamp)}</span>
           </div>
         )
       })}

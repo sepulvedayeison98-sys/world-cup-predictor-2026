@@ -184,10 +184,10 @@ function PlayerToggle({
           : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600 hover:text-zinc-100'
       )}
     >
-      <span className="mono text-[9px] text-zinc-500 w-4">{player.number}</span>
+      <span className="mono text-[10px] text-zinc-500 w-4">{player.number}</span>
       <span className="truncate max-w-[80px]">{player.short_name ?? player.name.split(' ').pop()}</span>
-      <span className="text-[9px] text-zinc-600">{player.position}</span>
-      {isSelected && <span className="ml-auto text-[9px]">✗</span>}
+      <span className="text-[10px] text-zinc-600">{player.position}</span>
+      {isSelected && <span className="ml-auto text-[10px]">✗</span>}
     </button>
   )
 }
@@ -623,7 +623,7 @@ export function SimulationEngine({ matches, activeInjuries, userId }: Props) {
                   <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950 p-2.5">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-[11px] font-semibold text-zinc-200">{saved.scenario.scenario_name}</p>
-                      <p className="text-[9px] text-zinc-600">
+                      <p className="text-[10px] text-zinc-600">
                         {match?.home_team?.code} vs {match?.away_team?.code}
                       </p>
                     </div>

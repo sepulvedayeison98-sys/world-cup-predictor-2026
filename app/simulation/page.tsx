@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { SimulationEngine } from '@/components/simulation/SimulationEngine'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Simulador | World Cup Predictor',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function SimulationPage() {
   const supabase = await createServerSupabaseClient()

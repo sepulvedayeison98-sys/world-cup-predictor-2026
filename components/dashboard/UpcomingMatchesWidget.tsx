@@ -60,7 +60,7 @@ function ProbabilityRow({
           style={{ width: `${a}%` }}
         />
       </div>
-      <div className="flex justify-between text-[9px] text-zinc-600">
+      <div className="flex justify-between text-[10px] text-zinc-600">
         <span>Local</span>
         <span>Empate</span>
         <span>Visitante</span>

@@ -93,16 +93,16 @@ function TopThreePodium({ players }: { players: Player[] }) {
               <p className="text-xs font-bold text-white leading-tight">{player.player?.short_name ?? player.player?.name}</p>
               <div className="flex items-center justify-center gap-1 mt-0.5">
                 <Flag code={player.player?.team?.code} />
-                <span className="text-[9px] text-zinc-500">{player.player?.team?.code}</span>
+                <span className="text-[10px] text-zinc-500">{player.player?.team?.code}</span>
               </div>
             </div>
             <div>
               <p className={cn('text-2xl font-black mono', rankColors[ri])}>{player.goals}</p>
-              <p className="text-[9px] text-zinc-600">goles actuales</p>
+              <p className="text-[10px] text-zinc-600">goles actuales</p>
             </div>
             <div className="w-full">
               <p className="text-xs font-bold text-emerald-400 mono">+{player.projectedGoals.toFixed(1)}</p>
-              <p className="text-[9px] text-zinc-600">proyectados</p>
+              <p className="text-[10px] text-zinc-600">proyectados</p>
             </div>
           </div>
         )
@@ -207,8 +207,8 @@ export function TopScorersPrediction({ players }: Props) {
                           <p className="font-semibold text-zinc-200 truncate">{player.player?.short_name ?? player.player?.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <Flag code={player.player?.team?.code} />
-                            <span className={cn('text-[9px] font-medium', confColor)}>{player.player?.team?.code}</span>
-                            <span className={cn('text-[8px] border rounded px-1', posColor)}>{pos}</span>
+                            <span className={cn('text-[10px] font-medium', confColor)}>{player.player?.team?.code}</span>
+                            <span className={cn('text-[10px] border rounded px-1', posColor)}>{pos}</span>
                           </div>
                         </div>
                       </div>
@@ -231,7 +231,7 @@ export function TopScorersPrediction({ players }: Props) {
                     <td className="px-3 py-3 text-center">
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="text-zinc-400 mono">{player.expectedRemaining.toFixed(1)}</span>
-                        <span className="text-[9px] text-zinc-600">{Math.round(player.teamAdvanceProb * 100)}% avance</span>
+                        <span className="text-[10px] text-zinc-600">{Math.round(player.teamAdvanceProb * 100)}% avance</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -239,7 +239,7 @@ export function TopScorersPrediction({ players }: Props) {
                         <p className="text-emerald-400 font-black mono text-sm">
                           {(player.goals + player.projectedGoals).toFixed(1)}
                         </p>
-                        <p className="text-[9px] text-zinc-600">+{player.projectedGoals.toFixed(1)} más</p>
+                        <p className="text-[10px] text-zinc-600">+{player.projectedGoals.toFixed(1)} más</p>
                         <MiniBar value={player.goals + player.projectedGoals} max={maxGoals + maxProjected} color="bg-emerald-500" />
                       </div>
                     </td>

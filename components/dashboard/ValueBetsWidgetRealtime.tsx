@@ -100,7 +100,7 @@ export function ValueBetsWidgetRealtime() {
                   <div className="flex items-center justify-between mb-1.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border',
+                        'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border',
                         grade.className
                       )}
                     >
@@ -129,18 +129,18 @@ export function ValueBetsWidgetRealtime() {
                   {/* Cuota · EV · Stake sugerido */}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-[9px] text-zinc-600">Cuota</p>
+                      <p className="text-[10px] text-zinc-600">Cuota</p>
                       <p className="text-sm font-bold mono text-white">{bet.odds_value.toFixed(2)}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-zinc-600">EV</p>
+                      <p className="text-[10px] text-zinc-600">EV</p>
                       <p className={cn('text-sm font-bold mono flex items-center gap-0.5', ev > 0 ? 'text-emerald-400' : 'text-red-400')}>
                         <TrendingUp className="h-3 w-3" />
                         {ev > 0 ? '+' : ''}{(ev * 100).toFixed(1)}%
                       </p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-zinc-600">Apostar</p>
+                      <p className="text-[10px] text-zinc-600">Apostar</p>
                       <p className="text-sm font-bold mono text-violet-400">
                         {stake && stake > 0 ? `${stake.toFixed(1)}%` : '—'}
                       </p>
@@ -149,7 +149,7 @@ export function ValueBetsWidgetRealtime() {
 
                   {/* Edge: modelo vs implícita, con mini-barra */}
                   <div className="mt-2">
-                    <div className="flex items-center justify-between text-[9px] text-zinc-500 mb-0.5">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-0.5">
                       <span>Modelo {(bet.model_probability * 100).toFixed(0)}% vs implícita {(bet.implied_probability * 100).toFixed(0)}%</span>
                       <span className={cn('font-semibold', edge > 0 ? 'text-emerald-400' : 'text-red-400')}>
                         edge {edge > 0 ? '+' : ''}{(edge * 100).toFixed(1)}%

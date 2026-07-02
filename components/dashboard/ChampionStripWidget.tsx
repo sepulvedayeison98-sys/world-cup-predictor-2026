@@ -44,7 +44,7 @@ export function ChampionStripWidget({ simulations }: Props) {
             const maxPct = top8[0].winner_prob * 100
             return (
               <div key={sim.team_id} className="flex items-center gap-2">
-                <span className="text-[9px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
+                <span className="text-[10px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
                 <Flag code={sim.team.code} />
                 <span className="text-[10px] text-zinc-300 w-12 truncate">{sim.team.code}</span>
                 <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">

@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GroupCard } from '@/components/groups/GroupCard'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Grupos | World Cup Predictor',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function GroupsPage() {
   const supabase = await createServerSupabaseClient()

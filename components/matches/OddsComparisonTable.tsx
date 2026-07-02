@@ -118,13 +118,13 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <div className="flex justify-center mb-1">{SIGNAL_ICON[mkt.signal]}</div>
                 <p className={cn('text-xs font-bold', mkt.signalColor)}>{mkt.signalLabel}</p>
-                <p className="text-[9px] text-zinc-600 mt-0.5">Señal</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">Señal</p>
               </div>
 
               {/* Consensus */}
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <p className="text-base font-black mono text-zinc-200">{Math.round(mkt.consensusStrength * 100)}%</p>
-                <p className="text-[9px] text-zinc-600">Consenso</p>
+                <p className="text-[10px] text-zinc-600">Consenso</p>
                 <div className="mt-1 h-0.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                   <div className="h-full bg-blue-500 rounded-full" style={{ width: `${mkt.consensusStrength * 100}%` }} />
                 </div>
@@ -134,19 +134,19 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <div className="flex justify-center mb-1"><Users className="h-3.5 w-3.5 text-zinc-500" /></div>
                 <p className="text-base font-black mono text-zinc-200">{mkt.bookmakerCount}</p>
-                <p className="text-[9px] text-zinc-600">Casas</p>
+                <p className="text-[10px] text-zinc-600">Casas</p>
               </div>
 
               {/* Sharpest */}
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2 text-center">
                 <p className="text-[10px] font-bold text-amber-400 truncate">{mkt.sharpestBook ?? '—'}</p>
-                <p className="text-[9px] text-zinc-600 mt-0.5">Casa más sharp</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">Casa más sharp</p>
               </div>
             </div>
 
             {/* Spread bars */}
             <div className="space-y-1.5">
-              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Spread entre bookmakers (menor = más consenso)</p>
+              <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Spread entre bookmakers (menor = más consenso)</p>
               {[
                 { label: homeTeam?.code ?? 'Local', val: mkt.spread.home, implied: mkt.implied.home, color: 'bg-emerald-500' },
                 { label: 'Empate',                  val: mkt.spread.draw, implied: mkt.implied.draw, color: 'bg-amber-500' },
@@ -171,7 +171,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
             {/* Value discrepancies */}
             {valueDiscrepancies.length > 0 && (
               <div className="border-t border-zinc-800 pt-3 space-y-1.5">
-                <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Discrepancias modelo vs mercado</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Discrepancias modelo vs mercado</p>
                 {valueDiscrepancies.map((d) => {
                   const isEdge = d.edge > 0
                   return (

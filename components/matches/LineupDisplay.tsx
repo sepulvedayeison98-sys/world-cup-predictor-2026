@@ -18,7 +18,7 @@ function PlayerDot({ player, color }: { player: any; color: string }) {
       <div
         className={cn(
           'h-7 w-7 rounded-full border-2 flex items-center justify-center',
-          'text-[9px] font-bold text-white',
+          'text-[10px] font-bold text-white',
           color,
           'group-hover:scale-110 transition-transform cursor-default'
         )}
@@ -26,7 +26,7 @@ function PlayerDot({ player, color }: { player: any; color: string }) {
       >
         {p?.number ?? '?'}
       </div>
-      <span className="text-[8px] text-zinc-400 max-w-[48px] truncate text-center leading-tight">
+      <span className="text-[10px] text-zinc-400 max-w-[48px] truncate text-center leading-tight">
         {p?.short_name ?? p?.name?.split(' ').pop() ?? ''}
       </span>
     </div>
@@ -187,7 +187,7 @@ export function LineupDisplay({ matchId, homeTeam, awayTeam }: Props) {
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {bench.slice(0, 7).map((p: any) => (
-                        <span key={p.id} className="text-[9px] text-zinc-500 bg-zinc-800 rounded px-1.5 py-0.5">
+                        <span key={p.id} className="text-[10px] text-zinc-500 bg-zinc-800 rounded px-1.5 py-0.5">
                           {p.player?.number} {p.player?.short_name}
                         </span>
                       ))}

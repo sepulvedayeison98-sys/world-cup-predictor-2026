@@ -21,13 +21,13 @@ export type SmartBetCategory = 'resultado' | 'goles' | 'porteria' | 'corners' | 
 export type VolatilityLevel  = 'LOW_VOLATILITY' | 'MEDIUM_VOLATILITY' | 'HIGH_VOLATILITY'
 
 export interface MCEvidence {
-  simulations:  number  // total de partidos recientes (h.n + a.n)
-  p50Goals:     number  // media ponderada de goles local (repropuesto)
-  p80Goals:     number  // media ponderada de goles visitante (repropuesto)
-  p95Goals:     number  // goles combinados local + visitante (repropuesto)
-  stdDev:       number  // desviación estándar de goles del local
-  topScore:     string  // resultado más frecuente del local en forma
-  topScoreFreq: number  // % de ocurrencia del resultado más frecuente
+  simulations:   number  // total de partidos recientes analizados (h.n + a.n)
+  homeGoalsAvg:  number  // media ponderada de goles del local
+  awayGoalsAvg:  number  // media ponderada de goles del visitante
+  totalGoalsAvg: number  // goles combinados local + visitante
+  stdDev:        number  // desviación estándar de goles del local
+  topScore:      string  // resultado más frecuente del local en forma
+  topScoreFreq:  number  // % de ocurrencia del resultado más frecuente
 }
 
 export interface SmartBetRecommendation {
@@ -150,6 +150,21 @@ function calcStdDev(values: number[]): number {
 
 // ─── Motor de edge vs mercado ─────────────────────────────────────────────────
 
+// Grupos de mercados complementarios: si están todos presentes, se quita el
+// margen de la casa normalizando para que sumen 1 (misma metodología que
+// services/sync/odds.ts con Pinnacle). Así "edge" significa lo mismo en
+// Smart Bets y en Value Bets: modelo vs probabilidad JUSTA.
+const COMPLEMENT_GROUPS: string[][] = [
+  ['home_win', 'draw', 'away_win'],
+  ['btts_yes', 'btts_no'],
+  ['over_0_5', 'under_0_5'],
+  ['over_1_5', 'under_1_5'],
+  ['over_2_5', 'under_2_5'],
+  ['over_3_5', 'under_3_5'],
+]
+// Para mercados sin complemento registrado se asume el margen típico (~6%).
+const TYPICAL_OVERROUND = 1.06
+
 function buildOddsMap(odds: any[]): Map<string, number> {
   const map = new Map<string, number>()
   for (const o of odds ?? []) {
@@ -159,6 +174,22 @@ function buildOddsMap(odds: any[]): Map<string, number> {
       map.set(o.market, impl)
     }
   }
+
+  // Devig: normalizar grupos completos, estimar margen en los sueltos
+  const grouped = new Set<string>()
+  for (const group of COMPLEMENT_GROUPS) {
+    if (!group.every(m => map.has(m))) continue
+    const sum = group.reduce((s, m) => s + map.get(m)!, 0)
+    if (sum <= 0) continue
+    for (const m of group) {
+      map.set(m, map.get(m)! / sum)
+      grouped.add(m)
+    }
+  }
+  for (const [market, impl] of map) {
+    if (!grouped.has(market)) map.set(market, impl / TYPICAL_OVERROUND)
+  }
+
   return map
 }
 
@@ -746,6 +777,13 @@ export function computeSmartBets(
   const homeName = homeTeam?.short_name ?? homeTeam?.name ?? 'Local'
   const awayName = awayTeam?.short_name ?? awayTeam?.name ?? 'Visitante'
 
+  // Sin partidos registrados de alguno de los dos equipos no hay base real
+  // para recomendar: mejor no generar picks que generarlos sobre un perfil
+  // inventado (el panel muestra "datos insuficientes").
+  const hasHomeData = (homeRecentMatches?.length ?? 0) > 0 || homeStats?.avg_goals_scored != null
+  const hasAwayData = (awayRecentMatches?.length ?? 0) > 0 || awayStats?.avg_goals_scored != null
+  if (!hasHomeData || !hasAwayData) return []
+
   // ── Capa 1: Procesar forma reciente ──────────────────────────────────────────
   const h = processTeamForm(homeRecentMatches ?? [], homeStats, homeName)
   const a = processTeamForm(awayRecentMatches ?? [], awayStats, awayName)
@@ -793,15 +831,15 @@ export function computeSmartBets(
   else if (avgStd > 1.5 || minN < 2)  volatility = 'HIGH_VOLATILITY'
   else                                 volatility = 'MEDIUM_VOLATILITY'
 
-  // ── Evidencia de forma (repropuesta en MCEvidence) ────────────────────────────
+  // ── Evidencia de forma ────────────────────────────────────────────────────────
   const mce: MCEvidence = {
-    simulations:  h.n + a.n,
-    p50Goals:     Math.round(h.goalsScored * 10) / 10,
-    p80Goals:     Math.round(a.goalsScored * 10) / 10,
-    p95Goals:     Math.round((h.goalsScored + a.goalsScored) * 10) / 10,
-    stdDev:       Math.round(h.goalsStdDev * 100) / 100,
-    topScore:     h.topResult,
-    topScoreFreq: h.topResultFreq,
+    simulations:   h.n + a.n,
+    homeGoalsAvg:  Math.round(h.goalsScored * 10) / 10,
+    awayGoalsAvg:  Math.round(a.goalsScored * 10) / 10,
+    totalGoalsAvg: Math.round((h.goalsScored + a.goalsScored) * 10) / 10,
+    stdDev:        Math.round(h.goalsStdDev * 100) / 100,
+    topScore:      h.topResult,
+    topScoreFreq:  h.topResultFreq,
   }
 
   // ── Capa 5: Odds ──────────────────────────────────────────────────────────────

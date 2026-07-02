@@ -47,7 +47,7 @@ export function ReliabilityIndicator({ score, tier, compact = false }: Props) {
         ))}
       </div>
 
-      <div className="flex justify-between text-[9px] text-zinc-600">
+      <div className="flex justify-between text-[10px] text-zinc-600">
         <span>Baja</span>
         <span>Media</span>
         <span>Alta</span>

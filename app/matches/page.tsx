@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { MatchesTable } from '@/components/matches/MatchesTable'
 import { MatchFiltersBar } from '@/components/matches/MatchFiltersBar'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { PHASE_LABELS } from '@/lib/constants'
+import { PHASE_LABELS, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Partidos | World Cup Predictor',
@@ -14,14 +14,14 @@ export default async function MatchesPage() {
   const { data: groups } = await supabase
     .from('groups')
     .select('id, name, letter')
-    .eq('competition_id', process.env.NEXT_PUBLIC_COMPETITION_ID ?? 'a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+    .eq('competition_id', COMPETITION_ID)
     .order('letter')
 
   // Fetch teams for filter dropdown
   const { data: teams } = await supabase
     .from('teams')
     .select('id, name, short_name, code')
-    .eq('competition_id', process.env.NEXT_PUBLIC_COMPETITION_ID ?? 'a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+    .eq('competition_id', COMPETITION_ID)
     .order('name')
 
   // Fase actual: la del próximo partido (o el más reciente si no hay próximos)

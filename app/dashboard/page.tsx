@@ -11,14 +11,13 @@ import { IntelligenceFeed } from '@/components/dashboard/IntelligenceFeed'
 import { buildFeedEntries } from '@/lib/feed'
 import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
 import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
-import { MODEL_VERSION } from '@/lib/constants'
+import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Dashboard | World Cup Predictor 2026',
   description: 'Análisis en tiempo real del Mundial FIFA 2026',
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 // ISR: el HTML se cachea 60s — el dashboard hace ~14 queries por render,
 // así la mayoría de visitas no golpean Supabase. Los widgets realtime
@@ -223,7 +222,7 @@ export default async function DashboardPage() {
                   Intelligence Feed
                 </span>
               </div>
-              <span className="text-[9px] text-zinc-600 mono">
+              <span className="text-[10px] text-zinc-600 mono">
                 {feedEntries.length} señales recientes
               </span>
             </div>

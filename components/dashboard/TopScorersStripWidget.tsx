@@ -48,7 +48,7 @@ export function TopScorersStripWidget({ scorers }: Props) {
             const total = s.goals + s.projectedGoals
             return (
               <div key={s.player_id} className="flex items-center gap-2">
-                <span className="text-[9px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
+                <span className="text-[10px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
                 <Flag code={s.player?.team?.code} />
                 <span className="text-[10px] text-zinc-300 w-20 truncate">
                   {s.player?.short_name ?? s.player?.name}
@@ -60,7 +60,7 @@ export function TopScorersStripWidget({ scorers }: Props) {
                   </div>
                 </div>
                 <span className="text-[10px] font-bold mono text-zinc-300 w-6 text-right">{s.goals}</span>
-                <span className="text-[9px] text-emerald-500 mono w-10 text-right">+{s.projectedGoals.toFixed(1)}</span>
+                <span className="text-[10px] text-emerald-500 mono w-10 text-right">+{s.projectedGoals.toFixed(1)}</span>
                 <div className={cn('h-1.5 w-1.5 rounded-full shrink-0', CONF_DOT[s.player?.team?.confederation] ?? 'bg-zinc-600')} />
               </div>
             )
@@ -68,7 +68,7 @@ export function TopScorersStripWidget({ scorers }: Props) {
         </div>
       )}
 
-      <p className="text-[8px] text-zinc-700">
+      <p className="text-[10px] text-zinc-700">
         Barras: goles actuales (gris) + proyectados (verde)
       </p>
     </div>

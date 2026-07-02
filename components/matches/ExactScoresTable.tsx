@@ -79,7 +79,7 @@ export function ExactScoresTable({ scores }: Props) {
         })}
       </div>
 
-      <p className="mt-2 text-[9px] text-zinc-600">
+      <p className="mt-2 text-[10px] text-zinc-600">
         Generados por simulación Monte Carlo · {sorted.length} escenarios principales
       </p>
     </div>

@@ -168,7 +168,7 @@ export function DataIntegrityPanel({ prediction, homeStats, awayStats, match, in
 
             {mktReport.valueDiscrepancies.length > 0 && (
               <div className="space-y-1 border-t border-zinc-800 pt-2">
-                <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Modelo vs Mercado</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Modelo vs Mercado</p>
                 {mktReport.valueDiscrepancies.map((d) => (
                   <div key={d.outcome} className="flex items-center gap-1.5">
                     {d.edge > 0

@@ -14,7 +14,7 @@ interface Props {
 function Ticker({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center gap-2 border-r border-zinc-800 pr-4 last:border-0 last:pr-0">
-      <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{label}</span>
       <span className={cn('text-xs font-bold mono', color ?? 'text-zinc-300')}>{value}</span>
     </div>
   )
@@ -41,7 +41,7 @@ export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedM
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className={cn('h-2 w-2 rounded-full bg-emerald-500 transition-opacity duration-500', pulse ? 'opacity-100' : 'opacity-40')} />
-            <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Live</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Live</span>
           </div>
           <span className="text-[10px] text-zinc-600 mono">{time} COT</span>
         </div>

@@ -154,7 +154,7 @@ export function PlayersTable({ competitionId }: Props) {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-zinc-100 truncate">{p.name}</p>
-              <span className={cn('inline-flex rounded px-1 py-0.5 text-[9px] font-medium border', s.bg, s.color)}>
+              <span className={cn('inline-flex rounded px-1 py-0.5 text-[10px] font-medium border', s.bg, s.color)}>
                 {s.label}
               </span>
             </div>

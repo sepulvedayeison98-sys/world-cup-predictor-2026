@@ -71,7 +71,7 @@ export function ValueBetsWidget({ bets }: Props) {
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border',
+                      'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border',
                       grade.className
                     )}
                   >
@@ -94,26 +94,26 @@ export function ValueBetsWidget({ bets }: Props) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div>
-                      <p className="text-[9px] text-zinc-600">Cuota</p>
+                      <p className="text-[10px] text-zinc-600">Cuota</p>
                       <p className="text-sm font-bold mono text-white">
                         {bet.odds_value.toFixed(2)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-zinc-600">Modelo</p>
+                      <p className="text-[10px] text-zinc-600">Modelo</p>
                       <p className="text-xs font-semibold mono text-emerald-400">
                         {(bet.model_probability * 100).toFixed(1)}%
                       </p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-zinc-600">Implícita</p>
+                      <p className="text-[10px] text-zinc-600">Implícita</p>
                       <p className="text-xs font-semibold mono text-zinc-400">
                         {(bet.implied_probability * 100).toFixed(1)}%
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[9px] text-zinc-600">EV</p>
+                    <p className="text-[10px] text-zinc-600">EV</p>
                     <p
                       className={cn(
                         'text-sm font-bold mono flex items-center gap-0.5',

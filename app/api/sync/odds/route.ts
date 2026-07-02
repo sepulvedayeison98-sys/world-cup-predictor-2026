@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncOdds } from '@/services/sync/odds'
+import { isAuthorizedCron } from '@/lib/cronAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,12 +10,7 @@ export const dynamic = 'force-dynamic'
  * Protegida por CRON_SECRET: requiere header `Authorization: Bearer <CRON_SECRET>`.
  * La invoca Vercel Cron (ver vercel.json). No es publica.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false // sin secret configurado, no se permite
-  const auth = req.headers.get('authorization')
-  return auth === `Bearer ${secret}`
-}
+const authorized = isAuthorizedCron
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {

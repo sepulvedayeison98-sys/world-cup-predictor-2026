@@ -173,14 +173,14 @@ export function PredictionsTable({ predictions }: Props) {
                       </span>
                       {/* Secondary: top exact score prediction */}
                       {topScore ? (
-                        <p className="text-[9px] mono text-zinc-500 mt-0.5">
+                        <p className="text-[10px] mono text-zinc-500 mt-0.5">
                           marcador {topScore.home_score}–{topScore.away_score}
                           <span className="text-zinc-600"> ({Math.round(topScore.probability * 100)}%)</span>
                         </p>
                       ) : null}
                       {/* Real score for finished matches */}
                       {m?.status === 'finished' && m?.home_score != null && m?.away_score != null && (
-                        <p className="text-[9px] mono text-zinc-500 mt-0.5">
+                        <p className="text-[10px] mono text-zinc-500 mt-0.5">
                           real <span className="font-bold text-zinc-300">{m.home_score}–{m.away_score}</span>
                         </p>
                       )}
@@ -200,7 +200,7 @@ export function PredictionsTable({ predictions }: Props) {
                             {p.was_correct ? '✓ Correcto' : '✗ Incorrecto'}
                           </span>
                           {actualLabel && (
-                            <p className="text-[9px] text-zinc-600">{actualLabel}</p>
+                            <p className="text-[10px] text-zinc-600">{actualLabel}</p>
                           )}
                         </div>
                       )}

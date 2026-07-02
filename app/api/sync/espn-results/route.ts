@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncESPNResults } from '@/services/sync/espn-results'
+import { isAuthorizedCron } from '@/lib/cronAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  return req.headers.get('authorization') === `Bearer ${secret}`
-}
+const authorized = isAuthorizedCron
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {

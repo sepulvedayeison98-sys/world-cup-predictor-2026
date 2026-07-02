@@ -104,7 +104,7 @@ export function PlayerStatsPanel({ stats, injuries }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold capitalize text-zinc-200">{inj.injury_type}</p>
-                    <span className={cn('text-[9px] font-bold rounded px-1.5 py-0.5 border',
+                    <span className={cn('text-[10px] font-bold rounded px-1.5 py-0.5 border',
                       inj.is_active
                         ? 'text-red-400 bg-red-500/10 border-red-500/20'
                         : 'text-zinc-500 bg-zinc-800 border-zinc-700'

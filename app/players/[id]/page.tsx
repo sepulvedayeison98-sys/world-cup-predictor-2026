@@ -14,7 +14,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: data ? `${data.name} | WC Predictor` : 'Jugador | WC Predictor' }
 }
 
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 export default async function PlayerDetailPage({ params }: Props) {
   const { id } = await params

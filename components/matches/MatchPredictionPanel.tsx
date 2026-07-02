@@ -182,7 +182,7 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
             <div className="flex items-center gap-1.5 mb-2">
               <Trophy className="h-3.5 w-3.5 text-emerald-400" />
               <p className="text-[11px] font-semibold text-zinc-300">¿Quién clasifica?</p>
-              <span className="ml-auto text-[9px] text-zinc-600">incluye prórroga y penales</span>
+              <span className="ml-auto text-[10px] text-zinc-600">incluye prórroga y penales</span>
             </div>
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className={cn('font-bold mono', advance.home >= advance.away ? 'text-emerald-400' : 'text-zinc-300')}>

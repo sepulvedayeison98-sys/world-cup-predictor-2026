@@ -1,9 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveTeamCode } from '@/lib/teamMapping'
 import { syncESPNMatchStats } from './espn-stats'
+import { COMPETITION_ID } from '@/lib/constants'
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
-const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
 type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
 

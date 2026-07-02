@@ -56,7 +56,7 @@ export function InjuriesPanel({ injuries, homeTeamId, awayTeamId, homeTeam, away
               {p?.short_name ?? p?.name}
             </span>
             <span className={cn(
-              'text-[9px] font-bold uppercase shrink-0',
+              'text-[10px] font-bold uppercase shrink-0',
               injury.injury_type === 'suspension' ? 'text-yellow-400' : 'text-red-400'
             )}>
               {injury.injury_type === 'suspension' ? 'SUSP' : 'BAJA'}
@@ -66,11 +66,11 @@ export function InjuriesPanel({ injuries, homeTeamId, awayTeamId, homeTeam, away
             {p?.position} · {injury.description ?? 'Sin detalles'}
           </p>
           <div className="flex items-center justify-between mt-0.5">
-            <span className="text-[9px] text-zinc-600">
+            <span className="text-[10px] text-zinc-600">
               Impacto: {'■'.repeat(Math.round(injury.impact_score / 2))}{'□'.repeat(5 - Math.round(injury.impact_score / 2))}
             </span>
             {injury.expected_return && (
-              <span className="text-[9px] text-zinc-600">
+              <span className="text-[10px] text-zinc-600">
                 Regreso: {injury.expected_return}
               </span>
             )}
@@ -118,7 +118,7 @@ export function InjuriesPanel({ injuries, homeTeamId, awayTeamId, homeTeam, away
         )}
       </div>
 
-      <p className="mt-3 flex items-center gap-1 text-[9px] text-zinc-600">
+      <p className="mt-3 flex items-center gap-1 text-[10px] text-zinc-600">
         <AlertTriangle className="h-3 w-3" />
         El impacto afecta las probabilidades del modelo
       </p>

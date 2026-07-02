@@ -156,7 +156,7 @@ export function ChampionProbabilityBracket({ simulations }: Props) {
                   </div>
                   <p className="text-[11px] text-zinc-500 leading-tight">{sim.team.name}</p>
                   {sim.team.elo_rating > 0 && (
-                    <p className="text-[9px] text-zinc-700 mono">ELO {sim.team.elo_rating}</p>
+                    <p className="text-[10px] text-zinc-700 mono">ELO {sim.team.elo_rating}</p>
                   )}
                   <p className={cn('text-2xl font-black mono', podiumColors[ri])}>
                     {(sim.winner_prob * 100).toFixed(1)}%
@@ -168,7 +168,7 @@ export function ChampionProbabilityBracket({ simulations }: Props) {
                       style={{ width: `${(sim.winner_prob / maxW) * 100}%` }}
                     />
                   </div>
-                  <p className="text-[9px] text-zinc-600">prob. campeón</p>
+                  <p className="text-[10px] text-zinc-600">prob. campeón</p>
                 </div>
               )
             })}
@@ -273,7 +273,7 @@ export function ChampionProbabilityBracket({ simulations }: Props) {
                             <Flag code={sim.team.code} />
                             <div>
                               <p className="font-semibold text-zinc-200">{sim.team.short_name ?? sim.team.name}</p>
-                              <span className={cn('text-[9px] border rounded px-1.5 py-0.5', confStyle)}>
+                              <span className={cn('text-[10px] border rounded px-1.5 py-0.5', confStyle)}>
                                 {sim.team.confederation}
                               </span>
                             </div>
