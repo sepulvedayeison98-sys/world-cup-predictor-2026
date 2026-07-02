@@ -17,6 +17,7 @@ import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { TeamComparisonRadar } from '@/components/charts/TeamComparisonRadar'
 import { ProbabilityHistoryChart } from '@/components/charts/ProbabilityHistoryChart'
 import { DataIntegrityPanel } from '@/components/intelligence/DataIntegrityPanel'
+import { ResponsibleGamingNotice } from '@/components/ui/ResponsibleGamingNotice'
 import { MonteCarloPanel } from '@/components/intelligence/MonteCarloPanel'
 import { MatchDigitalTwin } from '@/components/digital-twin/MatchDigitalTwin'
 
@@ -344,12 +345,15 @@ export function MatchAnalysisTabs({
 
         {/* ── Cuotas ── */}
         {active === 'cuotas' && (
-          <OddsComparisonTable
-            odds={odds}
-            prediction={prediction}
-            homeTeam={match.home_team}
-            awayTeam={match.away_team}
-          />
+          <div className="space-y-4">
+            <OddsComparisonTable
+              odds={odds}
+              prediction={prediction}
+              homeTeam={match.home_team}
+              awayTeam={match.away_team}
+            />
+            <ResponsibleGamingNotice demoOdds />
+          </div>
         )}
 
         {/* ── Alineaciones ── */}
@@ -372,18 +376,21 @@ export function MatchAnalysisTabs({
 
         {/* ── Smart Bets AI ── */}
         {active === 'smart-bets' && (
-          <AISmartBetsPanel
-            prediction={prediction}
-            homeStats={effectiveHomeStats}
-            awayStats={effectiveAwayStats}
-            match={match}
-            injuries={injuries}
-            odds={odds}
-            homeRecentMatches={homeRecentMatches}
-            awayRecentMatches={awayRecentMatches}
-            homeGroupContext={homeGroupContext}
-            awayGroupContext={awayGroupContext}
-          />
+          <div className="space-y-4">
+            <AISmartBetsPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+              odds={odds}
+              homeRecentMatches={homeRecentMatches}
+              awayRecentMatches={awayRecentMatches}
+              homeGroupContext={homeGroupContext}
+              awayGroupContext={awayGroupContext}
+            />
+            <ResponsibleGamingNotice demoOdds />
+          </div>
         )}
 
         {/* ── Digital Twin ── */}

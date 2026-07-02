@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { formatColDateTime } from '@/lib/datetime'
 import { MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
@@ -34,7 +33,7 @@ export function MatchCard({ match }: { match: any }) {
           </span>
         ) : (
           <span className="text-[10px] text-zinc-500">
-            {format(kickoff, "d MMM · HH:mm", { locale: es })}
+            {formatColDateTime(kickoff)} COL
           </span>
         )}
         <span className="text-[10px] text-zinc-600">·</span>

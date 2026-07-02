@@ -14,8 +14,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { formatColDate, formatColTime } from '@/lib/datetime'
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronLeft, ChevronRight, ExternalLink,
@@ -106,10 +105,10 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
       cell: (info) => (
         <div className="whitespace-nowrap">
           <p className="text-xs font-medium text-zinc-200">
-            {format(new Date(info.getValue()), "d MMM", { locale: es })}
+            {formatColDate(info.getValue())}
           </p>
           <p className="text-[10px] text-zinc-500 mono">
-            {format(new Date(info.getValue()), "HH:mm")}
+            {formatColTime(info.getValue())} COL
           </p>
         </div>
       ),

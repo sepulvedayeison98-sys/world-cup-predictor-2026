@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
 import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
 import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
@@ -20,8 +20,13 @@ export const metadata: Metadata = {
 
 const COMPETITION_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
+// ISR: el HTML se cachea 60s — el dashboard hace ~14 queries por render,
+// así la mayoría de visitas no golpean Supabase. Los widgets realtime
+// del cliente se actualizan solos tras la carga.
+export const revalidate = 60
+
 export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
 
   // Paso 1: obtener la última corrida de simulación (secuencial, necesario para filtrar)
   const { data: latestSimRun } = await supabase

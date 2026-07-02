@@ -1,7 +1,6 @@
 'use client'
 
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { formatColTime, formatColLongDate, formatColFull } from '@/lib/datetime'
 import { MapPin, Clock, CloudSun, Users, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -84,10 +83,10 @@ export function MatchHeader({ match }: Props) {
               <div className="flex flex-col items-center gap-1">
                 <p className="text-2xl font-black text-zinc-600">VS</p>
                 <p className="text-sm font-semibold text-zinc-300 mono">
-                  {format(kickoff, 'HH:mm')}
+                  {formatColTime(kickoff)} COL
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {format(kickoff, "d 'de' MMMM", { locale: es })}
+                  {formatColLongDate(kickoff)}
                 </p>
               </div>
             )}
@@ -114,7 +113,7 @@ export function MatchHeader({ match }: Props) {
         </div>
         <div className="flex items-center gap-1.5 text-xs text-zinc-500">
           <Clock className="h-3.5 w-3.5" />
-          <span>{format(kickoff, "EEEE d MMM · HH:mm", { locale: es })}</span>
+          <span>{formatColFull(kickoff)} COL</span>
         </div>
         {match.referee && (
           <div className="flex items-center gap-1.5 text-xs text-zinc-500">

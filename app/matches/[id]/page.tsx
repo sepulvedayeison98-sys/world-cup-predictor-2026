@@ -5,6 +5,7 @@ import { MatchHeader } from '@/components/matches/MatchHeader'
 import { MatchAnalysisTabs } from '@/components/matches/MatchAnalysisTabs'
 import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { computeModelPrediction, computeConfidenceLevel } from '@/lib/predictionEngine'
+import { MODEL_VERSION } from '@/lib/constants'
 import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 
 interface Props {
@@ -185,10 +186,12 @@ export default async function MatchDetailPage({ params }: Props) {
       awayElo: m.away_team?.elo_rating ?? 1500,
       homeForm: homeStats?.form ?? [],
       awayForm: awayStats?.form ?? [],
-      homeXg:   homeStats?.avg_xg  ?? 1.2,
-      awayXg:   awayStats?.avg_xg  ?? 1.0,
-      homeXga:  homeStats?.avg_xga ?? 1.0,
-      awayXga:  awayStats?.avg_xga ?? 1.2,
+      // Defaults simétricos: en un Mundial no hay ventaja real de "local",
+      // la falta de datos no debe favorecer a ningún equipo.
+      homeXg:   homeStats?.avg_xg  ?? 1.1,
+      awayXg:   awayStats?.avg_xg  ?? 1.1,
+      homeXga:  homeStats?.avg_xga ?? 1.1,
+      awayXga:  awayStats?.avg_xga ?? 1.1,
       homeShotsOnTarget: homeStats?.avg_shots_on_target,
       awayShotsOnTarget: awayStats?.avg_shots_on_target,
       homeGoalsScored: homeStats?.avg_goals_scored,
@@ -207,7 +210,7 @@ export default async function MatchDetailPage({ params }: Props) {
       predicted_away_score:  result.predictedAway,
       confidence_level:      computeConfidenceLevel(result.confidenceScore),
       confidence_score:      result.confidenceScore,
-      model_version:         '2.0.0',
+      model_version:         MODEL_VERSION,
       is_published:          false,
       exact_score_predictions: result.exactScores.map((s, i) => ({
         id: `computed-${i}`,
