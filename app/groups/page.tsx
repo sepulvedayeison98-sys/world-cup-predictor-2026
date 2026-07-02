@@ -27,12 +27,18 @@ export default async function GroupsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div>
-        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
-          Mundial 2026 · Fase de Grupos
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+            Mundial 2026 · Fase de Grupos
+          </span>
+          <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Fase finalizada
+          </span>
+        </div>
         <h1 className="mt-1 text-2xl font-bold text-white">Grupos</h1>
         <p className="text-sm text-zinc-400">
-          Tablas de posición, probabilidades de clasificación y próximos partidos
+          Clasificación final de la fase de grupos — el torneo continúa en las{' '}
+          <a href="/bracket" className="text-emerald-400 hover:text-emerald-300">eliminatorias</a>
         </p>
       </div>
 
