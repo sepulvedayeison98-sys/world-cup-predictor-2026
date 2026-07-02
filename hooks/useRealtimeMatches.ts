@@ -51,7 +51,6 @@ export function useRealtimeMatches({ limit = 6, competitionId = COMPETITION_ID }
 
   useEffect(() => {
     fetchMatches()
-    setIsLive(true)
 
     const channel = supabase
       .channel('realtime:upcoming-matches')
@@ -65,7 +64,8 @@ export function useRealtimeMatches({ limit = 6, competitionId = COMPETITION_ID }
         { event: '*', schema: 'public', table: 'predictions' },
         () => fetchMatches()
       )
-      .subscribe()
+      // isLive refleja el estado REAL del canal, no un optimista fijo
+      .subscribe((status) => setIsLive(status === 'SUBSCRIBED'))
 
     return () => {
       supabase.removeChannel(channel)

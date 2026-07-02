@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runMonteCarloSimulation, type Team, type Match } from '@/lib/simulationEngine'
 import { COMPETITION_ID } from '@/lib/constants'
+import { isAuthorizedCron } from '@/lib/cronAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,8 +28,7 @@ function mapStage(phase: string): Match['stage'] {
  * de avanzar de grupos; las eliminatorias quedan en 0 hasta cargar esos cruces.
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

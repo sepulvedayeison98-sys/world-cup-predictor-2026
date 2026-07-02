@@ -30,7 +30,7 @@ export function UpcomingMatchesWidgetRealtime() {
               : 'text-zinc-400 bg-zinc-500/10 border border-zinc-500/20'
           )}>
             <Radio className={cn('h-2.5 w-2.5', isLive && 'animate-pulse')} />
-            {isLive ? 'En Vivo' : 'Desconectado'}
+            {isLive ? 'En Vivo' : 'Actualización manual'}
           </div>
         </div>
       </CardHeader>
