@@ -108,7 +108,9 @@ export async function syncOdds(): Promise<{
     `https://api.the-odds-api.com/v4/sports/${sport}/odds`,
     `?apiKey=${apiKey}`,
     `&regions=eu`,
-    `&markets=h2h,totals,btts`,
+    // btts no está soportado en el endpoint masivo /odds de The Odds API
+    // (solo por evento individual) — pedirlo devuelve 422 INVALID_MARKET.
+    `&markets=h2h,totals`,
     `&bookmakers=pinnacle`,
     `&oddsFormat=decimal`,
   ].join('')
