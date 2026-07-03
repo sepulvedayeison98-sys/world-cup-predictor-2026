@@ -125,7 +125,7 @@ export interface Player {
   position: PlayerPosition
   nationality: string
   date_of_birth: string
-  age: number
+  age?: number  // calculado en cliente; no existe en la BD
   height_cm?: number
   weight_kg?: number
   photo_url?: string

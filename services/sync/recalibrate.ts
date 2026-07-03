@@ -26,7 +26,8 @@ export async function recalibratePredictions(): Promise<{
     .from('match_market_consensus').select('match_id, market, avg_implied')
   if (cErr) throw cErr
   const market = new Map<string, { home?: number; draw?: number; away?: number }>()
-  for (const r of (consensus ?? []) as any[]) {
+  for (const r of (consensus ?? [])) {
+    if (!r.match_id) continue // la vista expone columnas nullable
     const e = market.get(r.match_id) ?? {}
     if (r.market === 'home_win') e.home = Number(r.avg_implied)
     else if (r.market === 'draw') e.draw = Number(r.avg_implied)
@@ -38,7 +39,7 @@ export async function recalibratePredictions(): Promise<{
   const { data: injuries } = await supabase
     .from('injuries').select('team_id, impact_score').eq('is_active', true)
   const injuryByTeam = new Map<string, number>()
-  for (const i of (injuries ?? []) as any[])
+  for (const i of (injuries ?? []))
     injuryByTeam.set(i.team_id, (injuryByTeam.get(i.team_id) ?? 0) + Number(i.impact_score))
 
   // Partidos con datos de equipo y prediccion
@@ -55,7 +56,7 @@ export async function recalibratePredictions(): Promise<{
 
   let withMarket = 0, modelOnly = 0
 
-  for (const m of (matches ?? []) as any[]) {
+  for (const m of (matches ?? [])) {
     const pred = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
     if (!pred?.id) continue
 

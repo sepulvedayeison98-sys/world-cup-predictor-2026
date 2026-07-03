@@ -94,7 +94,7 @@ export async function syncOdds(): Promise<{
   if (mErr) throw mErr
 
   const byPair = new Map<string, { matchId: string; prediction: any }>()
-  for (const m of (matches ?? []) as any[]) {
+  for (const m of (matches ?? [])) {
     const hc = m.home_team?.code, ac = m.away_team?.code
     if (hc && ac) byPair.set(`${hc}|${ac}`, {
       matchId: m.id,

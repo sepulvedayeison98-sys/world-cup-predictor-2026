@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 
 /**
  * Cliente Supabase para Server Components públicos SIN cookies.
@@ -7,7 +8,7 @@ import { createClient } from '@supabase/supabase-js'
  * La app no tiene autenticación, así que no se pierde nada.
  */
 export const createStaticSupabaseClient = () =>
-  createClient(
+  createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { auth: { persistSession: false } }

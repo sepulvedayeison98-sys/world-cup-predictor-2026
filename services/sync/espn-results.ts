@@ -133,7 +133,7 @@ export async function syncESPNResults(): Promise<{
   if (mErr) throw mErr
 
   const byPair = new Map<string, any>()
-  for (const m of (matches ?? []) as any[]) {
+  for (const m of (matches ?? [])) {
     const hc = m.home_team?.code
     const ac = m.away_team?.code
     if (hc && ac) byPair.set(`${hc}|${ac}`, m)

@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { ChevronUp, ChevronDown, ChevronsUpDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/types/database'
 
 interface Props { competitionId: string }
 
@@ -110,8 +111,9 @@ async function fetchPlayers(filters: Record<string, string>, competitionId: stri
     .order('name')
 
   if (filters.team)     query = query.eq('team_id', filters.team)
-  if (filters.position) query = query.eq('position', filters.position)
-  if (filters.status)   query = query.eq('status', filters.status)
+  // Los filtros llegan como string de la URL; los enums del schema los validan en runtime
+  if (filters.position) query = query.eq('position', filters.position as Database['public']['Enums']['player_position'])
+  if (filters.status)   query = query.eq('status', filters.status as Database['public']['Enums']['player_status'])
   if (filters.q)        query = query.ilike('name', `%${filters.q}%`)
 
   const { data, error } = await query

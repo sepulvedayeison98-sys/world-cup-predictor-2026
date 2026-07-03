@@ -33,7 +33,7 @@ export async function getSyncWindow(): Promise<SyncWindow> {
   let upcoming48 = 0 // programados en las proximas 48h
   let nextKickoff = Number.POSITIVE_INFINITY
 
-  for (const m of (data ?? []) as any[]) {
+  for (const m of (data ?? [])) {
     const k = new Date(m.kickoff_time).getTime()
     const finishedish = m.status === 'finished' || m.status === 'cancelled'
 

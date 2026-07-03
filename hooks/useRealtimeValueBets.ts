@@ -9,13 +9,22 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ValueBet } from '@/types'
 
+// La query solo embebe un resumen del partido (no el Match completo)
+type ValueBetRow = Omit<ValueBet, 'match'> & {
+  match: {
+    kickoff_time: string
+    home_team: { code: string } | null
+    away_team: { code: string } | null
+  } | null
+}
+
 interface UseRealtimeValueBetsOptions {
   limit?: number
 }
 
 export function useRealtimeValueBets({ limit = 5 }: UseRealtimeValueBetsOptions) {
   const supabase = createClient()
-  const [valueBets, setValueBets] = useState<ValueBet[]>([])
+  const [valueBets, setValueBets] = useState<ValueBetRow[]>([])
   const [totalUpcoming, setTotalUpcoming] = useState(0)
   const [isLive, setIsLive] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -44,7 +53,7 @@ export function useRealtimeValueBets({ limit = 5 }: UseRealtimeValueBetsOptions)
         .filter((b: any) => b.match?.kickoff_time && new Date(b.match.kickoff_time).getTime() > nowMs)
         .sort((a: any, b: any) => (b.expected_value ?? 0) - (a.expected_value ?? 0))
       setTotalUpcoming(upcoming.length)
-      setValueBets(upcoming.slice(0, limit))
+      setValueBets(upcoming.slice(0, limit) as unknown as ValueBetRow[])
     } catch (error) {
       console.error('Error cargando apuestas de valor:', error)
     } finally {
