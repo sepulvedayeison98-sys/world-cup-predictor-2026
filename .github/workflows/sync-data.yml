@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Sincronizar resultados desde ESPN
         env:
-          APP_URL: ${{ secrets.APP_URL || 'https://world-cup-predictor-2026-flax.vercel.app' }}
+          APP_URL: 'https://world-cup-predictor-2026-flax.vercel.app'
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
