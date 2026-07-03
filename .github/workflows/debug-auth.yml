@@ -1,0 +1,15 @@
+# TEMPORAL — diagnóstico del secret CRON_SECRET (eliminar tras resolver).
+# Imprime solo longitudes y si coincide; nunca el valor.
+name: Debug auth (temporal)
+on:
+  workflow_dispatch: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          curl -sS -m 30 "https://world-cup-predictor-2026-flax.vercel.app/api/sync/authcheck" \
+            -H "Authorization: Bearer $CRON_SECRET"
