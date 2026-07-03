@@ -200,7 +200,8 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
         )}
 
         {/* Marcador predicho */}
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-zinc-950 border border-zinc-800 px-4 py-3">
+        <div className="mt-4 rounded-lg bg-zinc-950 border border-zinc-800 px-4 py-3">
+          <div className="flex items-center justify-between">
           <div className="flex flex-col items-center">
             <p className="text-[10px] text-zinc-500">Marcador estimado</p>
             <p className="text-2xl font-black mono text-white mt-0.5">
@@ -216,6 +217,16 @@ export function MatchPredictionPanel({ prediction, match }: Props) {
               {Math.round(topOutcome.prob * 100)}%
             </p>
           </div>
+          </div>
+          {/* En eliminatoria, un marcador estimado en empate no es resultado final */}
+          {advance && prediction.predicted_home_score === prediction.predicted_away_score && (
+            <p className="mt-2 border-t border-zinc-800 pt-2 text-[10px] text-zinc-500 text-center">
+              Un {prediction.predicted_home_score}–{prediction.predicted_away_score} se definiría en
+              prórroga/penales — {advance.home >= advance.away
+                ? `${match.home_team?.code} clasifica con ${(advance.home * 100).toFixed(1)}%`
+                : `${match.away_team?.code} clasifica con ${(advance.away * 100).toFixed(1)}%`}
+            </p>
+          )}
         </div>
 
         {/* Confidence */}
