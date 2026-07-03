@@ -19,6 +19,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
           curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 180 \
             "$APP_URL/api/simulate" -H "Authorization: Bearer $CRON_SECRET" \
             || { echo "::warning::Simulacion fallo tras reintentos."; exit 0; }
