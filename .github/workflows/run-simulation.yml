@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Correr simulacion del torneo
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          APP_URL: ${{ secrets.APP_URL || 'https://world-cup-predictor-2026-flax.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
