@@ -5,6 +5,7 @@ import { isAuthorizedCron } from '@/lib/cronAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * GET /api/sync/auto — punto único para el cron de GitHub Actions (cada 15 min).

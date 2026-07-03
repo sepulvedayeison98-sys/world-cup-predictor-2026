@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveTeamCode } from '@/lib/teamMapping'
 import { syncESPNMatchStats } from './espn-stats'
+import { runPostResultChain, type PostResultChainResult } from './post-result'
 import { COMPETITION_ID } from '@/lib/constants'
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
@@ -27,6 +28,7 @@ interface ESPNCompetitor {
   homeAway: 'home' | 'away'
   team: ESPNTeam
   score?: string
+  shootoutScore?: string | number
 }
 
 interface ESPNStatusType {
@@ -112,6 +114,7 @@ async function fetchScoreboard(dateStr: string): Promise<ESPNEvent[]> {
  */
 export async function syncESPNResults(): Promise<{
   ok: boolean; source: string; events: number; updated: number; unmatched: string[]
+  chain?: PostResultChainResult
 }> {
   const started = Date.now()
   const supabase = createAdminClient()
@@ -124,7 +127,7 @@ export async function syncESPNResults(): Promise<{
   const { data: matches, error: mErr } = await supabase
     .from('matches')
     .select(`
-      id, status, home_score, away_score, venue, city, attendance, referee,
+      id, status, home_score, away_score, venue, city, attendance, referee, group_id,
       home_team_id, away_team_id,
       home_team:teams!matches_home_team_id_fkey(code),
       away_team:teams!matches_away_team_id_fkey(code)
@@ -141,6 +144,8 @@ export async function syncESPNResults(): Promise<{
 
   let updated = 0
   const unmatched: string[] = []
+  const finishedGroupIds: Array<string | null> = []
+  let anyFinishedTransition = false
   const statsPromises: Promise<void>[] = []
 
   for (const event of allEvents) {
@@ -185,6 +190,14 @@ export async function syncESPNResults(): Promise<{
       enriched.referee = referee
     }
 
+    // Penales: ESPN los reporta en shootoutScore cuando el cruce se define así
+    const homePens = parseScore(String(homeComp.shootoutScore ?? ''), status)
+    const awayPens = parseScore(String(awayComp.shootoutScore ?? ''), status)
+    if (homePens != null && awayPens != null && homePens !== awayPens) {
+      enriched.home_penalties = homePens
+      enriched.away_penalties = awayPens
+    }
+
     // Solo escribir si algo cambió
     const scoreChanged = match.status !== status || match.home_score !== homeScore || match.away_score !== awayScore
     if (scoreChanged || Object.keys(enriched).length > 0) {
@@ -194,6 +207,12 @@ export async function syncESPNResults(): Promise<{
         .eq('id', match.id)
       if (error) throw error
       updated++
+    }
+
+    // Transición a finalizado → dispara la cadena post-resultado al final
+    if (status === 'finished' && match.status !== 'finished') {
+      anyFinishedTransition = true
+      finishedGroupIds.push(match.group_id ?? null)
     }
 
     // Para partidos terminados, sincronizar estadísticas desde el summary endpoint
@@ -209,15 +228,26 @@ export async function syncESPNResults(): Promise<{
   // Esperar estadísticas en paralelo (no bloquea si fallan)
   await Promise.allSettled(statsPromises)
 
+  // Si algún partido terminó en esta pasada: stats faltantes → standings →
+  // perfiles → avance de bracket → recalibración (misma cadena que /admin)
+  let chain: PostResultChainResult | undefined
+  if (anyFinishedTransition) {
+    try {
+      chain = await runPostResultChain(supabase, finishedGroupIds)
+    } catch (err) {
+      console.error('[syncESPNResults] cadena post-resultado falló:', err)
+    }
+  }
+
   await supabase.from('sync_logs').insert({
     source: 'espn_api',
     entity_type: 'matches',
     status: 'success',
     records_processed: updated,
     records_failed: 0,
-    metadata: { events: allEvents.length, dates, unmatched },
+    metadata: JSON.parse(JSON.stringify({ events: allEvents.length, dates, unmatched, chain: chain ?? null })),
     duration_ms: Date.now() - started,
   })
 
-  return { ok: true, source: 'espn', events: allEvents.length, updated, unmatched }
+  return { ok: true, source: 'espn', events: allEvents.length, updated, unmatched, chain }
 }
