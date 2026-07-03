@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { MatchHeader } from '@/components/matches/MatchHeader'
+import { LiveMatchRefresh } from '@/components/matches/LiveMatchRefresh'
 import { MatchAnalysisTabs } from '@/components/matches/MatchAnalysisTabs'
 import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { computeModelPrediction, computeConfidenceLevel } from '@/lib/predictionEngine'
@@ -259,6 +260,7 @@ export default async function MatchDetailPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
+      <LiveMatchRefresh status={m.status} />
       <MatchHeader match={m} />
 
       <MatchAnalysisTabs

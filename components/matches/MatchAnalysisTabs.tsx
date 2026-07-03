@@ -384,7 +384,7 @@ export function MatchAnalysisTabs({
               homeTeam={match.home_team}
               awayTeam={match.away_team}
             />
-            <ResponsibleGamingNotice demoOdds />
+            <ResponsibleGamingNotice odds={odds} />
           </div>
         )}
 
@@ -422,7 +422,7 @@ export function MatchAnalysisTabs({
               homeGroupContext={homeGroupContext}
               awayGroupContext={awayGroupContext}
             />
-            <ResponsibleGamingNotice demoOdds />
+            <ResponsibleGamingNotice odds={odds} />
           </div>
         )}
 

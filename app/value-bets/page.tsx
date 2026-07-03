@@ -96,8 +96,9 @@ export default async function ValueBetsPage() {
       {/* Disclaimer */}
       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
         <p className="text-xs text-amber-400">
-          ⚠️ Estimaciones del modelo sobre cuotas de demostración — verifica siempre en tu casa de apuestas.
-          No son asesoramiento financiero. Solo apuesta lo que puedas permitirte perder. +18.
+          ⚠️ Value bets calculadas contra la línea justa de Pinnacle (cuotas reales).
+          Estimaciones del modelo, no asesoramiento financiero — verifica en tu casa de apuestas.
+          Solo apuesta lo que puedas permitirte perder. +18.
         </p>
       </div>
 
