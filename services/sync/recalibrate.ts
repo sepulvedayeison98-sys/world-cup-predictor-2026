@@ -16,7 +16,7 @@ const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','se
  * cada corrida.
  */
 export async function recalibratePredictions(): Promise<{
-  ok: boolean; matches: number; withMarket: number; modelOnly: number
+  ok: boolean; matches: number; withMarket: number; modelOnly: number; inserted: number
 }> {
   const started = Date.now()
   const supabase = createAdminClient()
@@ -46,7 +46,7 @@ export async function recalibratePredictions(): Promise<{
   const { data: matches, error: mErr } = await supabase
     .from('matches')
     .select(`
-      id, home_team_id, away_team_id, phase,
+      id, home_team_id, away_team_id, phase, status,
       home_team:teams!matches_home_team_id_fkey(elo_rating, team_statistics(form, avg_xg, avg_xga, avg_shots_on_target, avg_goals_scored)),
       away_team:teams!matches_away_team_id_fkey(elo_rating, team_statistics(form, avg_xg, avg_xga, avg_shots_on_target, avg_goals_scored)),
       predictions(id)
@@ -54,11 +54,16 @@ export async function recalibratePredictions(): Promise<{
     .eq('competition_id', COMPETITION_ID)
   if (mErr) throw mErr
 
-  let withMarket = 0, modelOnly = 0
+  let withMarket = 0, modelOnly = 0, inserted = 0
 
   for (const m of (matches ?? [])) {
     const pred = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
-    if (!pred?.id) continue
+    // Partidos SIN predicción guardada: se inserta solo si aún no se juegan
+    // (crear predicciones para partidos ya terminados sería "predecir el
+    // pasado" y contaminaría la métrica de precisión). Con la fila guardada,
+    // el sync de cuotas puede generar value bets contra Pinnacle.
+    const isUpcoming = m.status === 'scheduled' || m.status === 'live'
+    if (!pred?.id && !isUpcoming) continue
 
     const hStats = m.home_team?.team_statistics?.[0]
     const aStats = m.away_team?.team_statistics?.[0]
@@ -89,7 +94,7 @@ export async function recalibratePredictions(): Promise<{
       isKnockout: KNOCKOUT_PHASES.has(m.phase),
     })
 
-    const { error: uErr } = await supabase.from('predictions').update({
+    const predictionData = {
       home_win_probability: final.home,
       draw_probability: final.draw,
       away_win_probability: final.away,
@@ -99,15 +104,29 @@ export async function recalibratePredictions(): Promise<{
       confidence_score: final.confidenceScore,
       model_version: MODEL_VERSION,
       xg_weight: 0.40, elo_weight: 0.25, form_weight: 0.15, market_weight: 0.10, news_weight: 0.10,
-    }).eq('id', pred.id)
-    if (uErr) throw uErr
+    }
+
+    let predId = pred?.id as string | undefined
+    if (predId) {
+      const { error: uErr } = await supabase.from('predictions').update(predictionData).eq('id', predId)
+      if (uErr) throw uErr
+    } else {
+      const { data: created, error: iErr } = await supabase
+        .from('predictions')
+        .insert({ match_id: m.id, ...predictionData, is_published: true })
+        .select('id')
+        .single()
+      if (iErr) throw iErr
+      predId = created.id
+      inserted++
+    }
 
     // Regenerar marcadores exactos
-    await supabase.from('exact_score_predictions').delete().eq('prediction_id', pred.id)
+    await supabase.from('exact_score_predictions').delete().eq('prediction_id', predId)
     if (final.exactScores.length) {
       await supabase.from('exact_score_predictions').insert(
         final.exactScores.map((s, idx) => ({
-          prediction_id: pred.id, home_score: s.home, away_score: s.away, probability: s.prob, rank: idx + 1,
+          prediction_id: predId, home_score: s.home, away_score: s.away, probability: s.prob, rank: idx + 1,
         }))
       )
     }
@@ -116,8 +135,8 @@ export async function recalibratePredictions(): Promise<{
   await supabase.from('sync_logs').insert({
     source: 'recalibrate', entity_type: 'predictions', status: 'success',
     records_processed: withMarket + modelOnly, records_failed: 0,
-    metadata: { withMarket, modelOnly, model_version: MODEL_VERSION }, duration_ms: Date.now() - started,
+    metadata: { withMarket, modelOnly, inserted, model_version: MODEL_VERSION }, duration_ms: Date.now() - started,
   })
 
-  return { ok: true, matches: withMarket + modelOnly, withMarket, modelOnly }
+  return { ok: true, matches: withMarket + modelOnly, withMarket, modelOnly, inserted }
 }
