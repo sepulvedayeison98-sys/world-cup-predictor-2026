@@ -4,7 +4,6 @@ import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
 import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
 import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
 import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
-import { SimulationResultsWidget } from '@/components/dashboard/SimulationResultsWidget'
 import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
 import { IntelligenceFeed } from '@/components/dashboard/IntelligenceFeed'
@@ -241,8 +240,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Monte Carlo simulation widget */}
-      <SimulationResultsWidget />
     </div>
   )
 }

@@ -64,11 +64,11 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <QueryProvider>
             <MobileNavProvider>
-              <div className="flex h-screen overflow-hidden">
+              <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
                 <Sidebar />
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <Topbar />
-                  <main className="flex-1 overflow-y-auto bg-zinc-950">
+                  <main className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950">
                     <AutoRefresh />
                     {children}
                   </main>
