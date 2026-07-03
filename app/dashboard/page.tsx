@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       .eq('competition_id', COMPETITION_ID)
       .in('phase', ['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
       .order('kickoff_time', { ascending: true })
-      .limit(16),
+      .limit(32),
     // Intelligence feed: recent predictions with match + team info
     supabase
       .from('predictions')

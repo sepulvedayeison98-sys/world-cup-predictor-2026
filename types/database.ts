@@ -590,6 +590,7 @@ export type Database = {
       matches: {
         Row: {
           attendance: number | null
+          away_penalties: number | null
           away_rest_days: number | null
           away_score: number | null
           away_score_ht: number | null
@@ -599,6 +600,7 @@ export type Database = {
           country: string
           created_at: string
           group_id: string | null
+          home_penalties: number | null
           home_rest_days: number | null
           home_score: number | null
           home_score_ht: number | null
@@ -616,6 +618,7 @@ export type Database = {
         }
         Insert: {
           attendance?: number | null
+          away_penalties?: number | null
           away_rest_days?: number | null
           away_score?: number | null
           away_score_ht?: number | null
@@ -625,6 +628,7 @@ export type Database = {
           country: string
           created_at?: string
           group_id?: string | null
+          home_penalties?: number | null
           home_rest_days?: number | null
           home_score?: number | null
           home_score_ht?: number | null
@@ -642,6 +646,7 @@ export type Database = {
         }
         Update: {
           attendance?: number | null
+          away_penalties?: number | null
           away_rest_days?: number | null
           away_score?: number | null
           away_score_ht?: number | null
@@ -651,6 +656,7 @@ export type Database = {
           country?: string
           created_at?: string
           group_id?: string | null
+          home_penalties?: number | null
           home_rest_days?: number | null
           home_score?: number | null
           home_score_ht?: number | null
@@ -1676,6 +1682,7 @@ export type Database = {
         Args: { p_away_score: number; p_home_score: number }
         Returns: string
       }
+      backfill_missing_match_stats: { Args: never; Returns: number }
       predicted_outcome_1x2: {
         Args: { p_away: number; p_draw: number; p_home: number }
         Returns: string
@@ -1684,6 +1691,7 @@ export type Database = {
         Args: { p_group_id: string }
         Returns: undefined
       }
+      refresh_team_statistics: { Args: never; Returns: number }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       wc_form_score: {

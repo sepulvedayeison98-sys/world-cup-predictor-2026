@@ -16,6 +16,7 @@ import {
   type ModelInput,
 } from '../lib/predictionEngine'
 import { computeSmartBets, type MatchFormEntry } from '../lib/smartBetsEngine'
+import { FEEDERS, KNOCKOUT_SCHEDULE, tieWinner, tieLoser } from '../lib/bracket'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -211,4 +212,38 @@ test('computeSmartBets: el edge usa probabilidad justa (devig de pares)', () => 
     assert.ok(Math.abs(btts.edge - expected) < 0.2,
       `edge ${btts.edge} debería ser ~${expected} (vs prob justa 0.50)`)
   }
+})
+
+// ─── lib/bracket ─────────────────────────────────────────────────────────────
+
+test('bracket: FEEDERS cubre 217-232 y cada cruce tiene horario', () => {
+  for (let n = 217; n <= 232; n++) {
+    assert.ok(FEEDERS[n], `falta feeder para el partido ${n}`)
+    assert.ok(KNOCKOUT_SCHEDULE[n], `falta horario para el partido ${n}`)
+  }
+  // Los octavos consumen exactamente los 16 partidos de dieciseisavos
+  const r32Consumed = new Set<number>()
+  for (let n = 217; n <= 224; n++) {
+    r32Consumed.add(FEEDERS[n].a); r32Consumed.add(FEEDERS[n].b)
+  }
+  assert.equal(r32Consumed.size, 16)
+  for (let n = 201; n <= 216; n++) assert.ok(r32Consumed.has(n), `R32 ${n} sin destino`)
+  // Tercer puesto usa perdedores de semis; final usa ganadores
+  assert.equal(FEEDERS[231].losers, true)
+  assert.deepEqual([FEEDERS[232].a, FEEDERS[232].b], [229, 230])
+})
+
+test('bracket: tieWinner resuelve victoria, penales y casos indefinidos', () => {
+  const base = { id: 'x', match_number: 201, status: 'finished', home_team_id: 'H', away_team_id: 'A',
+    home_penalties: null as number | null, away_penalties: null as number | null }
+  assert.equal(tieWinner({ ...base, home_score: 2, away_score: 1 }), 'H')
+  assert.equal(tieWinner({ ...base, home_score: 0, away_score: 3 }), 'A')
+  assert.equal(tieWinner({ ...base, home_score: 1, away_score: 1, home_penalties: 4, away_penalties: 3 }), 'H')
+  assert.equal(tieWinner({ ...base, home_score: 1, away_score: 1, home_penalties: 2, away_penalties: 4 }), 'A')
+  // Empate sin penales registrados → indefinido (no avanza)
+  assert.equal(tieWinner({ ...base, home_score: 1, away_score: 1 }), null)
+  // No terminado → indefinido
+  assert.equal(tieWinner({ ...base, status: 'scheduled', home_score: null as any, away_score: null as any }), null)
+  // Perdedor para el tercer puesto
+  assert.equal(tieLoser({ ...base, home_score: 0, away_score: 1 }), 'H')
 })
