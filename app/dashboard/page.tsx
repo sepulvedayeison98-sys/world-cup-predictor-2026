@@ -4,6 +4,7 @@ import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
 import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
 import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
 import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
+import { ModelPerformancePanel } from '@/components/dashboard/ModelPerformancePanel'
 import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
 import { IntelligenceFeed } from '@/components/dashboard/IntelligenceFeed'
@@ -58,7 +59,15 @@ export default async function DashboardPage() {
     supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('is_published', true),
     supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('grade', 'high'),
-    supabase.from('predictions').select('was_correct').not('was_correct', 'is', null),
+    supabase
+      .from('predictions')
+      .select(`
+        was_correct, home_win_probability, draw_probability, away_win_probability,
+        match:matches(phase, home_score, away_score, kickoff_time,
+          home_team:teams!matches_home_team_id_fkey(code),
+          away_team:teams!matches_away_team_id_fkey(code))
+      `)
+      .not('was_correct', 'is', null),
     supabase.from('value_bets').select('result, odds_value').in('result', ['won', 'lost']),
     // Cuadro eliminatorio para el widget del dashboard
     supabase
@@ -134,6 +143,11 @@ export default async function DashboardPage() {
   const correctPredictions = resolved.filter((p) => p.was_correct === true).length
   const totalResolved = resolved.length
   const accuracy = totalResolved > 0 ? correctPredictions / totalResolved : null
+
+  // Predicciones resueltas ordenadas por fecha (más reciente primero) para el panel
+  const resolvedByDate = [...resolved].sort(
+    (a: any, b: any) => new Date(b.match?.kickoff_time ?? 0).getTime() - new Date(a.match?.kickoff_time ?? 0).getTime()
+  )
 
   const settled = settledBets ?? []
   const betsWon = settled.filter((b: any) => b.result === 'won').length
@@ -235,6 +249,7 @@ export default async function DashboardPage() {
 
         {/* Right col — 1/3 */}
         <div className="flex flex-col gap-5">
+          <ModelPerformancePanel resolved={resolvedByDate as any[]} />
           <ValueBetsWidgetRealtime />
           <KnockoutBracketWidget matches={(knockoutMatches ?? []) as any[]} />
         </div>

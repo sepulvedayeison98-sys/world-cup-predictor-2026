@@ -224,13 +224,26 @@ export async function syncOdds(): Promise<{
     if (error) throw error
   }
 
+  // Autolimpieza: las cuotas de partidos ya finalizados no sirven a nadie
+  // (no se puede apostar a un partido jugado) y solo acumulan ruido.
+  const { data: finishedIds } = await supabase
+    .from('matches').select('id').eq('status', 'finished')
+  const finishedList = (finishedIds ?? []).map((m: any) => m.id)
+  let oddsCleaned = 0
+  if (finishedList.length) {
+    const { count } = await supabase.from('odds')
+      .delete({ count: 'exact' }).in('match_id', finishedList)
+    oddsCleaned = count ?? 0
+    await supabase.from('value_bets').delete().in('match_id', finishedList)
+  }
+
   await supabase.from('sync_logs').insert({
     source: 'pinnacle_via_odds_api',
     entity_type: 'odds',
     status: 'success',
     records_processed: oddsRows.length,
     records_failed: 0,
-    metadata: { events: events.length, value_bets: valueBetRows.length, unmatched },
+    metadata: { events: events.length, value_bets: valueBetRows.length, unmatched, oddsCleaned },
     duration_ms: Date.now() - started,
   })
 

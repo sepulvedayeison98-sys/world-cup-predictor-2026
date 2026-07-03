@@ -5,7 +5,7 @@
 
 'use client'
 
-import { Target, BarChart3, Zap, TrendingUp, DollarSign, CheckCircle2, Search, Radio } from 'lucide-react'
+import { Target, BarChart3, Zap, TrendingUp, DollarSign, Search, Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRealtimeKPIs } from '@/hooks/useRealtimeKPIs'
 import type { DashboardKPIs } from '@/types'
@@ -58,15 +58,6 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       border: kpis.roi === null ? 'border-zinc-500/20' : roiPositive ? 'border-emerald-500/20' : 'border-red-500/20',
     },
     {
-      label: 'Pronósticos Correctos',
-      value: kpis.correct_predictions.toString(),
-      sub: `de ${kpis.total_predictions} totales`,
-      icon: CheckCircle2,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10',
-      border: 'border-emerald-500/20',
-    },
-    {
       label: 'Apuestas de Valor',
       value: kpis.value_bets_detected.toString(),
       sub: `${kpis.value_bets_won} resueltas`,
@@ -97,12 +88,12 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
             : 'text-zinc-400 bg-zinc-500/10 border border-zinc-500/20'
         )}>
           <Radio className={cn('h-2.5 w-2.5', isLive && 'animate-pulse')} />
-          {isLive ? 'En Vivo' : 'Desconectado'}
+          {isLive ? 'En Vivo' : 'Actualización manual'}
         </div>
       </div>
 
       {/* Grid de tarjetas KPI */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {cards.map((card) => {
           const Icon = card.icon
           return (
