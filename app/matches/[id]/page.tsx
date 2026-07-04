@@ -260,7 +260,7 @@ export default async function MatchDetailPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
-      <LiveMatchRefresh status={m.status} />
+      <LiveMatchRefresh status={m.status} kickoffTime={m.kickoff_time} />
       <MatchHeader match={m} />
 
       <MatchAnalysisTabs
