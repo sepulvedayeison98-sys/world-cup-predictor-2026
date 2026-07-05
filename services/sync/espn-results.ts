@@ -127,7 +127,7 @@ export async function syncESPNResults(): Promise<{
   const { data: matches, error: mErr } = await supabase
     .from('matches')
     .select(`
-      id, status, home_score, away_score, venue, city, attendance, referee, group_id,
+      id, status, home_score, away_score, venue, city, attendance, referee, group_id, kickoff_time,
       home_team_id, away_team_id,
       home_team:teams!matches_home_team_id_fkey(code),
       away_team:teams!matches_away_team_id_fkey(code)
@@ -173,6 +173,19 @@ export async function syncESPNResults(): Promise<{
 
     // Datos enriquecidos que ESPN provee y The Odds API no
     const enriched: Record<string, any> = {}
+
+    // Fecha de saque: ESPN es la fuente autoritativa del calendario real.
+    // Los cruces eliminatorios se crean con fechas aproximadas (lib/bracket)
+    // y aquí se corrigen a la hora oficial en cuanto FIFA la confirma.
+    const espnKick = event.date ?? comp.date
+    if (espnKick) {
+      const espnMs = new Date(espnKick).getTime()
+      const dbMs   = new Date(match.kickoff_time).getTime()
+      if (Number.isFinite(espnMs) && Math.abs(espnMs - dbMs) > 60_000) {
+        enriched.kickoff_time = new Date(espnMs).toISOString()
+      }
+    }
+
     if (comp.venue?.fullName && !match.venue) {
       enriched.venue = comp.venue.fullName
     }
