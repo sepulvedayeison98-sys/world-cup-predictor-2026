@@ -37,7 +37,9 @@ UNION ALL SELECT '031 amistosos pre-mundial', (SELECT count(*)=72 FROM matches W
 UNION ALL SELECT '032 alineaciones', (SELECT count(*)>0 FROM lineups)
 UNION ALL SELECT '033 grupos + R32 (WC2026)', (SELECT count(*)=72 FROM matches WHERE status='finished' AND phase='group' AND competition_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890') AND (SELECT count(*)=16 FROM matches WHERE phase='round_of_32')
 UNION ALL SELECT '035 fechas R32 corregidas', EXISTS(SELECT 1 FROM matches WHERE phase='round_of_32' AND kickoff_time='2026-07-04 00:30:00+00')
-UNION ALL SELECT '036 backfill match_statistics', (SELECT count(*)=288 FROM match_statistics)
+UNION ALL SELECT '036 backfill match_statistics', (SELECT count(*)>=288 FROM match_statistics)
+UNION ALL SELECT '040 procedencia (source)', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='match_statistics' AND column_name='source')
+UNION ALL SELECT '041 núcleo multi-deporte', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='sports') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='data_provenance') AND EXISTS(SELECT 1 FROM information_schema.views WHERE table_name='events_v')
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):
