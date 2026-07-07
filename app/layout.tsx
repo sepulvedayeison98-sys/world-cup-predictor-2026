@@ -8,6 +8,7 @@ import { QueryProvider } from '@/components/layout/QueryProvider'
 import { MobileNavProvider } from '@/components/layout/MobileNavContext'
 import { Toaster } from '@/components/ui/sonner'
 import { AutoRefresh } from '@/components/ui/AutoRefresh'
+import { SyncKeepalive } from '@/components/layout/SyncKeepalive'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -70,6 +71,7 @@ export default function RootLayout({
                   <Topbar />
                   <main className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950">
                     <AutoRefresh />
+                    <SyncKeepalive />
                     {children}
                   </main>
                 </div>

@@ -32,7 +32,7 @@ export async function GET() {
     .from('matches')
     .select('kickoff_time, status')
     .in('status', ['live', 'scheduled'])
-    .gte('kickoff_time', new Date(nowMs - 150 * 60 * 1000).toISOString())
+    .gte('kickoff_time', new Date(nowMs - 210 * 60 * 1000).toISOString())  // prórroga+penales pueden superar 160 min
     .lte('kickoff_time', new Date(nowMs + 15 * 60 * 1000).toISOString())
     .limit(1)
   if (!windowRows || windowRows.length === 0) {
