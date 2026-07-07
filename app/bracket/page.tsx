@@ -53,7 +53,7 @@ export default async function BracketPage() {
   // Build simulation map by team id (única corrida)
   const simMap: Record<string, any> = {}
   for (const s of simsRaw ?? []) {
-    simMap[(s as any).team_id] = s
+    simMap[s.team_id] = s
   }
 
   // Compute per-match win probabilities from tournament simulations

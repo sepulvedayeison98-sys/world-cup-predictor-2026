@@ -46,3 +46,6 @@ supabase/.temp
 CONTEXTO.md
 _commitmsg.txt
 .claude/
+# Playwright
+/test-results/
+/playwright-report/

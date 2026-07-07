@@ -259,7 +259,7 @@ export function MatchesTable() {
 
   const filters = {
     search: searchParams.get('q') ?? undefined,
-    status: searchParams.get('status') ? [searchParams.get('status') as any] : undefined,
+    status: searchParams.get('status') ? [searchParams.get('status') as 'scheduled' | 'live' | 'finished' | 'postponed'] : undefined,
     group_id: searchParams.get('group') ?? undefined,
     team_id: searchParams.get('team') ?? undefined,
     min_confidence: searchParams.get('confidence')

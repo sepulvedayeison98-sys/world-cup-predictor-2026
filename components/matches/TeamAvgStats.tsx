@@ -60,7 +60,7 @@ interface Props {
 }
 
 export function TeamAvgStats({ homeTeam, awayTeam, homeStats, awayStats }: Props) {
-  const rows = [
+  const rows: Array<{ label: string; home: number | null; away: number | null; higherIsBetter?: boolean; format?: (v: number) => string }> = [
     {
       label: 'Córners / partido',
       home: homeStats.avg_corners ?? null,
@@ -139,7 +139,7 @@ export function TeamAvgStats({ homeTeam, awayTeam, homeStats, awayStats }: Props
 
       <div className="space-y-3">
         {rows.map((row) => (
-          <AvgRow key={row.label} {...(row as any)} />
+          <AvgRow key={row.label} {...row} />
         ))}
       </div>
 

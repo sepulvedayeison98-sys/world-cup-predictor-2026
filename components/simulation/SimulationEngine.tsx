@@ -9,30 +9,9 @@ import {
   Play, RotateCcw, Save, ChevronDown, ChevronUp,
   Zap, AlertTriangle, CloudLightning, Users,
 } from 'lucide-react'
+import { applyScenario, type SimScenario, type SimResult } from '@/lib/scenarioEngine'
 
-// ─── Types ───────────────────────────────────────────────────
-
-interface SimScenario {
-  home_injuries: string[]       // player ids
-  away_injuries: string[]
-  home_suspensions: string[]
-  away_suspensions: string[]
-  weather: string
-  home_formation: string
-  away_formation: string
-  scenario_name: string
-}
-
-interface SimResult {
-  home_win_probability: number
-  draw_probability: number
-  away_win_probability: number
-  predicted_home_score: number
-  predicted_away_score: number
-  confidence_score: number
-  delta: { home: number; draw: number; away: number }
-  top_scorelines: { home: number; away: number; prob: number }[]
-}
+// ─── Opciones del formulario ─────────────────────────────────
 
 const FORMATIONS = ['4-3-3','4-2-3-1','3-5-2','4-4-2','5-3-2','3-4-3','4-1-4-1','4-5-1']
 const WEATHER_OPTIONS = [
@@ -43,115 +22,6 @@ const WEATHER_OPTIONS = [
   { value: 'Wind',      label: '💨 Mucho viento' },
   { value: 'Extreme',   label: '🌪️ Condiciones extremas' },
 ]
-
-// ─── Prediction recalculation (client-side model) ────────────
-
-function recalculatePrediction(
-  basePrediction: any,
-  scenario: SimScenario,
-  homeTeam: any,
-  awayTeam: any,
-  activeInjuries: any[]
-): SimResult {
-  if (!basePrediction) {
-    return {
-      home_win_probability: 0.33,
-      draw_probability: 0.34,
-      away_win_probability: 0.33,
-      predicted_home_score: 1,
-      predicted_away_score: 1,
-      confidence_score: 40,
-      delta: { home: 0, draw: 0, away: 0 },
-      top_scorelines: [],
-    }
-  }
-
-  let homeAdj = 1.0
-  let awayAdj = 1.0
-
-  // Impact of simulated home injuries (each reduces team strength by impact_score/10 * weight)
-  scenario.home_injuries.forEach(pid => {
-    const existing = activeInjuries.find(i => i.player_id === pid)
-    const impact = existing ? existing.impact_score : 6.0
-    homeAdj -= (impact / 10) * 0.12
-  })
-
-  // Impact of simulated away injuries
-  scenario.away_injuries.forEach(pid => {
-    const existing = activeInjuries.find(i => i.player_id === pid)
-    const impact = existing ? existing.impact_score : 6.0
-    awayAdj -= (impact / 10) * 0.12
-  })
-
-  // Suspensions (flat penalty)
-  homeAdj -= scenario.home_suspensions.length * 0.08
-  awayAdj -= scenario.away_suspensions.length * 0.08
-
-  // Weather effects (affects high-quality teams more)
-  const weatherPenalty: Record<string, number> = {
-    Clear: 0, Cloudy: 0.02, Rain: 0.05, HeavyRain: 0.09,
-    Wind: 0.06, Extreme: 0.15,
-  }
-  const weatherImpact = weatherPenalty[scenario.weather] ?? 0
-  // Higher-ranked team takes slightly more penalty (style disruption)
-  if (homeTeam.fifa_ranking < awayTeam.fifa_ranking) {
-    homeAdj -= weatherImpact * 0.6
-  } else {
-    awayAdj -= weatherImpact * 0.6
-  }
-
-  // Clamp adjustments
-  homeAdj = Math.max(0.5, Math.min(1.2, homeAdj))
-  awayAdj = Math.max(0.5, Math.min(1.2, awayAdj))
-
-  // Adjust raw probabilities
-  let homeWin = basePrediction.home_win_probability * homeAdj
-  let awayWin = basePrediction.away_win_probability * awayAdj
-  let draw = basePrediction.draw_probability
-
-  // Normalize
-  const total = homeWin + draw + awayWin
-  homeWin = homeWin / total
-  awayWin = awayWin / total
-  draw = draw / total
-
-  // Adjust predicted score
-  const homeScore = Math.round(basePrediction.predicted_home_score * homeAdj)
-  const awayScore = Math.round(basePrediction.predicted_away_score * awayAdj)
-
-  // Confidence drops with more modifications
-  const mods = scenario.home_injuries.length + scenario.away_injuries.length +
-               scenario.home_suspensions.length + scenario.away_suspensions.length
-  const confidence = Math.max(30, basePrediction.confidence_score - mods * 5)
-
-  // Deltas vs base
-  const delta = {
-    home: homeWin - basePrediction.home_win_probability,
-    draw: draw - basePrediction.draw_probability,
-    away: awayWin - basePrediction.away_win_probability,
-  }
-
-  // Simple scorelines from adjusted probabilities
-  const top_scorelines = [
-    { home: homeScore, away: awayScore, prob: homeWin * 0.35 },
-    { home: homeScore > 0 ? homeScore - 1 : 0, away: awayScore, prob: homeWin * 0.20 },
-    { home: homeScore, away: awayScore + 1, prob: 0.12 },
-    { home: 1, away: 1, prob: draw * 0.45 },
-    { home: 0, away: 0, prob: draw * 0.30 },
-    { home: 0, away: awayScore, prob: awayWin * 0.30 },
-  ].sort((a, b) => b.prob - a.prob).slice(0, 6)
-
-  return {
-    home_win_probability: homeWin,
-    draw_probability: draw,
-    away_win_probability: awayWin,
-    predicted_home_score: homeScore,
-    predicted_away_score: awayScore,
-    confidence_score: confidence,
-    delta,
-    top_scorelines,
-  }
-}
 
 // ─── Sub-components ───────────────────────────────────────────
 
@@ -247,7 +117,7 @@ export function SimulationEngine({ matches, activeInjuries, userId }: Props) {
 
   const result = useMemo(() => {
     if (!selectedMatch) return null
-    return recalculatePrediction(
+    return applyScenario(
       basePrediction, scenario,
       selectedMatch.home_team, selectedMatch.away_team,
       activeInjuries

@@ -182,7 +182,7 @@ export default async function DashboardPage() {
 
   // Top scorers strip
   const playedByTeam = new Map<string, number>()
-  for (const m of (matchCounts ?? []) as any[]) {
+  for (const m of (matchCounts ?? [])) {
     playedByTeam.set(m.home_team_id, (playedByTeam.get(m.home_team_id) ?? 0) + 1)
     playedByTeam.set(m.away_team_id, (playedByTeam.get(m.away_team_id) ?? 0) + 1)
   }

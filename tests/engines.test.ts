@@ -247,3 +247,43 @@ test('bracket: tieWinner resuelve victoria, penales y casos indefinidos', () => 
   // Perdedor para el tercer puesto
   assert.equal(tieLoser({ ...base, home_score: 0, away_score: 1 }), 'H')
 })
+
+// ─── lib/scenarioEngine ──────────────────────────────────────────────────────
+
+import { applyScenario } from '../lib/scenarioEngine'
+
+const BASE_PRED = {
+  home_win_probability: 0.50, draw_probability: 0.27, away_win_probability: 0.23,
+  predicted_home_score: 2, predicted_away_score: 1, confidence_score: 72,
+}
+const TEAM_A = { fifa_ranking: 10 }
+const TEAM_B = { fifa_ranking: 40 }
+const EMPTY_SCENARIO = {
+  home_injuries: [], away_injuries: [], home_suspensions: [], away_suspensions: [],
+  weather: 'Clear', home_formation: '4-3-3', away_formation: '4-3-3', scenario_name: '',
+}
+
+test('scenarioEngine: lesiones del local reducen su probabilidad', () => {
+  const base = applyScenario(BASE_PRED, EMPTY_SCENARIO, TEAM_A, TEAM_B, [])
+  const withInjuries = applyScenario(
+    BASE_PRED,
+    { ...EMPTY_SCENARIO, home_injuries: ['p1', 'p2', 'p3'] },
+    TEAM_A, TEAM_B, [],
+  )
+  assert.ok(withInjuries.home_win_probability < base.home_win_probability,
+    `con lesiones ${withInjuries.home_win_probability} < sin ${base.home_win_probability}`)
+  assert.ok(withInjuries.confidence_score < base.confidence_score, 'la confianza baja con modificaciones')
+})
+
+test('scenarioEngine: salida coherente con la rejilla del motor', () => {
+  const r = applyScenario(BASE_PRED, { ...EMPTY_SCENARIO, weather: 'HeavyRain' }, TEAM_A, TEAM_B, [])
+  const sum = r.home_win_probability + r.draw_probability + r.away_win_probability
+  assert.ok(Math.abs(sum - 1) < 0.005, `1X2 suma ${sum}`)
+  assert.ok(r.top_scorelines.length === 6, 'top 6 marcadores')
+  for (let i = 1; i < r.top_scorelines.length; i++) {
+    assert.ok(r.top_scorelines[i - 1].prob >= r.top_scorelines[i].prob, 'orden descendente')
+  }
+  // El marcador estimado ES el más probable de la rejilla (sin fabricar)
+  assert.equal(r.predicted_home_score, r.top_scorelines[0].home)
+  assert.equal(r.predicted_away_score, r.top_scorelines[0].away)
+})
