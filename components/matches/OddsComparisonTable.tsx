@@ -250,7 +250,16 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
                       key={bk}
                       className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors"
                     >
-                      <td className="py-2 pr-4 text-zinc-300 font-medium">{bk}</td>
+                      <td className="py-2 pr-4 text-zinc-300 font-medium">
+                        <span className="flex items-center gap-1.5">
+                          {bk}
+                          {bk === 'Pinnacle' ? (
+                            <span className="rounded px-1 py-px text-[8px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Real</span>
+                          ) : (
+                            <span className="rounded px-1 py-px text-[8px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-500 border border-zinc-700">Derivada</span>
+                          )}
+                        </span>
+                      </td>
                       <td
                         className={cn(
                           'text-center py-2 px-2 mono font-bold',

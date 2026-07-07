@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncESPNResults } from '@/services/sync/espn-results'
+import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,6 +55,7 @@ export async function GET() {
     const result = await syncESPNResults()
     return NextResponse.json({ ok: true, updated: result.updated })
   } catch (err: any) {
+    await logSyncError('espn_api', 'matches', err, { via: 'sync/live' })
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
   }
 }

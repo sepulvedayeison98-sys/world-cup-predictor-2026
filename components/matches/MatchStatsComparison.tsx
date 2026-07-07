@@ -54,6 +54,8 @@ function StatRow({ label, home, away, unit = '', higherIsBetter = true, format: 
 export function MatchStatsComparison({ stats, homeTeam, awayTeam }: Props) {
   const hMatch = stats.find((s: any) => s.team_id === homeTeam.id) ?? {}
   const aMatch = stats.find((s: any) => s.team_id === awayTeam.id) ?? {}
+  // Procedencia (Regla Data First): real de ESPN vs estimación del modelo
+  const allEspn = stats.length > 0 && stats.every((s: any) => s.source === 'espn')
   // Fallback a estadísticas históricas del equipo cuando no hay datos del partido
   const hAvg = homeTeam.team_statistics?.[0] ?? {}
   const aAvg = awayTeam.team_statistics?.[0] ?? {}
@@ -92,6 +94,24 @@ export function MatchStatsComparison({ stats, homeTeam, awayTeam }: Props) {
           <StatRow key={row.label} {...row} />
         ))}
       </div>
+
+      <p className="mt-3 flex items-center gap-1.5 text-[10px]">
+        {allEspn ? (
+          <>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="text-zinc-500">
+              Estadísticas oficiales (ESPN) · el xG es una estimación del modelo IA
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="text-amber-500/80">
+              Estimación del modelo — estadísticas oficiales no disponibles para este partido
+            </span>
+          </>
+        )}
+      </p>
     </div>
   )
 }

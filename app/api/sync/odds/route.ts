@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncOdds } from '@/services/sync/odds'
 import { isAuthorizedCron } from '@/lib/cronAuth'
+import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('[GET /api/sync/odds]', err)
+    await logSyncError('pinnacle_via_odds_api', 'matches', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

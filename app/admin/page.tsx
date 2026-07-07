@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Save, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
+import { KeyRound, Save, CheckCircle2, AlertTriangle, Loader2, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { formatColDateTime } from '@/lib/datetime'
@@ -51,6 +51,19 @@ export default function AdminPage() {
     queryKey: ['admin-matches'],
     queryFn: fetchAdminMatches,
     staleTime: 15_000,
+  })
+
+  const { data: health } = useQuery({
+    queryKey: ['admin-health', !!secret],
+    enabled: !!secret,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const res = await fetch('/api/admin/health', {
+        headers: { Authorization: `Bearer ${secret}` },
+      })
+      if (!res.ok) return null
+      return res.json()
+    },
   })
 
   const match = useMemo(
@@ -130,6 +143,44 @@ export default function AdminPage() {
           className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none"
         />
       </div>
+
+      {/* Salud de los syncs */}
+      {health && (
+        <div className="card p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="h-3.5 w-3.5 text-zinc-500" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Salud de sincronización</span>
+          </div>
+          {health.alerts?.length > 0 && (
+            <div className="mb-2 rounded border border-red-500/30 bg-red-500/10 px-2.5 py-1.5">
+              {health.alerts.map((a: string) => (
+                <p key={a} className="text-[11px] font-semibold text-red-400">⚠ {a}</p>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {Object.entries(health.sources ?? {}).map(([src, info]: [string, any]) => (
+              <div key={src} className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-2">
+                <p className="text-[10px] text-zinc-500 mono truncate">{src}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={cn('h-1.5 w-1.5 rounded-full',
+                    info.last_status === 'success' ? 'bg-emerald-400'
+                      : info.last_status === 'error' ? 'bg-red-400' : 'bg-zinc-600')} />
+                  <span className={cn('text-[11px] font-semibold',
+                    info.last_status === 'success' ? 'text-emerald-400'
+                      : info.last_status === 'error' ? 'text-red-400' : 'text-zinc-500')}>
+                    {info.last_status === 'success' ? 'OK' : info.last_status === 'error' ? 'ERROR' : '—'}
+                  </span>
+                  <span className="text-[10px] text-zinc-600 ml-auto">
+                    {info.last_at ? new Date(info.last_at).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : 'nunca'}
+                  </span>
+                </div>
+                {info.last_error && <p className="mt-1 text-[10px] text-red-400/80 truncate">{info.last_error}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Selector de partido */}
       <div className="card p-4 space-y-3">

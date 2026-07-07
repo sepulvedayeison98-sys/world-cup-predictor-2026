@@ -523,6 +523,7 @@ export type Database = {
           saves: number | null
           shots: number | null
           shots_on_target: number | null
+          source: string
           team_id: string
           xg: number | null
           xga: number | null
@@ -544,6 +545,7 @@ export type Database = {
           saves?: number | null
           shots?: number | null
           shots_on_target?: number | null
+          source?: string
           team_id: string
           xg?: number | null
           xga?: number | null
@@ -565,6 +567,7 @@ export type Database = {
           saves?: number | null
           shots?: number | null
           shots_on_target?: number | null
+          source?: string
           team_id?: string
           xg?: number | null
           xga?: number | null
@@ -801,6 +804,7 @@ export type Database = {
           match_id: string
           odds_value: number
           recorded_at: string
+          source: string | null
         }
         Insert: {
           bookmaker: string
@@ -812,6 +816,7 @@ export type Database = {
           match_id: string
           odds_value: number
           recorded_at?: string
+          source?: string | null
         }
         Update: {
           bookmaker?: string
@@ -823,6 +828,7 @@ export type Database = {
           match_id?: string
           odds_value?: number
           recorded_at?: string
+          source?: string | null
         }
         Relationships: [
           {

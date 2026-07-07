@@ -154,6 +154,7 @@ export async function syncOdds(): Promise<{
       // 1. Guardar cuota real de Pinnacle
       oddsRows.push({
         match_id: match.matchId,
+        source: 'the_odds_api',
         bookmaker: 'Pinnacle',
         market,
         odds_value:          Math.round((1 / impliedProb) * 100) / 100,
@@ -172,6 +173,7 @@ export async function syncOdds(): Promise<{
 
         oddsRows.push({
           match_id: match.matchId,
+          source: 'derived_pinnacle',
           bookmaker: bk,
           market,
           odds_value:          coOdd,

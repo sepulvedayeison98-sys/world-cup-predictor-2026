@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSyncWindow } from '@/lib/syncWindow'
 import { syncESPNResults } from '@/services/sync/espn-results'
 import { isAuthorizedCron } from '@/lib/cronAuth'
+import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: false, window, ...result })
   } catch (err: any) {
     console.error('[GET /api/sync/auto]', err)
+    await logSyncError('espn_api', 'matches', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

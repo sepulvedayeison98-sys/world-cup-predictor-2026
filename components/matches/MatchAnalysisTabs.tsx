@@ -347,13 +347,19 @@ export function MatchAnalysisTabs({
               awayFormStats={computeStatsFromForm(awayRecentMatches ?? [])}
             />
 
-            {matchStats.length > 0 && (
+            {matchStats.length > 0 ? (
               <MatchStatsComparison
                 stats={matchStats}
                 homeTeam={match.home_team}
                 awayTeam={match.away_team}
               />
-            )}
+            ) : match.status !== 'scheduled' ? (
+              <div className="card p-4 text-center">
+                <p className="text-sm text-zinc-500">
+                  Estadísticas oficiales del partido no disponibles actualmente.
+                </p>
+              </div>
+            ) : null}
 
             {effectiveHomeStats && effectiveAwayStats && (
               <>

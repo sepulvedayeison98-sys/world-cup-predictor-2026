@@ -85,7 +85,7 @@ export async function syncESPNMatchStats(
     await supabase
       .from('match_statistics')
       .upsert(
-        { match_id: matchId, team_id: teamId, ...payload },
+        { match_id: matchId, team_id: teamId, ...payload, source: 'espn' },
         { onConflict: 'match_id,team_id' }
       )
   }

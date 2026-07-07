@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recalibratePredictions } from '@/services/sync/recalibrate'
 import { isAuthorizedCron } from '@/lib/cronAuth'
+import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     return NextResponse.json(await recalibratePredictions())
   } catch (err: any) {
+    await logSyncError('recalibrate', 'predictions', err)
     console.error('[GET /api/sync/recalibrate]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
