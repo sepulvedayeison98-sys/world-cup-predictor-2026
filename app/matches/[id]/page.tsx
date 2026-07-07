@@ -17,6 +17,7 @@ async function fetchTeamForm(
   supabase: any,
   teamId: string,
   excludeMatchId: string,
+  competitionId: string,
 ): Promise<MatchFormEntry[]> {
   const { data } = await supabase
     .from('matches')
@@ -29,6 +30,7 @@ async function fetchTeamForm(
     `)
     .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
     .eq('status', 'finished')
+    .eq('competition_id', competitionId) // solo forma DEL TORNEO actual, no amistosos previos
     .neq('id', excludeMatchId)
     .order('kickoff_time', { ascending: false })
     .limit(10)
@@ -158,8 +160,8 @@ export default async function MatchDetailPage({ params }: Props) {
       .select('*, player:players(name, short_name, position, photo_url)')
       .in('team_id', [m.home_team_id, m.away_team_id])
       .eq('is_active', true),
-    fetchTeamForm(supabase, m.home_team_id, id),
-    fetchTeamForm(supabase, m.away_team_id, id),
+    fetchTeamForm(supabase, m.home_team_id, id, m.competition_id),
+    fetchTeamForm(supabase, m.away_team_id, id, m.competition_id),
     fetchGroupContext(homeGroupId, m.home_team_id),
     fetchGroupContext(awayGroupId, m.away_team_id),
   ])

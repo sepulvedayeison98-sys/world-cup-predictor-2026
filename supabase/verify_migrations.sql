@@ -40,6 +40,7 @@ UNION ALL SELECT '035 fechas R32 corregidas', EXISTS(SELECT 1 FROM matches WHERE
 UNION ALL SELECT '036 backfill match_statistics', (SELECT count(*)>=288 FROM match_statistics)
 UNION ALL SELECT '040 procedencia (source)', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='match_statistics' AND column_name='source')
 UNION ALL SELECT '041 núcleo multi-deporte', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='sports') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='data_provenance') AND EXISTS(SELECT 1 FROM information_schema.views WHERE table_name='events_v')
+UNION ALL SELECT '042 forma sin fuga de amistosos', NOT EXISTS(SELECT 1 FROM team_statistics ts JOIN teams t ON t.id=ts.team_id WHERE t.code='COL' AND array_to_string(ts.form,'') LIKE '%L%' AND ts.matches_played > 4)
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):
