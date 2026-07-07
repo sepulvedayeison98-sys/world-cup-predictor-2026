@@ -436,6 +436,8 @@ export interface MatchFilters {
   date_to?: string
   min_confidence?: number
   search?: string
+  /** Por defecto el Mundial 2026; se puede pasar otra para no mezclar torneos. */
+  competition_id?: string
 }
 
 export interface PlayerFilters {

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { COMPETITION_ID } from '@/lib/constants'
 import type { Match, MatchFilters, PaginatedResponse, MatchStatistics, Lineup } from '@/types'
 
 const PAGE_SIZE = 15
@@ -34,6 +35,7 @@ export const matchesService = {
         `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), ${predJoin}`,
         { count: 'exact' }
       )
+      .eq('competition_id', filters.competition_id ?? COMPETITION_ID)
       .range(from, to)
       .order('kickoff_time', { ascending: true })
 
@@ -70,6 +72,7 @@ export const matchesService = {
     let query = supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`, { count: 'exact' })
+      .eq('competition_id', filters.competition_id ?? COMPETITION_ID)
       .range(from, to)
       .order('kickoff_time', { ascending: true })
 
@@ -117,6 +120,7 @@ export const matchesService = {
     const { data, error } = await supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*), predictions(*)`)
+      .eq('competition_id', COMPETITION_ID)
       .in('status', ['scheduled', 'live'])
       .gte('kickoff_time', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
       .order('kickoff_time', { ascending: true })
@@ -130,6 +134,7 @@ export const matchesService = {
     const { data, error } = await supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`)
+      .eq('competition_id', COMPETITION_ID)
       .eq('status', 'live')
       .order('kickoff_time', { ascending: true })
     if (error) throw error
