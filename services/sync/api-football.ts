@@ -9,8 +9,13 @@
  *
  * Credenciales: SPORTS_API_KEY (Vercel, ya verificada) y opcionalmente
  * SPORTS_API_HOST. Plan Free: 100 requests/día y solo temporadas
- * 2021-2023 — suficiente para validar; la temporada 2026-27 en vivo
+ * 2022-2024 — suficiente para validar; la temporada 2026-27 en vivo
  * requerirá upgrade de plan (~agosto).
+ *
+ * NOTA: SPORTS_API_SEASON y SPORTS_API_LEAGUE existen en Vercel como
+ * restos de una configuración anterior con valores desconocidos; se
+ * ignoran a propósito (la season por defecto rechazada el 2026-07-07
+ * vino de ahí).
  */
 
 // IDs oficiales de liga en API-Football. Decisión aprobada: opción A.
@@ -19,8 +24,8 @@ export const TARGET_LEAGUES = [
   { key: 'la_liga', apiFootballId: 140, name: 'La Liga', country: 'Spain' },
 ] as const
 
-// Plan Free de API-Football: última temporada accesible.
-const DEFAULT_SEASON = 2023
+// Plan Free de API-Football: última temporada accesible (2022-2024).
+const DEFAULT_SEASON = 2024
 
 interface ApiFootballResponse<T> {
   errors: Record<string, string> | string[]
@@ -144,9 +149,10 @@ export interface LeaguesValidationReport {
 }
 
 export async function validateLeaguesSetup(seasonOverride?: number): Promise<LeaguesValidationReport> {
-  const season = seasonOverride
-    ?? (process.env.SPORTS_API_SEASON ? Number(process.env.SPORTS_API_SEASON) : NaN)
-  const effectiveSeason = Number.isFinite(season) && season > 2000 ? season : DEFAULT_SEASON
+  const effectiveSeason =
+    seasonOverride && Number.isFinite(seasonOverride) && seasonOverride > 2000
+      ? seasonOverride
+      : DEFAULT_SEASON
 
   const account = await getAccountStatus() // gratis, no consume cuota
   const leagues: LeagueValidation[] = []
@@ -159,7 +165,7 @@ export async function validateLeaguesSetup(seasonOverride?: number): Promise<Lea
     account,
     season: effectiveSeason,
     seasonNote: account.plan.toLowerCase().includes('free')
-      ? 'Plan Free: solo temporadas 2021-2023. Para la 2026-27 en vivo se necesita upgrade.'
+      ? 'Plan Free: solo temporadas 2022-2024. Para la 2026-27 en vivo se necesita upgrade.'
       : 'Plan de pago: temporada actual disponible.',
     leagues,
     requestsUsed: TARGET_LEAGUES.length * 2, // /teams + /fixtures por liga
