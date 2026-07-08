@@ -20,4 +20,12 @@ export const PHASE_LABELS: Record<string, string> = {
   semi_final:    'Semifinales',
   third_place:   'Tercer Puesto',
   final:         'Final',
+  league:        'Liga',
+}
+
+// Competiciones de ligas (Fase 4, migración 043). Los UUID codifican el
+// id de liga de API-Football (39 = Premier, 140 = La Liga).
+export const LEAGUE_COMPETITION_IDS: Record<string, string> = {
+  premier_league: '39000000-0000-4000-8000-000000000039',
+  la_liga:        '14000000-0000-4000-8000-000000000140',
 }

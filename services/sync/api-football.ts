@@ -84,13 +84,57 @@ export async function getAccountStatus(): Promise<AccountStatus> {
   }
 }
 
-// ─── Validación de una liga (equipos + calendario) ───────────────────────────
+// ─── Fetchers crudos (los usa la validación y la ingesta) ────────────────────
 
 interface TeamEntry { team: { id: number; name: string; code: string | null; logo: string } }
 interface FixtureEntry {
-  fixture: { id: number; date: string; status: { short: string } }
-  teams: { home: { name: string }; away: { name: string } }
+  fixture: {
+    id: number
+    date: string
+    status: { short: string }
+    venue: { name: string | null; city: string | null }
+  }
+  league: { round: string }
+  teams: { home: { id: number; name: string }; away: { id: number; name: string } }
+  goals: { home: number | null; away: number | null }
 }
+
+export interface ApiFootballTeam { id: number; name: string; code: string | null; logo: string }
+export interface ApiFootballFixture {
+  id: number
+  date: string
+  statusShort: string
+  round: string
+  venueName: string | null
+  venueCity: string | null
+  homeId: number
+  awayId: number
+  homeGoals: number | null
+  awayGoals: number | null
+}
+
+export async function fetchLeagueTeams(leagueId: number, season: number): Promise<ApiFootballTeam[]> {
+  const res = await apiFootballFetch<TeamEntry>('/teams', { league: leagueId, season })
+  return res.response.map((t) => t.team)
+}
+
+export async function fetchLeagueFixtures(leagueId: number, season: number): Promise<ApiFootballFixture[]> {
+  const res = await apiFootballFetch<FixtureEntry>('/fixtures', { league: leagueId, season })
+  return res.response.map((f) => ({
+    id: f.fixture.id,
+    date: f.fixture.date,
+    statusShort: f.fixture.status.short,
+    round: f.league.round,
+    venueName: f.fixture.venue?.name ?? null,
+    venueCity: f.fixture.venue?.city ?? null,
+    homeId: f.teams.home.id,
+    awayId: f.teams.away.id,
+    homeGoals: f.goals.home,
+    awayGoals: f.goals.away,
+  }))
+}
+
+// ─── Validación de una liga (equipos + calendario) ───────────────────────────
 
 export interface LeagueValidation {
   key: string

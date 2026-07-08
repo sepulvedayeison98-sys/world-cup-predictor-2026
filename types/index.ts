@@ -5,7 +5,7 @@
 // ─── Enums ───────────────────────────────────────────────────
 
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
-export type MatchPhase = 'group' | 'round_of_16' | 'quarter_final' | 'semi_final' | 'third_place' | 'final'
+export type MatchPhase = 'group' | 'round_of_16' | 'quarter_final' | 'semi_final' | 'third_place' | 'final' | 'league'
 export type PlayerPosition = 'GK' | 'CB' | 'LB' | 'RB' | 'CDM' | 'CM' | 'CAM' | 'LW' | 'RW' | 'ST' | 'CF'
 export type PlayerStatus = 'available' | 'doubt' | 'injured' | 'suspended'
 export type InjuryType = 'muscular' | 'ligament' | 'fracture' | 'illness' | 'suspension' | 'other'

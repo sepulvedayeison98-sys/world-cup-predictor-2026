@@ -8,7 +8,7 @@
 -- ============================================================
 
 SELECT '001 schema inicial' AS migracion, EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='matches') AS ok
-UNION ALL SELECT '002 seed 48 equipos', (SELECT count(*)=48 FROM teams)
+UNION ALL SELECT '002 seed 48 equipos', (SELECT count(*)=48 FROM teams WHERE competition_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890')
 UNION ALL SELECT '003 sync_logs + notify', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='sync_logs') AND EXISTS(SELECT 1 FROM pg_proc WHERE proname='notify_value_bet')
 UNION ALL SELECT '004 políticas public_read', EXISTS(SELECT 1 FROM pg_policies WHERE policyname='matches_public_read')
 UNION ALL SELECT '005 calendario grupos', (SELECT count(*)=12 FROM groups)
@@ -41,6 +41,7 @@ UNION ALL SELECT '036 backfill match_statistics', (SELECT count(*)>=288 FROM mat
 UNION ALL SELECT '040 procedencia (source)', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='match_statistics' AND column_name='source')
 UNION ALL SELECT '041 núcleo multi-deporte', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='sports') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='data_provenance') AND EXISTS(SELECT 1 FROM information_schema.views WHERE table_name='events_v')
 UNION ALL SELECT '042 forma sin fuga de amistosos', NOT EXISTS(SELECT 1 FROM team_statistics ts JOIN teams t ON t.id=ts.team_id WHERE t.code='COL' AND array_to_string(ts.form,'') LIKE '%L%' AND ts.matches_played > 4)
+UNION ALL SELECT '043 ligas PL/LaLiga', EXISTS(SELECT 1 FROM competitions WHERE name='Premier League' AND season='2024-25') AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='api_football_id') AND 'league' IN (SELECT unnest(enum_range(NULL::match_phase))::text)
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

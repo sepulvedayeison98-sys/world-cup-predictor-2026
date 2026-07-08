@@ -777,6 +777,7 @@ export type Database = {
       }
       matches: {
         Row: {
+          api_football_id: number | null
           attendance: number | null
           away_penalties: number | null
           away_rest_days: number | null
@@ -805,6 +806,7 @@ export type Database = {
           weather_temp_celsius: number | null
         }
         Insert: {
+          api_football_id?: number | null
           attendance?: number | null
           away_penalties?: number | null
           away_rest_days?: number | null
@@ -833,6 +835,7 @@ export type Database = {
           weather_temp_celsius?: number | null
         }
         Update: {
+          api_football_id?: number | null
           attendance?: number | null
           away_penalties?: number | null
           away_rest_days?: number | null
@@ -1679,6 +1682,7 @@ export type Database = {
       }
       teams: {
         Row: {
+          api_football_id: number | null
           coach: string | null
           code: string
           competition_id: string
@@ -1695,6 +1699,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          api_football_id?: number | null
           coach?: string | null
           code: string
           competition_id: string
@@ -1711,6 +1716,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          api_football_id?: number | null
           coach?: string | null
           code?: string
           competition_id?: string
@@ -2190,6 +2196,7 @@ export type Database = {
         | "third_place"
         | "final"
         | "round_of_32"
+        | "league"
       match_status:
         | "scheduled"
         | "live"
@@ -2391,6 +2398,7 @@ export const Constants = {
         "third_place",
         "final",
         "round_of_32",
+        "league",
       ],
       match_status: ["scheduled", "live", "finished", "postponed", "cancelled"],
       odds_market: [

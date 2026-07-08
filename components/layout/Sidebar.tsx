@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Crosshair,
   GitBranch,
+  Globe,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: '/predictions',  label: 'Predicciones',    icon: TrendingUp },
   { href: '/champion',     label: 'Campeón',         icon: Trophy },
   { href: '/bracket',      label: 'Eliminatorias',   icon: GitBranch },
+  { href: '/ligas',        label: 'Ligas',           icon: Globe },
   { href: '/scorers',      label: 'Goleadores',      icon: Crosshair },
   { href: '/value-bets',   label: 'Apuestas Valor',  icon: Zap },
   { href: '/simulation',   label: 'Simulador',       icon: FlaskConical },
