@@ -1,5 +1,6 @@
 import { advanceBracket } from '@/lib/bracket'
 import { recalibratePredictions } from './recalibrate'
+import { syncSmartBetTracking } from '@/services/smartBetTracking'
 
 export interface PostResultChainResult {
   match_stats: number | null
@@ -18,6 +19,9 @@ export interface PostResultChainResult {
  *      stats reales disponibles; sin generación sintética)
  *   3. advanceBracket() — crea los cruces de la siguiente ronda
  *   4. recalibratePredictions() — regenera todas las predicciones
+ *   5. syncSmartBetTracking() — congela el top-5 de Smart Bets de los
+ *      partidos que quedaron programados y resuelve los que ya jugaron
+ *      (best-effort: nunca rompe la cadena si falla)
  */
 export async function runPostResultChain(
   supabase: any,
@@ -37,6 +41,7 @@ export async function runPostResultChain(
   const { data: teamStats } = await supabase.rpc('refresh_team_statistics')
   const bracket = await advanceBracket(supabase)
   const recal = await recalibratePredictions()
+  await syncSmartBetTracking()
 
   return {
     match_stats: matchStats ?? null,

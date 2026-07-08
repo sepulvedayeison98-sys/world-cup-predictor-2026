@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Zap } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
+import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat } from '@/components/predictions/SmartBetsTrackRecord'
 
 export const metadata: Metadata = {
   title: 'Apuestas de Valor | World Cup Predictor',
@@ -48,6 +49,58 @@ export default async function ValueBetsPage() {
   const totalEV     = bets.reduce((acc, b: any) => acc + (b.expected_value ?? 0), 0)
   const avgEV       = bets.length > 0 ? totalEV / bets.length : 0
   const bestEdge    = bets.reduce((max, b: any) => Math.max(max, b.edge ?? 0), 0)
+
+  // ── Historial de aciertos Smart Bets (picks resueltos) ──────────────
+  const { data: resolvedRaw } = await supabase
+    .from('smart_bet_picks')
+    .select('id, category, gradable, correct')
+    .eq('resolved', true)
+
+  const resolved = (resolvedRaw ?? []) as any[]
+  const gradedRows = resolved.filter((r) => r.gradable)
+  const totalAnalyzed = gradedRows.length
+  const totalCorrect = gradedRows.filter((r) => r.correct === true).length
+  const ungradedCount = resolved.length - gradedRows.length
+
+  const categoryMap = new Map<string, CategoryStat>()
+  for (const r of gradedRows) {
+    const entry = categoryMap.get(r.category) ?? { category: r.category, analyzed: 0, correct: 0 }
+    entry.analyzed++
+    if (r.correct === true) entry.correct++
+    categoryMap.set(r.category, entry)
+  }
+  const byCategory = [...categoryMap.values()].sort((a, b) => b.analyzed - a.analyzed)
+
+  const { data: recentRaw } = await supabase
+    .from('smart_bet_picks')
+    .select(`
+      id, match_id, market_id, category, label, rank, confidence, gradable, correct, actual_detail, resolved_at,
+      match:matches(
+        home_team:teams!matches_home_team_id_fkey(name, code),
+        away_team:teams!matches_away_team_id_fkey(name, code)
+      )
+    `)
+    .eq('resolved', true)
+    .order('resolved_at', { ascending: false })
+    .limit(20)
+
+  const recentPicks: ResolvedPickRow[] = ((recentRaw ?? []) as any[]).map((p) => ({
+    id: p.id,
+    match_id: p.match_id,
+    market_id: p.market_id,
+    category: p.category,
+    label: p.label,
+    rank: p.rank,
+    confidence: Number(p.confidence),
+    gradable: p.gradable,
+    correct: p.correct,
+    actual_detail: p.actual_detail,
+    resolved_at: p.resolved_at,
+    home_code: p.match?.home_team?.code ?? '?',
+    away_code: p.match?.away_team?.code ?? '?',
+    home_name: p.match?.home_team?.name ?? 'Local',
+    away_name: p.match?.away_team?.name ?? 'Visitante',
+  }))
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
@@ -120,6 +173,14 @@ export default async function ValueBetsPage() {
       ) : (
         <ValueBetsFullTable bets={bets} />
       )}
+
+      <SmartBetsTrackRecord
+        totalAnalyzed={totalAnalyzed}
+        totalCorrect={totalCorrect}
+        byCategory={byCategory}
+        ungradedCount={ungradedCount}
+        recent={recentPicks}
+      />
     </div>
   )
 }

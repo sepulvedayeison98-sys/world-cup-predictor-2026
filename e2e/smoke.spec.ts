@@ -62,6 +62,15 @@ test('detalle de partido: 4 pestañas fusionadas con secciones internas', async 
   await expect(page.getByText('Alineaciones y bajas')).toBeVisible()
 })
 
+test('value bets: historial de aciertos de Smart Bets visible', async ({ page }) => {
+  await page.goto('/value-bets')
+  await expect(page.getByText('Historial de aciertos')).toBeVisible()
+  // Con o sin datos resueltos aún, el bloque siempre debe decir algo honesto
+  const hasEmptyState = await page.getByText('Aún no hay recomendaciones resueltas').isVisible().catch(() => false)
+  const hasStats = await page.getByText('Efectividad').isVisible().catch(() => false)
+  expect(hasEmptyState || hasStats).toBe(true)
+})
+
 test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {
   await page.goto('/ligas/premier-league')
   // Clic en el primer partido del calendario (jornada por defecto)

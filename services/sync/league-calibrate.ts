@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { runLeagueBacktest, type LeagueBacktestMetrics } from '@/lib/leagueEngine'
 import { computeConfidenceLevel } from '@/lib/predictionEngine'
 import { LEAGUE_COMPETITION_IDS } from '@/lib/constants'
+import { syncSmartBetTracking } from '@/services/smartBetTracking'
 
 export const LEAGUE_MODEL_VERSION = 'liga-1.0'
 
@@ -148,6 +149,9 @@ export async function calibrateLeagues(): Promise<{
     records_failed: 0,
     metadata: { model_version: LEAGUE_MODEL_VERSION, leagues: results },
   })
+
+  // Best-effort: congela/resuelve Smart Bets de las ligas (nunca rompe la calibración)
+  await syncSmartBetTracking()
 
   return { ok: results.length > 0, leagues: results }
 }

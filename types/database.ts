@@ -1657,6 +1657,79 @@ export type Database = {
           },
         ]
       }
+      smart_bet_picks: {
+        Row: {
+          actual_detail: string | null
+          category: string
+          competition_id: string
+          confidence: number
+          correct: boolean | null
+          gradable: boolean
+          id: string
+          label: string
+          market_id: string
+          match_id: string
+          rank: number
+          resolved: boolean
+          resolved_at: string | null
+          snapshot_at: string
+        }
+        Insert: {
+          actual_detail?: string | null
+          category: string
+          competition_id: string
+          confidence: number
+          correct?: boolean | null
+          gradable?: boolean
+          id?: string
+          label: string
+          market_id: string
+          match_id: string
+          rank: number
+          resolved?: boolean
+          resolved_at?: string | null
+          snapshot_at?: string
+        }
+        Update: {
+          actual_detail?: string | null
+          category?: string
+          competition_id?: string
+          confidence?: number
+          correct?: boolean | null
+          gradable?: boolean
+          id?: string
+          label?: string
+          market_id?: string
+          match_id?: string
+          rank?: number
+          resolved?: boolean
+          resolved_at?: string | null
+          snapshot_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_bet_picks_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_bet_picks_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "events_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_bet_picks_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sports: {
         Row: {
           id: number
