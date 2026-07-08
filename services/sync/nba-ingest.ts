@@ -96,11 +96,21 @@ export async function ingestNba(): Promise<NbaIngestResult> {
   const gamesBody = await apiGet(`/games?league=${NBA_API_LEAGUE_ID}&season=${NBA_API_SEASON}`)
   const apiGames = (gamesBody?.response ?? []) as any[]
 
+  // Ventanas de la temporada 2024-25 (la API mezcla pretemporada, regular
+  // y playoffs bajo una sola "season"). Clasificamos por fecha:
+  //   < 22 oct 2024 → pretemporada (se ignora, baja señal)
+  //   22 oct 2024 – 14 abr 2025 → temporada regular (cuenta para standings)
+  //   ≥ 15 abr 2025 → play-in + playoffs
+  const REGULAR_START = '2024-10-22'
+  const PLAYOFFS_START = '2025-04-15'
+  const dayOf = (iso: string) => String(iso).slice(0, 10)
+
   const matchRows = apiGames
     .filter((g) => teamUuid.has(g.teams?.home?.id) && teamUuid.has(g.teams?.away?.id))
+    .filter((g) => dayOf(g.date) >= REGULAR_START) // descarta pretemporada
     .sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.id - b.id)
     .map((g, idx) => {
-      const isPlayoff = typeof g.stage === 'string' && /playoff|final|conference/i.test(g.stage)
+      const isPlayoff = dayOf(g.date) >= PLAYOFFS_START
       return {
         api_football_id: g.id,
         competition_id: NBA_COMPETITION_ID,

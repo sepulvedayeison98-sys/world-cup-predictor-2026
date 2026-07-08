@@ -30,6 +30,11 @@ ALTER TABLE public.teams ALTER COLUMN confederation DROP NOT NULL;
 ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS conference TEXT;
 ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS division TEXT;
 
+-- Los promedios por partido en baloncesto (~113 pts) desbordan NUMERIC(4,2).
+-- Se ensanchan a NUMERIC(6,2) — compatible con los valores de fútbol.
+ALTER TABLE public.team_statistics ALTER COLUMN avg_goals_scored TYPE NUMERIC(6,2);
+ALTER TABLE public.team_statistics ALTER COLUMN avg_goals_conceded TYPE NUMERIC(6,2);
+
 INSERT INTO public.competitions
   (id, name, short_name, type, season, country, start_date, end_date, is_active, sport_id)
 VALUES

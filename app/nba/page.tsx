@@ -23,7 +23,8 @@ export default async function NbaHubPage() {
     supabase
       .from('matches')
       .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
-      .eq('competition_id', NBA_COMPETITION_ID),
+      .eq('competition_id', NBA_COMPETITION_ID)
+      .eq('phase', 'regular_season'), // standings = solo temporada regular (82 partidos)
     supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
