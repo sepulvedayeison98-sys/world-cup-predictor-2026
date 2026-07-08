@@ -799,6 +799,7 @@ export type Database = {
           match_number: number
           phase: Database["public"]["Enums"]["match_phase"]
           referee: string | null
+          round: number | null
           status: Database["public"]["Enums"]["match_status"]
           updated_at: string
           venue: string
@@ -828,6 +829,7 @@ export type Database = {
           match_number: number
           phase: Database["public"]["Enums"]["match_phase"]
           referee?: string | null
+          round?: number | null
           status?: Database["public"]["Enums"]["match_status"]
           updated_at?: string
           venue: string
@@ -857,6 +859,7 @@ export type Database = {
           match_number?: number
           phase?: Database["public"]["Enums"]["match_phase"]
           referee?: string | null
+          round?: number | null
           status?: Database["public"]["Enums"]["match_status"]
           updated_at?: string
           venue?: string

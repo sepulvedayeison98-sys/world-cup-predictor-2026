@@ -40,7 +40,14 @@ function toCode(name: string, apiCode: string | null, used: Set<string>): string
 // match_number tiene UNIQUE (competition_id, match_number) — heredado del
 // Mundial — así que NO puede ser el número de jornada (10 partidos por
 // jornada chocarían). Se numera secuencialmente por fecha (1..380),
-// determinista entre corridas: desempate por id de fixture.
+// determinista entre corridas: desempate por id de fixture. La jornada
+// real va en la columna `round` (migración 044).
+
+/** "Regular Season - 12" → 12; NULL si no parsea (copas, playoffs). */
+function parseRound(round: string): number | null {
+  const m = round.match(/(\d+)\s*$/)
+  return m ? Number(m[1]) : null
+}
 
 export interface LeagueIngestResult {
   key: string
@@ -107,6 +114,7 @@ export async function ingestLeagues(season: number): Promise<{
         competition_id: competitionId,
         phase: 'league',
         match_number: idx + 1,
+        round: parseRound(f.round),
         status: STATUS_MAP[f.statusShort] ?? 'scheduled',
         home_team_id: teamUuid.get(f.homeId),
         away_team_id: teamUuid.get(f.awayId),

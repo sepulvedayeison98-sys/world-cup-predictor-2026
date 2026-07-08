@@ -29,3 +29,15 @@ export const LEAGUE_COMPETITION_IDS: Record<string, string> = {
   premier_league: '39000000-0000-4000-8000-000000000039',
   la_liga:        '14000000-0000-4000-8000-000000000140',
 }
+
+// Slugs de URL de cada liga (/ligas/[slug]).
+export const LEAGUE_SLUGS: Record<string, string> = {
+  'premier-league': LEAGUE_COMPETITION_IDS.premier_league,
+  'la-liga':        LEAGUE_COMPETITION_IDS.la_liga,
+}
+
+/** Slug de URL de una liga a partir de su competition_id. */
+export function leagueSlugById(competitionId: string): string | null {
+  const entry = Object.entries(LEAGUE_SLUGS).find(([, id]) => id === competitionId)
+  return entry ? entry[0] : null
+}

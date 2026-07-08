@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { LEAGUE_COMPETITION_IDS } from '@/lib/constants'
+import { LEAGUE_COMPETITION_IDS, leagueSlugById } from '@/lib/constants'
 import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { LeagueTabs, type LeagueTabData } from '@/components/leagues/LeagueTabs'
 
@@ -35,6 +35,7 @@ export default async function LigasPage() {
     if (!teams?.length) continue
     leagues.push({
       key: comp.id,
+      slug: leagueSlugById(comp.id),
       name: comp.name,
       season: comp.season,
       country: comp.country ?? '',
