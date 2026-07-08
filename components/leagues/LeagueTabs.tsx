@@ -24,7 +24,7 @@ export function LeagueTabs({ leagues }: { leagues: LeagueTabData[] }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Selector de liga */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {leagues.map((l) => (
           <button
             key={l.key}

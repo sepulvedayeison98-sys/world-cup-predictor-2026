@@ -16,6 +16,9 @@ import { LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 const LEAGUE_COUNTRY: Record<string, string> = {
   premier_league: 'Inglaterra',
   la_liga: 'España',
+  serie_a: 'Italia',
+  bundesliga: 'Alemania',
+  ligue_1: 'Francia',
 }
 
 /** Estados de API-Football → nuestro enum match_status. */

@@ -52,8 +52,8 @@ export default async function LigasPage() {
         </span>
         <h1 className="mt-1 text-2xl font-bold text-white">Ligas</h1>
         <p className="text-sm text-zinc-400">
-          Premier League y La Liga — temporada 2024-25 completa como base del motor.
-          La temporada 2026-27 se activará en vivo con su arranque en agosto.
+          Las 5 grandes ligas europeas — temporada 2024-25 completa como base del
+          motor. La temporada 2026-27 se activará en vivo con su arranque en agosto.
         </p>
       </div>
 

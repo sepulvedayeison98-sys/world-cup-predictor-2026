@@ -23,17 +23,32 @@ export const PHASE_LABELS: Record<string, string> = {
   league:        'Liga',
 }
 
-// Competiciones de ligas (Fase 4, migración 043). Los UUID codifican el
-// id de liga de API-Football (39 = Premier, 140 = La Liga).
+// Competiciones de ligas (Fase 4, migraciones 043/045). Los UUID codifican
+// el id de liga de API-Football (39 = Premier, 140 = La Liga, 135 = Serie A,
+// 78 = Bundesliga, 61 = Ligue 1).
 export const LEAGUE_COMPETITION_IDS: Record<string, string> = {
   premier_league: '39000000-0000-4000-8000-000000000039',
   la_liga:        '14000000-0000-4000-8000-000000000140',
+  serie_a:        '13500000-0000-4000-8000-000000000135',
+  bundesliga:     '78000000-0000-4000-8000-000000000078',
+  ligue_1:        '61000000-0000-4000-8000-000000000061',
 }
 
-// Slugs de URL de cada liga (/ligas/[slug]).
+// Slugs de URL de cada liga (/ligas/[slug]) y su nombre visible.
 export const LEAGUE_SLUGS: Record<string, string> = {
   'premier-league': LEAGUE_COMPETITION_IDS.premier_league,
   'la-liga':        LEAGUE_COMPETITION_IDS.la_liga,
+  'serie-a':        LEAGUE_COMPETITION_IDS.serie_a,
+  'bundesliga':     LEAGUE_COMPETITION_IDS.bundesliga,
+  'ligue-1':        LEAGUE_COMPETITION_IDS.ligue_1,
+}
+
+export const LEAGUE_NAMES: Record<string, string> = {
+  'premier-league': 'Premier League',
+  'la-liga':        'La Liga',
+  'serie-a':        'Serie A',
+  'bundesliga':     'Bundesliga',
+  'ligue-1':        'Ligue 1',
 }
 
 /** Slug de URL de una liga a partir de su competition_id. */

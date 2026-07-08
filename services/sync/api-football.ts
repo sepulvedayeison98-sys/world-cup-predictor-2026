@@ -18,10 +18,14 @@
  * vino de ahí).
  */
 
-// IDs oficiales de liga en API-Football. Decisión aprobada: opción A.
+// IDs oficiales de liga en API-Football. Opción A aprobada (Premier +
+// La Liga); etapa 5 completa las 5 grandes ligas europeas.
 export const TARGET_LEAGUES = [
   { key: 'premier_league', apiFootballId: 39, name: 'Premier League', country: 'England' },
   { key: 'la_liga', apiFootballId: 140, name: 'La Liga', country: 'Spain' },
+  { key: 'serie_a', apiFootballId: 135, name: 'Serie A', country: 'Italy' },
+  { key: 'bundesliga', apiFootballId: 78, name: 'Bundesliga', country: 'Germany' },
+  { key: 'ligue_1', apiFootballId: 61, name: 'Ligue 1', country: 'France' },
 ] as const
 
 // Plan Free de API-Football: última temporada accesible (2022-2024).

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { LEAGUE_SLUGS } from '@/lib/constants'
+import { LEAGUE_SLUGS, LEAGUE_NAMES } from '@/lib/constants'
 import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { StandingsTable } from '@/components/leagues/StandingsTable'
 import { JornadaCalendar, type JornadaView, type JornadaMatchView } from '@/components/leagues/JornadaCalendar'
@@ -20,8 +20,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const name = slug === 'premier-league' ? 'Premier League' : slug === 'la-liga' ? 'La Liga' : 'Liga'
-  return { title: `${name} | World Cup Predictor` }
+  return { title: `${LEAGUE_NAMES[slug] ?? 'Liga'} | World Cup Predictor` }
 }
 
 type Outcome = 'home' | 'draw' | 'away'
