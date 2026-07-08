@@ -32,11 +32,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const [status, leagues, nbaStatus] = await Promise.all([
-    probe('v1.basketball.api-sports.io', '/status'),
-    probe('v1.basketball.api-sports.io', '/leagues?search=NBA'),
-    probe('v2.nba.api-sports.io', '/'),
-  ])
+  const H = 'v1.basketball.api-sports.io'
+  const results: Record<string, any> = {}
+  // Probar temporadas de más reciente a más antigua para hallar la accesible
+  for (const season of ['2024-2025', '2023-2024', '2022-2023', '2021-2022']) {
+    const teams = await probe(H, `/teams?league=12&season=${season}`)
+    results[season] = { teamsResults: teams.results, errors: teams.errors, sampleTeam: Array.isArray(teams.sample) ? teams.sample[0] : null }
+    if (teams.results && teams.results > 0) {
+      results[season].games = await probe(H, `/games?league=12&season=${season}`).then((g) => ({ results: g.results, sample: Array.isArray(g.sample) ? g.sample[0] : null }))
+      results[season].standings = await probe(H, `/standings?league=12&season=${season}`).then((s) => ({ results: s.results, errors: s.errors }))
+      break
+    }
+  }
 
-  return NextResponse.json({ status, leagues, nbaStatus })
+  return NextResponse.json({ results })
 }
