@@ -59,8 +59,12 @@ export const NBA_FRANCHISES: NbaFranchise[] = [
   { nickname: 'spurs',        code: 'SAS', name: 'San Antonio Spurs',      conference: 'Oeste', division: 'Suroeste' },
 ]
 
-/** Resuelve una franquicia a partir del nombre que devuelve la API. */
+/**
+ * Resuelve una franquicia a partir del nombre que devuelve la API.
+ * Usa límite de palabra para no confundir subcadenas: p. ej. "Charlotte
+ * Hornets" NO debe matchear el token 'nets' (Brooklyn Nets).
+ */
 export function matchFranchise(apiName: string): NbaFranchise | null {
   const n = apiName.toLowerCase()
-  return NBA_FRANCHISES.find((f) => n.includes(f.nickname)) ?? null
+  return NBA_FRANCHISES.find((f) => new RegExp(`\\b${f.nickname}\\b`).test(n)) ?? null
 }

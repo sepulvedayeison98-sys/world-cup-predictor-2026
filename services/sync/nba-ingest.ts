@@ -75,8 +75,17 @@ export async function ingestNba(): Promise<NbaIngestResult> {
 
   if (teamRows.length === 0) throw new Error('API-Basketball devolvió 0 franquicias NBA reconocibles')
 
+  // Dedupe defensivo por código (una franquicia = un código, aunque la API
+  // liste variantes del mismo equipo): conserva la primera aparición.
+  const seenCodes = new Set<string>()
+  const dedupedTeams = teamRows.filter((t) => {
+    if (seenCodes.has(t.code)) return false
+    seenCodes.add(t.code)
+    return true
+  })
+
   const { error: teamsErr } = await (supabase.from('teams') as any)
-    .upsert(teamRows, { onConflict: 'competition_id,api_football_id' })
+    .upsert(dedupedTeams, { onConflict: 'competition_id,api_football_id' })
   if (teamsErr) throw new Error(`upsert teams NBA: ${teamsErr.message}`)
 
   const { data: dbTeams } = await supabase
@@ -122,10 +131,10 @@ export async function ingestNba(): Promise<NbaIngestResult> {
     source: 'api_basketball',
     entity_type: 'nba_ingest',
     status: 'success',
-    records_processed: teamRows.length + matchesUpserted,
+    records_processed: dedupedTeams.length + matchesUpserted,
     records_failed: 0,
-    metadata: { season: NBA_API_SEASON, teams: teamRows.length, matches: matchesUpserted },
+    metadata: { season: NBA_API_SEASON, teams: dedupedTeams.length, matches: matchesUpserted },
   })
 
-  return { teamsUpserted: teamRows.length, matchesUpserted, requestsUsed: 2 }
+  return { teamsUpserted: dedupedTeams.length, matchesUpserted, requestsUsed: 2 }
 }
