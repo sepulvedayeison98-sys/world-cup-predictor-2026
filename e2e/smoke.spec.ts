@@ -72,6 +72,17 @@ test('value bets: historial de aciertos de Smart Bets visible', async ({ page })
   ).toBeVisible()
 })
 
+test('nba: hub con standings por conferencia (primer deporte no-fútbol)', async ({ page }) => {
+  await page.goto('/nba')
+  await expect(page.getByRole('heading', { name: 'NBA', exact: true })).toBeVisible()
+  await expect(page.getByText('Conferencia Este')).toBeVisible()
+  await expect(page.getByText('Conferencia Oeste')).toBeVisible()
+  await expect(page.getByText('Precisión del motor')).toBeVisible()
+  // 30 franquicias repartidas en dos conferencias (15 filas cada tabla)
+  await expect(page.locator('tbody tr')).toHaveCount(30)
+  await expect(page.getByText('Playoffs directo (1-6)').first()).toBeVisible()
+})
+
 test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {
   await page.goto('/ligas/premier-league')
   // Clic en el primer partido del calendario (jornada por defecto)
