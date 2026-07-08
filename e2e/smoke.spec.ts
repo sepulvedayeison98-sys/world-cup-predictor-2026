@@ -5,17 +5,44 @@ import { test, expect } from '@playwright/test'
  * (los partidos cambian a diario): verifican estructura, no contenido.
  */
 
-test('la raíz redirige al dashboard y renderiza los widgets núcleo', async ({ page }) => {
+test('la raíz redirige al inicio global y renderiza los bloques núcleo', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/\/dashboard/)
   await expect(page.getByRole('heading', { name: 'Panel de Inteligencia' })).toBeVisible()
-  await expect(page.getByText('Cuadro Eliminatorio')).toBeVisible()
-  await expect(page.getByText('Rendimiento del Modelo')).toBeVisible()
+  await expect(page.getByText('Hoy en juego')).toBeVisible()
+  await expect(page.getByText('Confianza del motor')).toBeVisible()
+  await expect(page.getByText('El pick del día')).toBeVisible()
+  await expect(page.getByText('Actividad del motor')).toBeVisible()
   // Sin desborde horizontal en móvil (regresión del fix de overflow)
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   )
   expect(overflow).toBeLessThanOrEqual(1)
+})
+
+test('hub del Mundial: estado vital, widgets del torneo y secciones', async ({ page }) => {
+  await page.goto('/mundial')
+  await expect(page.getByRole('heading', { name: 'Mundial 2026' })).toBeVisible()
+  await expect(page.getByText('Favorito al título')).toBeVisible()
+  await expect(page.getByText('Precisión del motor')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Eliminatorias/ }).first()).toBeVisible()
+})
+
+test('inteligencia: precisión verificable con líneas base y metodología', async ({ page }) => {
+  await page.goto('/inteligencia')
+  await expect(page.getByRole('heading', { name: 'Inteligencia' })).toBeVisible()
+  await expect(page.getByText('Precisión por competición')).toBeVisible()
+  await expect(page.getByText(/azar 33%/).first()).toBeVisible()
+  await expect(page.getByText('Cómo predice el motor')).toBeVisible()
+})
+
+test('buscador global: abre desde la topbar y lista competiciones', async ({ page }) => {
+  await page.goto('/dashboard')
+  await page.getByRole('button', { name: 'Buscar equipo o competición' }).click()
+  await expect(page.getByRole('dialog', { name: 'Buscador global' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Premier League/ })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('la página de partidos carga con filtros y tabla', async ({ page }) => {

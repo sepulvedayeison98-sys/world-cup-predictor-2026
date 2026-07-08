@@ -6,9 +6,10 @@ import { Radio, Cpu, Database, Activity } from 'lucide-react'
 
 interface Props {
   modelVersion: string
-  accuracy: number | null
-  totalMatches: number
-  analyzedMatches: number
+  /** Precisión de los últimos 30 días, cualquier competición (0-100 o null) */
+  accuracy30d: number | null
+  activeCompetitions: number
+  liveCount: number
 }
 
 function Ticker({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -20,7 +21,11 @@ function Ticker({ label, value, color }: { label: string; value: string; color?:
   )
 }
 
-export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedMatches }: Props) {
+/**
+ * Cinta terminal neutra (auditoría F3): estado del sistema, no marca de
+ * torneo. En móvil dice solo lo esencial (Motor + Precisión 30d).
+ */
+export function TerminalHeader({ modelVersion, accuracy30d, activeCompetitions, liveCount }: Props) {
   const [time, setTime] = useState('')
   const [pulse, setPulse] = useState(false)
 
@@ -41,26 +46,23 @@ export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedM
         <div className="flex shrink-0 items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className={cn('h-2 w-2 rounded-full bg-emerald-500 transition-opacity duration-500', pulse ? 'opacity-100' : 'opacity-40')} />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Live</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">
+              {liveCount > 0 ? `${liveCount} en vivo` : 'Live'}
+            </span>
           </div>
           <span className="text-[10px] text-zinc-600 mono">{time} COT</span>
         </div>
 
-        {/* Q6: en móvil la cinta dice solo lo esencial (Motor + Precisión);
-            los demás segmentos entran por breakpoint, nunca truncados. */}
         <div className="order-last w-full min-w-0 flex items-center gap-4 sm:order-none sm:w-auto sm:flex-1 sm:justify-center">
           <Ticker label="Motor" value={`v${modelVersion}`} color="text-emerald-400" />
           <div className="hidden sm:block">
-            <Ticker label="Partidos" value={`${analyzedMatches}/${totalMatches}`} />
+            <Ticker label="Competiciones" value={`${activeCompetitions} activas`} />
           </div>
           <Ticker
-            label="Precisión"
-            value={accuracy === null ? '—' : `${(accuracy * 100).toFixed(1)}%`}
-            color={accuracy !== null && accuracy >= 0.65 ? 'text-emerald-400' : accuracy !== null && accuracy >= 0.50 ? 'text-amber-400' : 'text-zinc-400'}
+            label="Precisión 30d"
+            value={accuracy30d === null ? '—' : `${accuracy30d.toFixed(1)}%`}
+            color={accuracy30d !== null && accuracy30d >= 65 ? 'text-emerald-400' : accuracy30d !== null && accuracy30d >= 50 ? 'text-amber-400' : 'text-zinc-400'}
           />
-          <div className="hidden lg:block">
-            <Ticker label="WC2026" value="FIFA · México · EEUU · Canadá" color="text-zinc-400" />
-          </div>
         </div>
 
         <div className="hidden sm:flex shrink-0 items-center gap-3 text-zinc-600">
@@ -75,10 +77,8 @@ export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedM
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">
-              FIFA World Cup 2026
+              Veredicto · Inteligencia Deportiva
             </span>
-            <span className="text-[10px] text-zinc-600">·</span>
-            <span className="text-[10px] text-zinc-600 mono">WLDCP:2026</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Panel de Inteligencia

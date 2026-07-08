@@ -1,268 +1,387 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { ArrowRight, Activity, AlertTriangle } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { KPICardsRealtime } from '@/components/dashboard/KPICardsRealtime'
-import { UpcomingMatchesWidgetRealtime } from '@/components/dashboard/UpcomingMatchesWidgetRealtime'
-import { ValueBetsWidgetRealtime } from '@/components/dashboard/ValueBetsWidgetRealtime'
-import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
-import { ModelPerformancePanel } from '@/components/dashboard/ModelPerformancePanel'
-import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
-import { IntelligenceFeed } from '@/components/dashboard/IntelligenceFeed'
-import { buildFeedEntries } from '@/lib/feed'
-import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
-import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
-import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
+import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER } from '@/lib/constants'
+import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
 
 export const metadata: Metadata = {
-  title: 'Dashboard | World Cup Predictor 2026',
-  description: 'Análisis en tiempo real del Mundial FIFA 2026',
+  title: 'Inicio | Veredicto — Inteligencia Deportiva',
+  description: 'Predicciones y análisis con métricas verificables: Mundial 2026 y las 5 grandes ligas europeas.',
 }
 
-
-// ISR: el HTML se cachea 60s — el dashboard hace ~14 queries por render,
-// así la mayoría de visitas no golpean Supabase. Los widgets realtime
-// del cliente se actualizan solos tras la carga.
+// ISR 60s: el inicio se cachea y los datos vivos se refrescan solos
 export const revalidate = 60
 
-export default async function DashboardPage() {
+type Outcome = 'home' | 'draw' | 'away'
+const OUTCOME_LABEL: Record<Outcome, string> = { home: 'Local', draw: 'Empate', away: 'Visita' }
+
+function pickOf(p: { home: number; draw: number; away: number }): Outcome {
+  if (p.home >= p.draw && p.home >= p.away) return 'home'
+  return p.away >= p.draw ? 'away' : 'draw'
+}
+
+function fmtDate(iso: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Date(iso).toLocaleString('es-CO', { timeZone: 'America/Bogota', ...opts })
+}
+
+/**
+ * Inicio global (auditoría F3): responde en orden — ¿qué pasa hoy?,
+ * ¿qué dice el motor?, ¿puedo confiar? El Mundial ya no es el universo:
+ * es la primera tarjeta de un panel multi-competición.
+ */
+export default async function HomePage() {
   const supabase = createStaticSupabaseClient()
+  const now = Date.now()
+  const in48h = new Date(now + 48 * 3600_000).toISOString()
+  const in72h = new Date(now + 72 * 3600_000).toISOString()
+  const since3h = new Date(now - 3 * 3600_000).toISOString()
+  const since30d = new Date(now - 30 * 24 * 3600_000).toISOString()
 
-  // Paso 1: obtener la última corrida de simulación (secuencial, necesario para filtrar)
-  const { data: latestSimRun } = await supabase
-    .from('tournament_simulations')
-    .select('simulation_run_id')
-    .eq('competition_id', COMPETITION_ID)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const latestRunId = latestSimRun?.simulation_run_id
-
-  // Paso 2: todas las demás queries en paralelo
   const [
-    { count: totalMatches },
-    { count: analyzedMatches },
-    { count: activeBetsCount },
-    { count: highGradeBetsCount },
-    { data: predictions },
-    { data: settledBets },
-    { data: knockoutMatches },
-    { data: recentPredictions },
-    { data: recentValueBets },
-    { data: simulations },
-    { data: teams },
-    { data: statsRaw },
-    { data: simForScorers },
-    { data: matchCounts },
+    { data: upcoming },
+    { data: wcPreds },
+    { data: ligaPreds },
+    { data: preds30d },
+    { data: topBet },
+    { data: lastFinished },
+    { data: lastRecalib },
+    { count: liveCount },
+    { data: nextWcMatch },
   ] = await Promise.all([
-    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('competition_id', COMPETITION_ID),
-    // Solo predicciones del Mundial: desde la Fase 4 conviven en la tabla
-    // con las de ligas (liga-1.0), que tienen su propia sección.
+    // Hoy en juego: cualquier competición, próximas 48 h (o en vivo)
     supabase
-      .from('predictions')
-      .select('*, match:matches!inner(competition_id)', { count: 'exact', head: true })
-      .eq('is_published', true)
-      .eq('match.competition_id', COMPETITION_ID),
-    supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('grade', 'high'),
-    supabase
-      .from('predictions')
+      .from('matches')
       .select(`
-        was_correct, home_win_probability, draw_probability, away_win_probability,
-        match:matches!inner(competition_id, phase, home_score, away_score, kickoff_time,
-          home_team:teams!matches_home_team_id_fkey(code),
-          away_team:teams!matches_away_team_id_fkey(code))
+        id, kickoff_time, status, phase, competition_id,
+        home_team:teams!matches_home_team_id_fkey(id, name, code, elo_rating),
+        away_team:teams!matches_away_team_id_fkey(id, name, code, elo_rating),
+        predictions(home_win_probability, draw_probability, away_win_probability, confidence_score, predicted_home_score, predicted_away_score)
       `)
+      .in('status', ['scheduled', 'live'])
+      .gte('kickoff_time', since3h)
+      .lte('kickoff_time', in48h)
+      .order('kickoff_time', { ascending: true })
+      .limit(6),
+    // Confianza: Mundial
+    supabase
+      .from('predictions')
+      .select('was_correct, match:matches!inner(competition_id)')
       .eq('match.competition_id', COMPETITION_ID)
       .not('was_correct', 'is', null),
-    supabase.from('value_bets').select('result, odds_value').in('result', ['won', 'lost']),
-    // Cuadro eliminatorio para el widget del dashboard
-    supabase
-      .from('matches')
-      .select(`
-        id, phase, kickoff_time, status, home_score, away_score,
-        home_team:teams!matches_home_team_id_fkey(code, short_name, elo_rating),
-        away_team:teams!matches_away_team_id_fkey(code, short_name, elo_rating),
-        predictions(home_win_probability, draw_probability, away_win_probability)
-      `)
-      .eq('competition_id', COMPETITION_ID)
-      .in('phase', ['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
-      .order('kickoff_time', { ascending: true })
-      .limit(32),
-    // Intelligence feed: recent predictions with match + team info
+    // Confianza: ligas (backtest liga-1.0)
     supabase
       .from('predictions')
-      .select(`
-        id, home_win_probability, draw_probability, away_win_probability, created_at,
-        match:matches!inner(id, competition_id, home_team:teams!matches_home_team_id_fkey(code), away_team:teams!matches_away_team_id_fkey(code))
-      `)
-      .eq('is_published', true)
-      .eq('match.competition_id', COMPETITION_ID)
-      .order('created_at', { ascending: false })
-      .limit(10),
-    // Recent value bets — solo columnas que existen en el schema
+      .select('was_correct, match:matches!inner(competition_id)')
+      .in('match.competition_id', LEAGUE_DISPLAY_ORDER)
+      .not('was_correct', 'is', null),
+    // Precisión 30 días (cinta terminal, cualquier competición)
+    supabase
+      .from('predictions')
+      .select('was_correct, match:matches!inner(kickoff_time)')
+      .gte('match.kickoff_time', since30d)
+      .not('was_correct', 'is', null),
+    // Smart Bet destacada: mayor EV activa con partido por jugar
     supabase
       .from('value_bets')
-      .select('id, market, odds_value, bookmaker, model_probability, implied_probability, edge, grade, created_at')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(5),
-    // Champion simulations — filtrado por última corrida
-    latestRunId
-      ? supabase
-          .from('tournament_simulations')
-          .select('team_id, winner_prob')
-          .eq('competition_id', COMPETITION_ID)
-          .eq('simulation_run_id', latestRunId)
-          .order('winner_prob', { ascending: false })
-          .limit(8)
-      : Promise.resolve({ data: [] }),
-    supabase.from('teams').select('id, name, short_name, code, confederation').eq('competition_id', COMPETITION_ID),
-    // Top scorers for strip
-    supabase
-      .from('player_statistics')
       .select(`
-        player_id, goals, matches_played,
-        player:players(id, name, short_name, team_id,
-          team:teams(id, code, confederation))
+        id, market, bookmaker, odds_value, expected_value, edge, grade,
+        match:matches!inner(id, kickoff_time, status,
+          home_team:teams!matches_home_team_id_fkey(code, name),
+          away_team:teams!matches_away_team_id_fkey(code, name))
       `)
-      .eq('competition_id', COMPETITION_ID)
-      .gt('matches_played', 0)
-      .order('goals', { ascending: false })
-      .limit(10),
-    // Sim probs for scorer projection — filtrado por última corrida
-    latestRunId
-      ? supabase
-          .from('tournament_simulations')
-          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
-          .eq('competition_id', COMPETITION_ID)
-          .eq('simulation_run_id', latestRunId)
-      : Promise.resolve({ data: [] }),
-    // Matches played per team for scorers
+      .eq('is_active', true)
+      .gte('match.kickoff_time', since3h)
+      .order('expected_value', { ascending: false })
+      .limit(1),
+    // Actividad: últimos resueltos (cualquier competición)
     supabase
       .from('matches')
-      .select('home_team_id, away_team_id, status')
+      .select(`
+        id, kickoff_time, home_score, away_score, competition_id,
+        home_team:teams!matches_home_team_id_fkey(code),
+        away_team:teams!matches_away_team_id_fkey(code),
+        predictions(was_correct)
+      `)
+      .eq('status', 'finished')
+      .order('kickoff_time', { ascending: false })
+      .limit(3),
+    // Actividad: última recalibración del motor
+    supabase
+      .from('predictions')
+      .select('updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('matches')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'live'),
+    supabase
+      .from('matches')
+      .select('phase, kickoff_time')
       .eq('competition_id', COMPETITION_ID)
-      .in('status', ['finished', 'live']),
+      .in('status', ['scheduled', 'live'])
+      .order('kickoff_time', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
 
-  // KPI calculations
-  const resolved = predictions ?? []
-  const correctPredictions = resolved.filter((p) => p.was_correct === true).length
-  const totalResolved = resolved.length
-  const accuracy = totalResolved > 0 ? correctPredictions / totalResolved : null
+  // ── Confianza del motor ────────────────────────────────────
+  const acc = (rows: any[] | null) => {
+    const r = rows ?? []
+    const c = r.filter((p) => p.was_correct === true).length
+    return { correct: c, total: r.length, pct: r.length ? (c / r.length) * 100 : null }
+  }
+  const wc = acc(wcPreds)
+  const ligas = acc(ligaPreds)
+  const d30 = acc(preds30d)
 
-  // Predicciones resueltas ordenadas por fecha (más reciente primero) para el panel
-  const resolvedByDate = [...resolved].sort(
-    (a: any, b: any) => new Date(b.match?.kickoff_time ?? 0).getTime() - new Date(a.match?.kickoff_time ?? 0).getTime()
-  )
-
-  const settled = settledBets ?? []
-  const betsWon = settled.filter((b: any) => b.result === 'won').length
-  const profit = settled.reduce(
-    (acc: number, b: any) => acc + (b.result === 'won' ? Number(b.odds_value) - 1 : -1),
-    0
-  )
-  const roi = settled.length > 0 ? (profit / settled.length) * 100 : null
-  const activeBets = activeBetsCount ?? 0
-
-  const initialKPIs = {
-    total_matches: totalMatches ?? 0,
-    analyzed_matches: analyzedMatches ?? 0,
-    active_picks: highGradeBetsCount ?? 0,   // picks de alto valor (no duplica value_bets_detected)
-    historical_accuracy: accuracy,
-    roi,
-    correct_predictions: correctPredictions,
-    total_predictions: totalResolved,
-    value_bets_detected: activeBets,
-    value_bets_won: betsWon,
-    value_bets_pending: activeBets,
+  // ── Pick del día: mayor confianza entre lo que viene (72 h) ─
+  const upcomingRows = (upcoming ?? []) as any[]
+  const candidates = upcomingRows
+    .filter((m) => {
+      const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+      return p && new Date(m.kickoff_time).getTime() <= now + 72 * 3600_000
+    })
+    .map((m) => ({ m, p: Array.isArray(m.predictions) ? m.predictions[0] : m.predictions }))
+    .sort((a, b) => Number(b.p.confidence_score) - Number(a.p.confidence_score))
+  const pick = candidates[0] ?? null
+  let pickReasoning = ''
+  let pickOutcome: Outcome = 'home'
+  if (pick) {
+    const probs = {
+      home: Number(pick.p.home_win_probability),
+      draw: Number(pick.p.draw_probability),
+      away: Number(pick.p.away_win_probability),
+    }
+    pickOutcome = pickOf(probs)
+    const favTeam = pickOutcome === 'home' ? pick.m.home_team : pickOutcome === 'away' ? pick.m.away_team : null
+    const favProb = Math.round(Math.max(probs.home, probs.draw, probs.away) * 100)
+    const eloH = pick.m.home_team?.elo_rating
+    const eloA = pick.m.away_team?.elo_rating
+    pickReasoning = favTeam
+      ? `El motor da ${favProb}% a ${favTeam.name}: ELO ${eloH} vs ${eloA} y marcador estimado ${pick.p.predicted_home_score}-${pick.p.predicted_away_score}.`
+      : `El motor ve un partido cerrado (${favProb}% de empate, ELO ${eloH} vs ${eloA}): marcador estimado ${pick.p.predicted_home_score}-${pick.p.predicted_away_score}.`
   }
 
-  // Intelligence feed entries
-  const feedEntries = buildFeedEntries(recentPredictions ?? [], recentValueBets ?? [])
+  // ── Estado de competiciones ────────────────────────────────
+  const wcPhaseLabel = nextWcMatch
+    ? (PHASE_LABELS[(nextWcMatch as any).phase] ?? 'En juego')
+    : 'Torneo finalizado'
+  const upcomingComps = COMPETITIONS_NAV.filter((c) => c.status === 'proximamente')
 
-  // Champion strip — equipos enriquecidos con datos del equipo
-  const teamsMap = new Map((teams ?? []).map((t: any) => [t.id, t]))
-  const championData = (simulations ?? [])
-    .map((s: any) => ({ ...s, team: teamsMap.get(s.team_id) }))
-    .filter((s: any) => s.team)
+  // ── Smart Bet destacada ────────────────────────────────────
+  const bet = (topBet?.[0] ?? null) as any
 
-  // Top scorers strip
-  const playedByTeam = new Map<string, number>()
-  for (const m of (matchCounts ?? [])) {
-    playedByTeam.set(m.home_team_id, (playedByTeam.get(m.home_team_id) ?? 0) + 1)
-    playedByTeam.set(m.away_team_id, (playedByTeam.get(m.away_team_id) ?? 0) + 1)
-  }
-  const simByTeam = new Map((simForScorers ?? []).map((s: any) => [s.team_id, s]))
-
-  const scorersData = (statsRaw ?? []).map((s: any) => {
-    const teamId = s.player?.team_id
-    const played = s.matches_played || 1
-    const goalsPerGame = s.goals / played
-    const sim = simByTeam.get(teamId)
-    const teamMatchesPlayed = playedByTeam.get(teamId) ?? played
-    const groupRemaining = Math.max(0, 3 - teamMatchesPlayed)
-    const expectedKnockout = sim
-      ? (sim.round_of_16_prob ?? 0) + (sim.quarter_final_prob ?? 0) + (sim.semi_final_prob ?? 0) + (sim.final_prob ?? 0) + (sim.winner_prob ?? 0)
-      : 0
-    const projectedGoals = Math.round(goalsPerGame * (groupRemaining + expectedKnockout) * 10) / 10
-    return { ...s, projectedGoals }
-  })
+  // ── Actividad del motor ────────────────────────────────────
+  const recalibAt = (lastRecalib?.[0] as any)?.updated_at
+  const compName = (id: string) => COMPETITIONS_NAV.find((c) => c.id === id)?.name ?? 'Liga'
 
   return (
     <div className="flex flex-col gap-5 p-4 lg:p-6">
-      {/* Bloomberg terminal header */}
       <TerminalHeader
         modelVersion={MODEL_VERSION}
-        accuracy={accuracy}
-        totalMatches={totalMatches ?? 0}
-        analyzedMatches={analyzedMatches ?? 0}
+        accuracy30d={d30.pct}
+        activeCompetitions={ACTIVE_COMPETITIONS.length}
+        liveCount={liveCount ?? 0}
       />
 
-      {/* KPI Cards */}
-      <KPICardsRealtime initialKPIs={initialKPIs} />
-
-      {/* Champion + Scorers strip row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChampionStripWidget simulations={championData} />
-        <TopScorersStripWidget scorers={scorersData} />
-      </div>
-
-      {/* Tournament path */}
-      <TournamentPathTracker />
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Left col — 2/3 */}
-        <div className="flex flex-col gap-5 lg:col-span-2">
-          <UpcomingMatchesWidgetRealtime />
-
-          {/* Intelligence Feed */}
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Intelligence Feed
-                </span>
-              </div>
-              <span className="text-[10px] text-zinc-600 mono">
-                {feedEntries.length} señales recientes
-              </span>
-            </div>
-            <IntelligenceFeed entries={feedEntries} />
+      {/* ── HOY EN JUEGO ─────────────────────────────────────── */}
+      <section aria-label="Hoy en juego">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">Hoy en juego</h2>
+          <Link href="/matches" className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+            ver agenda <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {upcomingRows.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {upcomingRows.map((m) => {
+              const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+              return (
+                <Link
+                  key={m.id}
+                  href={`/matches/${m.id}`}
+                  className="group rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-colors hover:border-zinc-700"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    {compName(m.competition_id)} · {PHASE_LABELS[m.phase] ?? ''}
+                  </p>
+                  <p className="mt-1.5 truncate text-sm font-bold text-zinc-100">
+                    {m.home_team?.name} <span className="font-normal text-zinc-500">vs</span> {m.away_team?.name}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    {p ? (
+                      <span className="mono text-zinc-400">
+                        {Math.round(p.home_win_probability * 100)}·{Math.round(p.draw_probability * 100)}·{Math.round(p.away_win_probability * 100)}%
+                        <span className="ml-2 text-zinc-600">est. {p.predicted_home_score}-{p.predicted_away_score}</span>
+                      </span>
+                    ) : <span className="text-zinc-600">sin predicción aún</span>}
+                    <span className={m.status === 'live' ? 'font-bold text-emerald-400' : 'text-zinc-500'}>
+                      {m.status === 'live' ? '● EN VIVO' : fmtDate(m.kickoff_time, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
-        </div>
+        ) : (
+          // Estado vacío inteligente: qué pasó, qué viene, una acción
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-8 text-center">
+            <p className="text-sm font-medium text-zinc-300">No hay partidos en las próximas 48 horas</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-zinc-500">
+              {nextWcMatch
+                ? `La actividad regresa con ${wcPhaseLabel.toLowerCase()} del Mundial.`
+                : 'La temporada europea 2026-27 arranca a mediados de agosto — mientras tanto, el backtest completo de las 5 grandes ligas está disponible.'}
+            </p>
+            <Link href={nextWcMatch ? '/matches' : '/ligas'} className="mt-3 inline-block text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+              {nextWcMatch ? 'Ver agenda →' : 'Explorar ligas →'}
+            </Link>
+          </div>
+        )}
+      </section>
 
-        {/* Right col — 1/3 */}
-        <div className="flex flex-col gap-5">
-          <ModelPerformancePanel resolved={resolvedByDate as any[]} />
-          <ValueBetsWidgetRealtime />
-          <KnockoutBracketWidget matches={(knockoutMatches ?? []) as any[]} />
-        </div>
+      {/* ── PICK DEL DÍA + CONFIANZA ─────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section aria-label="El pick del día" className="rounded-xl border border-emerald-500/30 bg-zinc-900 p-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">El pick del día</p>
+          {pick ? (
+            <>
+              <p className="mt-2 text-lg font-bold text-white">
+                {pick.m.home_team?.name} <span className="font-normal text-zinc-500">vs</span> {pick.m.away_team?.name}
+              </p>
+              <p className="text-xs text-zinc-500">
+                {compName(pick.m.competition_id)} · {fmtDate(pick.m.kickoff_time, { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-300">{pickReasoning}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-400">
+                  Pick: {OUTCOME_LABEL[pickOutcome]}
+                </span>
+                <Link href={`/matches/${pick.m.id}`} className="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+                  ver análisis →
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">
+              Sin partidos con predicción en las próximas 72 horas. El pick
+              regresa con la próxima jornada.
+            </p>
+          )}
+        </section>
+
+        <section aria-label="Confianza del motor" className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Confianza del motor</p>
+            <Link href="/inteligencia" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+              metodología →
+            </Link>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-3xl font-bold text-emerald-400 mono">{wc.pct !== null ? `${wc.pct.toFixed(1)}%` : '—'}</p>
+              <p className="text-xs text-zinc-500">Mundial 2026 · {wc.correct}/{wc.total} aciertos 1X2</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-white mono">{ligas.pct !== null ? `${ligas.pct.toFixed(1)}%` : '—'}</p>
+              <p className="text-xs text-zinc-500">5 grandes ligas · backtest {ligas.total} picks</p>
+            </div>
+          </div>
+          <p className="mt-3 border-t border-zinc-800 pt-2.5 text-[11px] text-zinc-600">
+            Líneas base: azar 33% · apostar siempre local ≈44%. Cada cifra es
+            verificable en Inteligencia.
+          </p>
+        </section>
       </div>
 
+      {/* ── COMPETICIONES ────────────────────────────────────── */}
+      <section aria-label="Competiciones">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-zinc-300">Competiciones</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          {ACTIVE_COMPETITIONS.map((c) => (
+            <Link
+              key={c.slug}
+              href={c.href}
+              className="group rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 transition-colors hover:border-zinc-700"
+            >
+              <p className="truncate text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors">{c.name}</p>
+              <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                {c.slug === 'mundial-2026' ? wcPhaseLabel : c.note}
+              </p>
+            </Link>
+          ))}
+        </div>
+        {upcomingComps.length > 0 && (
+          <p className="mt-2 text-[11px] text-zinc-600">
+            En el roadmap: {upcomingComps.map((c) => c.name).join(' · ')}.
+          </p>
+        )}
+      </section>
+
+      {/* ── SMART BET + ACTIVIDAD ────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section aria-label="Smart Bet destacada" className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Smart Bet destacada</p>
+            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500"><AlertTriangle className="h-3 w-3" /> +18</span>
+          </div>
+          {bet ? (
+            <>
+              <p className="mt-2 text-sm font-bold text-white">
+                {bet.match?.home_team?.name} vs {bet.match?.away_team?.name}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400 mono">
+                <span>{bet.market === 'over_2_5' ? 'Más de 2.5 goles' : bet.market}</span>
+                <span>cuota {Number(bet.odds_value).toFixed(2)}</span>
+                <span className="text-emerald-400">edge +{(Number(bet.edge) * 100).toFixed(1)}%</span>
+                <span className="text-emerald-400">EV +{(Number(bet.expected_value) * 100).toFixed(1)}%</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-600">Vs. línea justa de Pinnacle · no es asesoría financiera</span>
+                <Link href="/value-bets" className="shrink-0 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+                  todas →
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">
+              El mercado no ofrece valor ahora mismo — el detector sigue
+              comparando el modelo contra la línea justa de Pinnacle.
+            </p>
+          )}
+        </section>
+
+        <section aria-label="Actividad del motor" className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5 text-emerald-500" />
+            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Actividad del motor</p>
+          </div>
+          <ul className="mt-3 space-y-2.5 text-xs text-zinc-400">
+            {recalibAt && (
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                Recalibrado por última vez: {fmtDate(recalibAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </li>
+            )}
+            {((lastFinished ?? []) as any[]).map((m) => {
+              const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+              return (
+                <li key={m.id} className="flex items-center gap-2">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p?.was_correct === true ? 'bg-emerald-500' : p?.was_correct === false ? 'bg-red-500' : 'bg-zinc-600'}`} />
+                  <Link href={`/matches/${m.id}`} className="mono hover:text-zinc-200">
+                    {m.home_team?.code} {m.home_score}-{m.away_score} {m.away_team?.code}
+                  </Link>
+                  <span className="text-zinc-600">
+                    {compName(m.competition_id)} · {p?.was_correct === true ? 'pick acertado' : p?.was_correct === false ? 'pick fallido' : 'resuelto'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      </div>
     </div>
   )
 }

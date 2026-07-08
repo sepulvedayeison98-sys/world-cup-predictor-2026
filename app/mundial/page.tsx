@@ -3,6 +3,10 @@ import Link from 'next/link'
 import { Trophy, GitBranch, Users, Crosshair, FlaskConical, Calendar, Grid3X3 } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, PHASE_LABELS } from '@/lib/constants'
+import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
+import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
+import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
+import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 
 export const metadata: Metadata = {
   title: 'Mundial 2026 | Veredicto',
@@ -12,13 +16,34 @@ export const revalidate = 120
 
 /**
  * Hub del Mundial 2026 (auditoría T2): el torneo deja de ser el universo
- * y se convierte en la primera competición de la casa — con su propio
- * hogar, sus secciones y su estado vital.
+ * y se convierte en la primera competición de la casa. Los widgets del
+ * torneo (campeón, goleadores, cuadro, camino) viven AQUÍ, no en el
+ * inicio global.
  */
 export default async function MundialHubPage() {
   const supabase = createStaticSupabaseClient()
 
-  const [{ data: preds }, { count: played }, { data: nextMatches }, { data: simRun }] = await Promise.all([
+  // Última corrida de simulación (para campeón y proyección de goleadores)
+  const { data: latestSimRun } = await supabase
+    .from('tournament_simulations')
+    .select('simulation_run_id')
+    .eq('competition_id', COMPETITION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const latestRunId = (latestSimRun as any)?.simulation_run_id
+
+  const [
+    { data: preds },
+    { count: played },
+    { data: nextMatches },
+    { data: simulations },
+    { data: teams },
+    { data: statsRaw },
+    { data: simForScorers },
+    { data: matchCounts },
+    { data: knockoutMatches },
+  ] = await Promise.all([
     supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
@@ -41,32 +66,84 @@ export default async function MundialHubPage() {
       .in('status', ['scheduled', 'live'])
       .order('kickoff_time', { ascending: true })
       .limit(4),
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+          .order('winner_prob', { ascending: false })
+          .limit(8)
+      : Promise.resolve({ data: [] as any[] }),
+    supabase.from('teams').select('id, name, short_name, code, confederation').eq('competition_id', COMPETITION_ID),
     supabase
-      .from('tournament_simulations')
-      .select('team_id, winner_prob, simulation_run_id, created_at')
+      .from('player_statistics')
+      .select(`
+        player_id, goals, matches_played,
+        player:players(id, name, short_name, team_id,
+          team:teams(id, code, confederation))
+      `)
       .eq('competition_id', COMPETITION_ID)
-      .order('created_at', { ascending: false })
-      .limit(1),
+      .gt('matches_played', 0)
+      .order('goals', { ascending: false })
+      .limit(10),
+    latestRunId
+      ? supabase
+          .from('tournament_simulations')
+          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
+          .eq('competition_id', COMPETITION_ID)
+          .eq('simulation_run_id', latestRunId)
+      : Promise.resolve({ data: [] as any[] }),
+    supabase
+      .from('matches')
+      .select('home_team_id, away_team_id, status')
+      .eq('competition_id', COMPETITION_ID)
+      .in('status', ['finished', 'live']),
+    supabase
+      .from('matches')
+      .select(`
+        id, phase, kickoff_time, status, home_score, away_score,
+        home_team:teams!matches_home_team_id_fkey(code, short_name, elo_rating),
+        away_team:teams!matches_away_team_id_fkey(code, short_name, elo_rating),
+        predictions(home_win_probability, draw_probability, away_win_probability)
+      `)
+      .eq('competition_id', COMPETITION_ID)
+      .in('phase', ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'])
+      .order('kickoff_time', { ascending: true })
+      .limit(32),
   ])
 
   const resolved = preds ?? []
   const correct = resolved.filter((p: any) => p.was_correct === true).length
   const accuracy = resolved.length ? ((correct / resolved.length) * 100).toFixed(1) : null
 
-  // Favorito al título según la última corrida de simulación
-  let favorite: { name: string; prob: number } | null = null
-  const runId = (simRun?.[0] as any)?.simulation_run_id
-  if (runId) {
-    const { data: top } = await supabase
-      .from('tournament_simulations')
-      .select('winner_prob, team:teams(name)')
-      .eq('competition_id', COMPETITION_ID)
-      .eq('simulation_run_id', runId)
-      .order('winner_prob', { ascending: false })
-      .limit(1)
-    const t = top?.[0] as any
-    if (t?.team) favorite = { name: t.team.name, prob: Number(t.winner_prob) }
+  // Campeón: equipos enriquecidos
+  const teamsMap = new Map((teams ?? []).map((t: any) => [t.id, t]))
+  const championData = (simulations ?? [])
+    .map((s: any) => ({ ...s, team: teamsMap.get(s.team_id) }))
+    .filter((s: any) => s.team)
+  const favorite = championData[0]
+
+  // Goleadores: proyección (misma lógica que tenía el dashboard)
+  const playedByTeam = new Map<string, number>()
+  for (const m of matchCounts ?? []) {
+    playedByTeam.set((m as any).home_team_id, (playedByTeam.get((m as any).home_team_id) ?? 0) + 1)
+    playedByTeam.set((m as any).away_team_id, (playedByTeam.get((m as any).away_team_id) ?? 0) + 1)
   }
+  const simByTeam = new Map((simForScorers ?? []).map((s: any) => [s.team_id, s]))
+  const scorersData = (statsRaw ?? []).map((s: any) => {
+    const teamId = s.player?.team_id
+    const gamesPlayed = s.matches_played || 1
+    const goalsPerGame = s.goals / gamesPlayed
+    const sim = simByTeam.get(teamId)
+    const teamMatchesPlayed = playedByTeam.get(teamId) ?? gamesPlayed
+    const groupRemaining = Math.max(0, 3 - teamMatchesPlayed)
+    const expectedKnockout = sim
+      ? (sim.round_of_16_prob ?? 0) + (sim.quarter_final_prob ?? 0) + (sim.semi_final_prob ?? 0) + (sim.final_prob ?? 0) + (sim.winner_prob ?? 0)
+      : 0
+    const projectedGoals = Math.round(goalsPerGame * (groupRemaining + expectedKnockout) * 10) / 10
+    return { ...s, projectedGoals }
+  })
 
   const currentPhase = (nextMatches?.[0] as any)?.phase as string | undefined
   const phaseLabel = (currentPhase && PHASE_LABELS[currentPhase]) ?? 'Torneo'
@@ -74,7 +151,7 @@ export default async function MundialHubPage() {
   const kpis = [
     { label: 'Precisión del motor', value: accuracy ? `${accuracy}%` : '—', sub: `${correct}/${resolved.length} · azar 33%` },
     { label: 'Partidos jugados', value: `${played ?? 0}/100`, sub: 'de todo el torneo' },
-    { label: 'Favorito al título', value: favorite?.name ?? '—', sub: favorite ? `${(favorite.prob).toFixed(1)}% en simulaciones` : 'sin simulaciones' },
+    { label: 'Favorito al título', value: favorite?.team?.name ?? '—', sub: favorite ? `${Number(favorite.winner_prob).toFixed(1)}% en simulaciones` : 'sin simulaciones' },
   ]
 
   const sections = [
@@ -110,38 +187,61 @@ export default async function MundialHubPage() {
         ))}
       </div>
 
-      {/* Próximos partidos del torneo */}
-      {(nextMatches?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-          <div className="border-b border-zinc-800 px-4 py-3">
-            <h2 className="text-sm font-bold text-white">Próximos partidos</h2>
-          </div>
-          <ul className="divide-y divide-zinc-800/60">
-            {(nextMatches as any[]).map((m) => {
-              const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
-              return (
-                <li key={m.id}>
-                  <Link href={`/matches/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-200">
-                        {m.home_team?.name} <span className="text-zinc-500">vs</span> {m.away_team?.name}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        {PHASE_LABELS[m.phase] ?? m.phase} · {new Date(m.kickoff_time).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    {p && (
-                      <span className="shrink-0 text-xs mono text-zinc-400">
-                        {Math.round(p.home_win_probability * 100)}·{Math.round(p.draw_probability * 100)}·{Math.round(p.away_win_probability * 100)}%
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+      {/* Campeón + goleadores (antes en el dashboard global) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ChampionStripWidget simulations={championData} />
+        <TopScorersStripWidget scorers={scorersData} />
+      </div>
+
+      {/* Camino del torneo por selección */}
+      <TournamentPathTracker />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Próximos partidos del torneo */}
+        <div className="lg:col-span-2">
+          {(nextMatches?.length ?? 0) > 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <div className="border-b border-zinc-800 px-4 py-3">
+                <h2 className="text-sm font-bold text-white">Próximos partidos</h2>
+              </div>
+              <ul className="divide-y divide-zinc-800/60">
+                {(nextMatches as any[]).map((m) => {
+                  const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+                  return (
+                    <li key={m.id}>
+                      <Link href={`/matches/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-200">
+                            {m.home_team?.name} <span className="text-zinc-500">vs</span> {m.away_team?.name}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {PHASE_LABELS[m.phase] ?? m.phase} · {new Date(m.kickoff_time).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {p && (
+                          <span className="shrink-0 text-xs mono text-zinc-400">
+                            {Math.round(p.home_win_probability * 100)}·{Math.round(p.draw_probability * 100)}·{Math.round(p.away_win_probability * 100)}%
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-8 text-center">
+              <p className="text-sm font-medium text-zinc-300">El torneo ha concluido</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Revisa el cuadro final, el campeón y la retrospectiva del motor.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Cuadro eliminatorio compacto */}
+        <KnockoutBracketWidget matches={(knockoutMatches ?? []) as any[]} />
+      </div>
 
       {/* Secciones del torneo */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

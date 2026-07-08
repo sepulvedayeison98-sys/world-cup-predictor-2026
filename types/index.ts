@@ -381,19 +381,6 @@ export interface SimulationResult {
 
 // ─── Dashboard KPIs ──────────────────────────────────────────
 
-export interface DashboardKPIs {
-  total_matches: number
-  analyzed_matches: number
-  active_picks: number
-  historical_accuracy: number | null // 0–1; null = sin predicciones resueltas
-  roi: number | null // percentage; null = sin apuestas resueltas
-  correct_predictions: number
-  total_predictions: number
-  value_bets_detected: number
-  value_bets_won: number
-  value_bets_pending: number
-}
-
 export interface ROIDataPoint {
   date: string
   roi: number
