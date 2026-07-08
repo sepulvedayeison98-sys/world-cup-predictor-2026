@@ -75,10 +75,29 @@ export interface LeagueBacktestMetrics {
   log_loss: number // -ln(p del resultado real); azar ≈ 1.099
 }
 
+/** Predicción pre-partido de un encuentro aún no jugado. */
+export interface UpcomingPrediction {
+  match_id: string
+  home_win_probability: number
+  draw_probability: number
+  away_win_probability: number
+  predicted_home_score: number
+  predicted_away_score: number
+  confidence_score: number
+  pick: Outcome
+}
+
 export interface LeagueBacktestResult {
   finalElo: Map<string, number>
   teamSeason: Map<string, TeamSeasonAggregate>
   predictions: LeagueMatchPrediction[]
+  /**
+   * Predicciones para partidos programados/en vivo, con el estado del
+   * modelo al final de los partidos ya jugados. En pretemporada (0
+   * partidos) el encogimiento las lleva a la media de la liga — honesto:
+   * el modelo aún no sabe nada de los equipos.
+   */
+  upcoming: UpcomingPrediction[]
   metrics: LeagueBacktestMetrics
 }
 
@@ -123,6 +142,46 @@ function goalDiffMultiplier(gd: number): number {
   return (11 + d) / 8
 }
 
+// ─── Cálculo de una predicción a partir del estado de los equipos ────────────
+
+interface EngineProbs {
+  home: number; draw: number; away: number
+  predictedHome: number; predictedAway: number
+  confidence: number
+  pick: Outcome
+}
+
+function predictFromStates(
+  home: TeamState,
+  away: TeamState,
+  leagueHomeAvg: number,
+  leagueAwayAvg: number,
+): EngineProbs {
+  const leagueGoalAvg = (leagueHomeAvg + leagueAwayAvg) / 2
+
+  // Fuerzas relativas (1.0 = equipo promedio de la liga)
+  const attackH = shrink(rollingAvg(home.gfHist, leagueGoalAvg), leagueGoalAvg, home.played) / leagueGoalAvg
+  const defenseH = shrink(rollingAvg(home.gaHist, leagueGoalAvg), leagueGoalAvg, home.played) / leagueGoalAvg
+  const attackA = shrink(rollingAvg(away.gfHist, leagueGoalAvg), leagueGoalAvg, away.played) / leagueGoalAvg
+  const defenseA = shrink(rollingAvg(away.gaHist, leagueGoalAvg), leagueGoalAvg, away.played) / leagueGoalAvg
+
+  // Inclinación por ELO, moderada para no contar dos veces la fuerza
+  const eHome = eloExpectedHome(home.elo, away.elo)
+  const lambdaHome = clamp(leagueHomeAvg * attackH * defenseA * (0.85 + 0.3 * eHome), 0.2, 4)
+  const lambdaAway = clamp(leagueAwayAvg * attackA * defenseH * (0.85 + 0.3 * (1 - eHome)), 0.2, 4)
+
+  const { probabilities, exactScores } = simulateMatch(lambdaHome, lambdaAway)
+  const { home: pH, draw: pD, away: pA } = probabilities
+  const top = exactScores[0] ?? { home: Math.round(lambdaHome), away: Math.round(lambdaAway) }
+
+  return {
+    home: pH, draw: pD, away: pA,
+    predictedHome: top.home, predictedAway: top.away,
+    confidence: Math.round(Math.max(pH, pD, pA) * 1000) / 10,
+    pick: pH >= pD && pH >= pA ? 'home' : pA >= pD ? 'away' : 'draw',
+  }
+}
+
 // ─── Backtest walk-forward ───────────────────────────────────────────────────
 
 export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestResult {
@@ -154,40 +213,24 @@ export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestR
     if (home.played >= LEAGUE_WARMUP_MATCHES && away.played >= LEAGUE_WARMUP_MATCHES) {
       const leagueHomeAvg = matchesSeen > 0 ? sumHomeGoals / matchesSeen : PRIOR_HOME_GOALS
       const leagueAwayAvg = matchesSeen > 0 ? sumAwayGoals / matchesSeen : PRIOR_AWAY_GOALS
-      const leagueGoalAvg = (leagueHomeAvg + leagueAwayAvg) / 2
 
-      // Fuerzas relativas (1.0 = equipo promedio de la liga)
-      const attackH = shrink(rollingAvg(home.gfHist, leagueGoalAvg), leagueGoalAvg, home.played) / leagueGoalAvg
-      const defenseH = shrink(rollingAvg(home.gaHist, leagueGoalAvg), leagueGoalAvg, home.played) / leagueGoalAvg
-      const attackA = shrink(rollingAvg(away.gfHist, leagueGoalAvg), leagueGoalAvg, away.played) / leagueGoalAvg
-      const defenseA = shrink(rollingAvg(away.gaHist, leagueGoalAvg), leagueGoalAvg, away.played) / leagueGoalAvg
-
-      // Inclinación por ELO, moderada para no contar dos veces la fuerza
-      const eHome = eloExpectedHome(home.elo, away.elo)
-      const lambdaHome = clamp(leagueHomeAvg * attackH * defenseA * (0.85 + 0.3 * eHome), 0.2, 4)
-      const lambdaAway = clamp(leagueAwayAvg * attackA * defenseH * (0.85 + 0.3 * (1 - eHome)), 0.2, 4)
-
-      const { probabilities, exactScores } = simulateMatch(lambdaHome, lambdaAway)
-      const { home: pH, draw: pD, away: pA } = probabilities
-      const pick: Outcome = pH >= pD && pH >= pA ? 'home' : pA >= pD ? 'away' : 'draw'
-      const isCorrect = pick === actual
-
-      const top = exactScores[0] ?? { home: Math.round(lambdaHome), away: Math.round(lambdaAway) }
-      const pActual = actual === 'home' ? pH : actual === 'draw' ? pD : pA
+      const p = predictFromStates(home, away, leagueHomeAvg, leagueAwayAvg)
+      const isCorrect = p.pick === actual
+      const pActual = actual === 'home' ? p.home : actual === 'draw' ? p.draw : p.away
       const yH = actual === 'home' ? 1 : 0, yD = actual === 'draw' ? 1 : 0, yA = actual === 'away' ? 1 : 0
 
       predictions.push({
         match_id: m.id,
-        home_win_probability: pH,
-        draw_probability: pD,
-        away_win_probability: pA,
-        predicted_home_score: top.home,
-        predicted_away_score: top.away,
-        confidence_score: Math.round(Math.max(pH, pD, pA) * 1000) / 10,
-        pick, actual, correct: isCorrect,
+        home_win_probability: p.home,
+        draw_probability: p.draw,
+        away_win_probability: p.away,
+        predicted_home_score: p.predictedHome,
+        predicted_away_score: p.predictedAway,
+        confidence_score: p.confidence,
+        pick: p.pick, actual, correct: isCorrect,
       })
       if (isCorrect) correct++
-      brierSum += (pH - yH) ** 2 + (pD - yD) ** 2 + (pA - yA) ** 2
+      brierSum += (p.home - yH) ** 2 + (p.draw - yD) ** 2 + (p.away - yA) ** 2
       logLossSum += -Math.log(Math.max(pActual, 1e-9))
     } else {
       skipped++
@@ -218,6 +261,28 @@ export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestR
     away.elo -= delta
   }
 
+  // ── Predicciones para partidos NO jugados (estado final del modelo) ──
+  // Modo "en vivo" para la temporada 2026-27: tras ingerir la jornada,
+  // la calibración deja lista la predicción de los próximos partidos.
+  const leagueHomeAvg = matchesSeen > 0 ? sumHomeGoals / matchesSeen : PRIOR_HOME_GOALS
+  const leagueAwayAvg = matchesSeen > 0 ? sumAwayGoals / matchesSeen : PRIOR_AWAY_GOALS
+  const upcoming: UpcomingPrediction[] = matches
+    .filter((m) => m.status === 'scheduled' || m.status === 'live')
+    .sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time) || a.id.localeCompare(b.id))
+    .map((m) => {
+      const p = predictFromStates(state(m.home_team_id), state(m.away_team_id), leagueHomeAvg, leagueAwayAvg)
+      return {
+        match_id: m.id,
+        home_win_probability: p.home,
+        draw_probability: p.draw,
+        away_win_probability: p.away,
+        predicted_home_score: p.predictedHome,
+        predicted_away_score: p.predictedAway,
+        confidence_score: p.confidence,
+        pick: p.pick,
+      }
+    })
+
   const evaluated = predictions.length
   const finalElo = new Map<string, number>()
   const teamSeason = new Map<string, TeamSeasonAggregate>()
@@ -231,6 +296,7 @@ export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestR
     finalElo,
     teamSeason,
     predictions,
+    upcoming,
     metrics: {
       evaluated,
       skipped,

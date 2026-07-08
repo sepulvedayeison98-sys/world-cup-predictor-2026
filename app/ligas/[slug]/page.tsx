@@ -58,8 +58,15 @@ export default async function LeagueDetailPage({ params }: Props) {
   ])
   if (!comp || !teams?.length) notFound()
 
+  // Solo temporada regular (round ≠ NULL): los playoffs de descenso no
+  // cuentan para la tabla ni el calendario, y el rival de segunda
+  // división del playoff no aparece como equipo de la liga.
+  const regularMatches = ((matches ?? []) as any[]).filter((m) => m.round != null)
+  const inLeague = new Set(regularMatches.flatMap((m) => [m.home_team_id, m.away_team_id]))
+  const leagueTeams = (teams as any[]).filter((t) => inLeague.has(t.id))
+
   const teamById = new Map((teams as any[]).map((t) => [t.id, t]))
-  const standings = computeLeagueStandings(teams as any[], (matches ?? []) as any[])
+  const standings = computeLeagueStandings(leagueTeams, regularMatches)
 
   // ── Calendario agrupado por jornada ────────────────────────
   const byRound = new Map<number, JornadaMatchView[]>()

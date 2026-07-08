@@ -1,0 +1,33 @@
+name: Sync ligas (API-Football)
+
+# Dos veces por semana (lunes y viernes 03:00 UTC): ingesta el calendario
+# y resultados de las 5 grandes ligas y recalibra el motor liga-1.0.
+# Cuota API-Football (plan Free): 100 req/dia → cada corrida usa 10.
+# Con la temporada 2024-25 (historica) esto es casi un no-op idempotente;
+# cuando se conecte la 2026-27 (plan pago, ~agosto) este mismo cron
+# mantiene resultados y predicciones pre-partido al dia.
+# Requiere secret: CRON_SECRET.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1,5"
+  workflow_dispatch:
+
+jobs:
+  leagues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ingesta + calibracion de ligas
+        env:
+          APP_URL: 'https://world-cup-predictor-2026-flax.vercel.app'
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          AUTH="Authorization: Bearer $CRON_SECRET"
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 300 \
+            "$APP_URL/api/sync/leagues/ingest" -H "$AUTH" \
+            || { echo "::warning::Ingesta de ligas fallo tras reintentos."; exit 0; }
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 300 \
+            "$APP_URL/api/sync/leagues/calibrate" -H "$AUTH" \
+            || { echo "::warning::Calibracion de ligas fallo tras reintentos."; exit 0; }

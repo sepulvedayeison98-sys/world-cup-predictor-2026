@@ -139,6 +139,37 @@ test('eloExpectedHome: simétrico alrededor de la ventaja de local', () => {
   assert.ok(weak < 0.4)
 })
 
+test('upcoming: predice partidos programados con el estado final del modelo', () => {
+  const season = syntheticSeason()
+  // Dos partidos futuros: dominante de local y de visita
+  season.push(M('fuerte', 'b', null, null, 27))
+  season.push(M('c', 'fuerte', null, null, 28))
+  const { upcoming } = runLeagueBacktest(season)
+
+  assert.equal(upcoming.length, 2)
+  for (const u of upcoming) {
+    const sum = u.home_win_probability + u.draw_probability + u.away_win_probability
+    assert.ok(Math.abs(sum - 1) < 0.005)
+  }
+  // El dominante es favorito en ambos: de local (home) y de visita (away)
+  assert.equal(upcoming[0].pick, 'home')
+  assert.equal(upcoming[1].pick, 'away')
+  assert.ok(upcoming[0].home_win_probability > 0.55)
+  assert.ok(upcoming[1].away_win_probability > 0.5)
+})
+
+test('upcoming: en pretemporada (sin historia) el local parte con leve ventaja', () => {
+  const preseason = [M('x', 'y', null, null, 1)]
+  const { upcoming, predictions } = runLeagueBacktest(preseason)
+  assert.equal(predictions.length, 0)
+  assert.equal(upcoming.length, 1)
+  const u = upcoming[0]
+  // Sin información, el modelo cae a la media de la liga: local favorito
+  // moderado, nunca una probabilidad extrema
+  assert.ok(u.home_win_probability > u.away_win_probability)
+  assert.ok(u.home_win_probability < 0.6)
+})
+
 test('backtest: partidos insuficientes → nada que evaluar, métricas en cero', () => {
   const few = [M('a', 'b', 1, 0, 1), M('b', 'a', 0, 1, 2)]
   const result = runLeagueBacktest(few)

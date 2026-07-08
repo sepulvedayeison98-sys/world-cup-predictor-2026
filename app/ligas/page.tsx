@@ -31,16 +31,23 @@ export default async function LigasPage() {
       supabase
         .from('matches')
         .select('home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
-        .eq('competition_id', comp.id),
+        .eq('competition_id', comp.id)
+        // Solo temporada regular: los playoffs de descenso (round NULL)
+        // no cuentan para la tabla (Bundesliga/Ligue 1)
+        .not('round', 'is', null),
     ])
     if (!teams?.length) continue
+    // Equipos que participan en la liga regular (excluye al rival de
+    // segunda división del playoff de descenso)
+    const inLeague = new Set((matches ?? []).flatMap((m: any) => [m.home_team_id, m.away_team_id]))
+    const leagueTeams = (teams as any[]).filter((t) => inLeague.has(t.id))
     leagues.push({
       key: comp.id,
       slug: leagueSlugById(comp.id),
       name: comp.name,
       season: comp.season,
       country: comp.country ?? '',
-      standings: computeLeagueStandings(teams as any[], (matches ?? []) as any[]),
+      standings: computeLeagueStandings(leagueTeams, (matches ?? []) as any[]),
     })
   }
 

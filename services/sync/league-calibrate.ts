@@ -41,14 +41,20 @@ export async function calibrateLeagues(): Promise<{
       .from('matches')
       .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
       .eq('competition_id', competitionId)
+      // Solo temporada regular: los playoffs de descenso (round NULL) no
+      // entran ni al ELO ni al backtest
+      .not('round', 'is', null)
     if (mErr) throw new Error(`matches ${key}: ${mErr.message}`)
     if (!matches?.length) continue
 
     const backtest = runLeagueBacktest(matches as any[])
 
     // ── ELO final por club ───────────────────────────────────
+    // Solo equipos con partidos jugados: en pretemporada no se pisa el
+    // ELO existente con la base 1500.
     let teamsUpdated = 0
     for (const [teamId, elo] of backtest.finalElo) {
+      if ((backtest.teamSeason.get(teamId)?.played ?? 0) === 0) continue
       const { error } = await (supabase.from('teams') as any)
         .update({ elo_rating: elo })
         .eq('id', teamId)
@@ -58,7 +64,9 @@ export async function calibrateLeagues(): Promise<{
     }
 
     // ── Agregados de temporada → team_statistics ─────────────
-    const statRows = [...backtest.teamSeason.entries()].map(([teamId, t]) => ({
+    const statRows = [...backtest.teamSeason.entries()]
+      .filter(([, t]) => t.played > 0)
+      .map(([teamId, t]) => ({
       team_id: teamId,
       competition_id: competitionId,
       matches_played: t.played,
@@ -72,7 +80,7 @@ export async function calibrateLeagues(): Promise<{
       avg_xga: t.played ? Math.round((t.goals_against / t.played) * 100) / 100 : 0,
       form: t.form,
       updated_at: new Date().toISOString(),
-    }))
+      }))
     const { error: sErr } = await (supabase.from('team_statistics') as any)
       .upsert(statRows, { onConflict: 'team_id,competition_id' })
     if (sErr) throw new Error(`team_statistics ${key}: ${sErr.message}`)
@@ -93,13 +101,33 @@ export async function calibrateLeagues(): Promise<{
       actual_outcome: p.actual,
       updated_at: new Date().toISOString(),
     }))
+    // Partidos programados/en vivo: predicción pre-partido con el estado
+    // actual del modelo (modo "en vivo" para la temporada 2026-27).
+    const upcomingRows = backtest.upcoming.map((p) => ({
+      match_id: p.match_id,
+      home_win_probability: p.home_win_probability,
+      draw_probability: p.draw_probability,
+      away_win_probability: p.away_win_probability,
+      predicted_home_score: p.predicted_home_score,
+      predicted_away_score: p.predicted_away_score,
+      confidence_level: computeConfidenceLevel(p.confidence_score),
+      confidence_score: p.confidence_score,
+      model_version: LEAGUE_MODEL_VERSION,
+      is_published: true,
+      was_correct: null,
+      actual_outcome: null,
+      updated_at: new Date().toISOString(),
+    }))
+
     let predictionsUpserted = 0
-    for (let i = 0; i < predRows.length; i += 200) {
-      const chunk = predRows.slice(i, i + 200)
-      const { error } = await (supabase.from('predictions') as any)
-        .upsert(chunk, { onConflict: 'match_id' })
-      if (error) throw new Error(`predictions ${key}: ${error.message}`)
-      predictionsUpserted += chunk.length
+    for (const rows of [predRows, upcomingRows]) {
+      for (let i = 0; i < rows.length; i += 200) {
+        const chunk = rows.slice(i, i + 200)
+        const { error } = await (supabase.from('predictions') as any)
+          .upsert(chunk, { onConflict: 'match_id' })
+        if (error) throw new Error(`predictions ${key}: ${error.message}`)
+        predictionsUpserted += chunk.length
+      }
     }
 
     results.push({
