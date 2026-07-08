@@ -95,7 +95,7 @@ explicación y acción · líneas base junto a toda precisión.
 | C2 | Partidos vacía por defecto con skeletons eternos | ✅ Fecha inteligente + banner explicativo |
 | C3 | KPIs muertos/duplicados y "Próximos" vacío | ✅ KPI dinámicos + dashboard nuevo sin bloques muertos |
 | C4 | Navegación plana no escalable | ✅ Registro + 4 grupos, raíz congelada |
-| I1 | Detalle sobresegmentado (8 pestañas) | ⚠ Parcial: documentado como siguiente etapa (T4) — exige decidir fusiones con uso real |
+| I1 | Detalle sobresegmentado (8 pestañas) | ✅ Fusión T4 aplicada: 4 pestañas (Predicción con Smart Bets · Análisis del modelo con gemelo/Monte Carlo/integridad · Estadísticas con alineaciones · Cuotas) — nada se eliminó, todo se reagrupó |
 | I2 | Móvil pierde Pts / cinta truncada | ✅ Columnas sticky + cinta responsive |
 | I3 | Versión de modelo inconsistente | ✅ Fuente única en todos los puntos |
 | I4 | Ligas en orden alfabético | ✅ Orden editorial fijo |
@@ -136,9 +136,8 @@ Reubicados al hub: `ChampionStripWidget`, `TopScorersStripWidget`,
 
 ## Deuda técnica restante (requiere trabajo/decisión externa)
 
-1. **Fusión de pestañas del detalle de partido (I1)** y **rediseño del
-   simulador (I5)** — etapa T4 de la auditoría; conviene validar con uso
-   real antes de fusionar.
+1. **Rediseño del simulador (I5)** — etapa T4 de la auditoría; conviene
+   validarlo con uso real antes de intervenirlo.
 2. **Nombre definitivo de la marca** — se aplicó "Veredicto ·
    Inteligencia Deportiva" (dirección propuesta en la auditoría); si el
    dueño prefiere otra, es un cambio de una constante + logo.

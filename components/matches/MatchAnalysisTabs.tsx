@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { TrendingUp, BarChart2, DollarSign, Users, Sparkles, ShieldCheck, FlaskConical, Crosshair, Swords, Star, Trophy } from 'lucide-react'
+import { TrendingUp, BarChart2, DollarSign, FlaskConical, Swords } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
@@ -44,18 +44,28 @@ const ProbabilityHistoryChart = dynamic(
   { loading: PanelSkeleton },
 )
 
+// Fusión T4 (auditoría I1): de 8 pestañas a 4. Nada se eliminó — el
+// contenido se reagrupó con títulos honestos: Smart Bets vive dentro de
+// Predicción; Alineaciones dentro de Estadísticas; y Digital Twin +
+// Monte Carlo + Auditoría AI son secciones de "Análisis del modelo".
 const TABS = [
-  { id: 'prediccion',   label: 'Predicción',    icon: TrendingUp    },
-  { id: 'estadisticas', label: 'Estadísticas',  icon: BarChart2     },
-  { id: 'cuotas',       label: 'Cuotas',        icon: DollarSign    },
-  { id: 'alineaciones', label: 'Alineaciones',  icon: Users         },
-  { id: 'smart-bets',   label: 'Smart Bets AI', icon: Sparkles      },
-  { id: 'digital-twin', label: 'Digital Twin',  icon: Crosshair     },
-  { id: 'montecarlo',   label: 'Monte Carlo',   icon: FlaskConical  },
-  { id: 'auditoria',    label: 'Auditoría AI',  icon: ShieldCheck   },
+  { id: 'prediccion',   label: 'Predicción',         icon: TrendingUp   },
+  { id: 'analisis',     label: 'Análisis del modelo', icon: FlaskConical },
+  { id: 'estadisticas', label: 'Estadísticas',       icon: BarChart2    },
+  { id: 'cuotas',       label: 'Cuotas',             icon: DollarSign   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
+
+/** Encabezado de sección interna: qué es y de dónde sale el análisis. */
+function SectionHeader({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="border-b border-zinc-800 pb-2">
+      <h3 className="text-sm font-bold text-white">{title}</h3>
+      <p className="text-xs text-zinc-500">{desc}</p>
+    </div>
+  )
+}
 
 interface Props {
   match: any
@@ -312,26 +322,89 @@ export function MatchAnalysisTabs({
       {/* Content */}
       <div className="mt-6">
 
-        {/* ── Predicción ── */}
+        {/* ── Predicción (incluye Smart Bets como bloque) ── */}
         {active === 'prediccion' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1 space-y-6">
-              {prediction ? (
-                <>
-                  <MatchPredictionPanel prediction={prediction} match={match} />
-                  {(prediction.exact_score_predictions?.length ?? 0) > 0 && (
-                    <ExactScoresTable scores={prediction.exact_score_predictions} />
-                  )}
-                </>
-              ) : (
-                <div className="card p-8 text-center text-zinc-500 text-sm">
-                  Sin predicción disponible para este partido.
-                </div>
-              )}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-1 space-y-6">
+                {prediction ? (
+                  <>
+                    <MatchPredictionPanel prediction={prediction} match={match} />
+                    {(prediction.exact_score_predictions?.length ?? 0) > 0 && (
+                      <ExactScoresTable scores={prediction.exact_score_predictions} />
+                    )}
+                  </>
+                ) : (
+                  <div className="card p-8 text-center text-zinc-500 text-sm">
+                    Sin predicción disponible para este partido.
+                  </div>
+                )}
+              </div>
+              <div className="lg:col-span-2">
+                <ProbabilityHistoryChart matchId={match.id} />
+              </div>
             </div>
-            <div className="lg:col-span-2">
-              <ProbabilityHistoryChart matchId={match.id} />
-            </div>
+
+            <SectionHeader
+              title="Smart Bets del partido"
+              desc="Oportunidades de valor detectadas por la IA para este cruce — ver todas en la sección Smart Bets."
+            />
+            {!homeStats && <DerivedDataBadge />}
+            <AISmartBetsPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+              odds={odds}
+              homeRecentMatches={homeRecentMatches}
+              awayRecentMatches={awayRecentMatches}
+              homeGroupContext={homeGroupContext}
+              awayGroupContext={awayGroupContext}
+            />
+            <ResponsibleGamingNotice odds={odds} />
+          </div>
+        )}
+
+        {/* ── Análisis del modelo (fusión: Digital Twin + Monte Carlo + Auditoría) ── */}
+        {active === 'analisis' && (
+          <div className="space-y-6">
+            {!homeStats && <DerivedDataBadge />}
+
+            <SectionHeader
+              title="Gemelo estadístico del partido"
+              desc="Proyección por unidades de ataque y defensa a partir de los promedios reales de cada equipo."
+            />
+            <MatchDigitalTwin
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+            />
+
+            <SectionHeader
+              title="Distribución de resultados (Monte Carlo)"
+              desc="Miles de simulaciones del mismo partido: rango de marcadores, minuto esperado del primer gol y variabilidad."
+            />
+            <MonteCarloPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+            />
+
+            <SectionHeader
+              title="Integridad de los datos"
+              desc="Qué información alimentó esta predicción, su procedencia y su calidad — el control de honestidad del motor."
+            />
+            <DataIntegrityPanel
+              prediction={prediction}
+              homeStats={effectiveHomeStats}
+              awayStats={effectiveAwayStats}
+              match={match}
+              injuries={injuries}
+              odds={odds}
+            />
           </div>
         )}
 
@@ -378,25 +451,13 @@ export function MatchAnalysisTabs({
                 />
               </>
             )}
-          </div>
-        )}
 
-        {/* ── Cuotas ── */}
-        {active === 'cuotas' && (
-          <div className="space-y-4">
-            <OddsComparisonTable
-              odds={odds}
-              prediction={prediction}
-              homeTeam={match.home_team}
-              awayTeam={match.away_team}
+            {/* Alineaciones y bajas — antes pestaña propia, ahora parte
+                del contexto estadístico del partido */}
+            <SectionHeader
+              title="Alineaciones y bajas"
+              desc="Onces (probables u oficiales) y estado del plantel de cada equipo."
             />
-            <ResponsibleGamingNotice odds={odds} />
-          </div>
-        )}
-
-        {/* ── Alineaciones ── */}
-        {active === 'alineaciones' && (
-          <div className="space-y-6">
             <LineupDisplay
               matchId={match.id}
               homeTeam={match.home_team}
@@ -412,64 +473,16 @@ export function MatchAnalysisTabs({
           </div>
         )}
 
-        {/* ── Smart Bets AI ── */}
-        {active === 'smart-bets' && (
+        {/* ── Cuotas ── */}
+        {active === 'cuotas' && (
           <div className="space-y-4">
-            {!homeStats && <DerivedDataBadge />}
-            <AISmartBetsPanel
-              prediction={prediction}
-              homeStats={effectiveHomeStats}
-              awayStats={effectiveAwayStats}
-              match={match}
-              injuries={injuries}
+            <OddsComparisonTable
               odds={odds}
-              homeRecentMatches={homeRecentMatches}
-              awayRecentMatches={awayRecentMatches}
-              homeGroupContext={homeGroupContext}
-              awayGroupContext={awayGroupContext}
+              prediction={prediction}
+              homeTeam={match.home_team}
+              awayTeam={match.away_team}
             />
             <ResponsibleGamingNotice odds={odds} />
-          </div>
-        )}
-
-        {/* ── Digital Twin ── */}
-        {active === 'digital-twin' && (
-          <div className="space-y-4">
-            {!homeStats && <DerivedDataBadge />}
-            <MatchDigitalTwin
-              homeStats={effectiveHomeStats}
-              awayStats={effectiveAwayStats}
-              match={match}
-            />
-          </div>
-        )}
-
-        {/* ── Monte Carlo ── */}
-        {active === 'montecarlo' && (
-          <div className="space-y-4">
-            {!homeStats && <DerivedDataBadge />}
-            <MonteCarloPanel
-              prediction={prediction}
-              homeStats={effectiveHomeStats}
-              awayStats={effectiveAwayStats}
-              match={match}
-              injuries={injuries}
-            />
-          </div>
-        )}
-
-        {/* ── Auditoría AI ── */}
-        {active === 'auditoria' && (
-          <div className="space-y-4">
-            {!homeStats && <DerivedDataBadge />}
-            <DataIntegrityPanel
-              prediction={prediction}
-              homeStats={effectiveHomeStats}
-              awayStats={effectiveAwayStats}
-              match={match}
-              injuries={injuries}
-              odds={odds}
-            />
           </div>
         )}
       </div>

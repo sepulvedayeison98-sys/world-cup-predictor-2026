@@ -36,6 +36,32 @@ test('inteligencia: precisión verificable con líneas base y metodología', asy
   await expect(page.getByText('Cómo predice el motor')).toBeVisible()
 })
 
+test('detalle de partido: 4 pestañas fusionadas con secciones internas', async ({ page, request }) => {
+  // Un partido real del Mundial vía la API pública (ids estables en BD)
+  const res = await request.get('/api/predictions')
+  const body = await res.json()
+  const matchId = body?.data?.[0]?.match_id
+  expect(matchId, 'la API de predicciones debe devolver al menos un partido').toBeTruthy()
+
+  await page.goto(`/matches/${matchId}`)
+  // Exactamente 4 pestañas (fusión T4) — las 8 antiguas ya no existen
+  for (const tab of ['Predicción', 'Análisis del modelo', 'Estadísticas', 'Cuotas']) {
+    await expect(page.getByRole('button', { name: tab })).toBeVisible()
+  }
+  await expect(page.getByRole('button', { name: 'Digital Twin' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Monte Carlo' })).toHaveCount(0)
+  // Predicción incluye el bloque de Smart Bets
+  await expect(page.getByText('Smart Bets del partido')).toBeVisible()
+  // Análisis del modelo agrupa las tres secciones con títulos honestos
+  await page.getByRole('button', { name: 'Análisis del modelo' }).click()
+  await expect(page.getByText('Gemelo estadístico del partido')).toBeVisible()
+  await expect(page.getByText('Distribución de resultados (Monte Carlo)')).toBeVisible()
+  await expect(page.getByText('Integridad de los datos')).toBeVisible()
+  // Estadísticas absorbe Alineaciones
+  await page.getByRole('button', { name: 'Estadísticas' }).click()
+  await expect(page.getByText('Alineaciones y bajas')).toBeVisible()
+})
+
 test('buscador global: abre desde la topbar y lista competiciones', async ({ page }) => {
   await page.goto('/dashboard')
   await page.getByRole('button', { name: 'Buscar equipo o competición' }).click()
