@@ -6,36 +6,44 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Calendar,
-  User,
   TrendingUp,
   Zap,
-
   Settings,
   ChevronLeft,
   ChevronRight,
   Trophy,
-  FlaskConical,
-  Crosshair,
-  GitBranch,
   Globe,
+  BrainCircuit,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MODEL_VERSION } from '@/lib/constants'
+import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV } from '@/lib/sports'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
-const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
-  { href: '/matches',      label: 'Partidos',        icon: Calendar },
-  { href: '/predictions',  label: 'Predicciones',    icon: TrendingUp },
-  { href: '/champion',     label: 'Campeón',         icon: Trophy },
-  { href: '/bracket',      label: 'Eliminatorias',   icon: GitBranch },
-  { href: '/ligas',        label: 'Ligas',           icon: Globe },
-  { href: '/scorers',      label: 'Goleadores',      icon: Crosshair },
-  { href: '/value-bets',   label: 'Apuestas Valor',  icon: Zap },
-  { href: '/simulation',   label: 'Simulador',       icon: FlaskConical },
-  { href: '/players',      label: 'Jugadores',       icon: User },
-  { href: '/settings',     label: 'Configuración',   icon: Settings },
+/**
+ * Navegación raíz CONGELADA (auditoría F2/F5): las competiciones nuevas
+ * entran al registro lib/sports.ts, nunca como ítems raíz nuevos.
+ */
+const ANALYSIS_ITEMS = [
+  { href: '/matches',     label: 'Partidos',      icon: Calendar },
+  { href: '/predictions', label: 'Predicciones',  icon: TrendingUp },
+  { href: '/value-bets',  label: 'Smart Bets',    icon: Zap },
+  { href: '/inteligencia', label: 'Inteligencia', icon: BrainCircuit },
 ]
+
+const UPCOMING = COMPETITIONS_NAV.filter((c) => c.status === 'proximamente')
+
+function SectionLabel({ children, collapsed }: { children: React.ReactNode; collapsed: boolean }) {
+  return (
+    <p className={cn(
+      'px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600',
+      collapsed && 'lg:hidden',
+    )}>
+      {children}
+    </p>
+  )
+}
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false) // solo escritorio (lg+)
@@ -46,6 +54,18 @@ export function Sidebar() {
   useEffect(() => {
     setOpen(false)
   }, [pathname, setOpen])
+
+  const navItem = (href: string, label: string, Icon: any, active: boolean) => (
+    <Link
+      href={href}
+      title={collapsed ? label : undefined}
+      onClick={() => setOpen(false)}
+      className={cn('nav-item', active && 'nav-item-active', collapsed && 'lg:justify-center lg:px-2')}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
+    </Link>
+  )
 
   return (
     <>
@@ -61,51 +81,59 @@ export function Sidebar() {
       <aside
         className={cn(
           'flex flex-col bg-zinc-900 border-r border-zinc-800',
-          // Movil: drawer fijo que se desliza desde la izquierda
           'fixed inset-y-0 left-0 z-50 w-60 transition-transform duration-300 ease-in-out',
           open ? 'translate-x-0' : '-translate-x-full',
-          // Escritorio: en el flujo, colapsable, siempre visible
           'lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 lg:transition-all',
           collapsed ? 'lg:w-16' : 'lg:w-60'
         )}
       >
-        {/* Logo */}
+        {/* Marca neutra (auditoría T2): la casa es de inteligencia
+            deportiva; el Mundial es su primera competición, no su nombre. */}
         <div className="flex items-center h-14 px-4 border-b border-zinc-800">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30">
-              <Trophy className="h-4 w-4 text-emerald-400" />
+              <Activity className="h-4 w-4 text-emerald-400" />
             </div>
             <div className={cn('min-w-0', collapsed && 'lg:hidden')}>
-              <p className="text-sm font-bold text-white truncate">WC Predictor</p>
-              <p className="text-[10px] text-zinc-500 truncate">FIFA 2026</p>
+              <p className="text-sm font-bold text-white truncate">Veredicto</p>
+              <p className="text-[10px] text-zinc-500 truncate">Inteligencia Deportiva</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
+        <nav className="flex-1 overflow-y-auto py-2 px-2">
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href || pathname.startsWith(href + '/')
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    title={collapsed ? label : undefined}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      'nav-item',
-                      isActive && 'nav-item-active',
-                      collapsed && 'lg:justify-center lg:px-2'
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
-                  </Link>
-                </li>
-              )
+            <li>{navItem('/dashboard', 'Inicio', LayoutDashboard, pathname === '/dashboard' || pathname === '/')}</li>
+          </ul>
+
+          <SectionLabel collapsed={collapsed}>Competiciones</SectionLabel>
+          <ul className="flex flex-col gap-0.5">
+            {ACTIVE_COMPETITIONS.map((c) => {
+              const Icon = c.slug === 'mundial-2026' ? Trophy : Globe
+              const active = pathname === c.href || pathname.startsWith(c.href + '/')
+              return <li key={c.slug}>{navItem(c.href, c.name, Icon, active)}</li>
             })}
           </ul>
+          {UPCOMING.length > 0 && (
+            <p className={cn('px-3 pt-1.5 text-[10px] leading-relaxed text-zinc-600', collapsed && 'lg:hidden')}>
+              Pronto: {UPCOMING.map((c) => c.name).join(' · ')}
+            </p>
+          )}
+
+          <SectionLabel collapsed={collapsed}>Análisis</SectionLabel>
+          <ul className="flex flex-col gap-0.5">
+            {ANALYSIS_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + '/')
+              return <li key={href}>{navItem(href, label, Icon, active)}</li>
+            })}
+          </ul>
+
+          <div className="mt-4 border-t border-zinc-800 pt-2">
+            <ul className="flex flex-col gap-0.5">
+              <li>{navItem('/settings', 'Configuración', Settings, pathname.startsWith('/settings'))}</li>
+            </ul>
+          </div>
         </nav>
 
         {/* Model status indicator */}
