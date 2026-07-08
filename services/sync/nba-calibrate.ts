@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { runNbaBacktest } from '@/lib/nbaEngine'
 import { computeConfidenceLevel } from '@/lib/predictionEngine'
 import { NBA_COMPETITION_ID, NBA_MODEL_VERSION } from '@/lib/nba'
+import { fetchAllRows } from '@/lib/fetchAll'
 import { syncSmartBetTracking } from '@/services/smartBetTracking'
 
 export interface NbaCalibrationResult {
@@ -20,12 +21,13 @@ export interface NbaCalibrationResult {
 export async function calibrateNba(): Promise<NbaCalibrationResult> {
   const supabase = createAdminClient()
 
-  const { data: matches, error: mErr } = await supabase
+  // Paginado: la NBA supera el tope de 1000 filas de PostgREST
+  const matches = await fetchAllRows((from, to) => supabase
     .from('matches')
     .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
     .eq('competition_id', NBA_COMPETITION_ID)
-  if (mErr) throw new Error(`matches NBA: ${mErr.message}`)
-  if (!matches?.length) throw new Error('No hay partidos NBA ingestados')
+    .range(from, to))
+  if (!matches.length) throw new Error('No hay partidos NBA ingestados')
 
   const backtest = runNbaBacktest(matches as any[])
 

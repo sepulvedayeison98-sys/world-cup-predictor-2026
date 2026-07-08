@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { NBA_COMPETITION_ID } from '@/lib/nba'
 import { computeNbaRecords } from '@/lib/nbaEngine'
+import { fetchAllRows } from '@/lib/fetchAll'
 import { ConferenceStandings, type NbaStandingView } from '@/components/nba/ConferenceStandings'
 
 export const metadata: Metadata = {
@@ -15,16 +16,21 @@ export const revalidate = 300
 export default async function NbaHubPage() {
   const supabase = createStaticSupabaseClient()
 
-  const [{ data: teams }, { data: matches }, { data: preds }, { data: upcoming }] = await Promise.all([
+  // Standings = solo temporada regular. Paginado: la NBA supera las 1000
+  // filas de PostgREST (~1230 partidos), que si no truncaría los récords.
+  const matchesPromise = fetchAllRows((from, to) => supabase
+    .from('matches')
+    .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
+    .eq('competition_id', NBA_COMPETITION_ID)
+    .eq('phase', 'regular_season')
+    .range(from, to))
+
+  const [{ data: teams }, matches, { data: preds }, { data: upcoming }] = await Promise.all([
     supabase
       .from('teams')
       .select('id, name, code, logo_url, conference, elo_rating')
       .eq('competition_id', NBA_COMPETITION_ID),
-    supabase
-      .from('matches')
-      .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
-      .eq('competition_id', NBA_COMPETITION_ID)
-      .eq('phase', 'regular_season'), // standings = solo temporada regular (82 partidos)
+    matchesPromise,
     supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
