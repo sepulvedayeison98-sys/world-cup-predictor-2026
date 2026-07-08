@@ -33,6 +33,22 @@ async function apiGet(path: string): Promise<any> {
   return body
 }
 
+/** Marcador por cuarto (+prórroga) desde API-Basketball → JSONB compacto. */
+function periodScores(scores: any): { home: number[]; away: number[] } | null {
+  if (!scores?.home) return null
+  const arr = (s: any) => {
+    const out = [s?.quarter_1, s?.quarter_2, s?.quarter_3, s?.quarter_4]
+      .map((v) => (typeof v === 'number' ? v : null))
+    if (typeof s?.over_time === 'number') out.push(s.over_time)
+    return out
+  }
+  const home = arr(scores.home)
+  const away = arr(scores.away)
+  // Sin ningún cuarto con dato → no guardar (partido no jugado)
+  if (home.every((v) => v == null) && away.every((v) => v == null)) return null
+  return { home: home.map((v) => v ?? 0), away: away.map((v) => v ?? 0) }
+}
+
 /** Estados de API-Basketball → nuestro enum match_status. */
 const STATUS_MAP: Record<string, string> = {
   NS: 'scheduled',
@@ -121,6 +137,7 @@ export async function ingestNba(): Promise<NbaIngestResult> {
         away_team_id: teamUuid.get(g.teams.away.id),
         home_score: g.scores?.home?.total ?? null,
         away_score: g.scores?.away?.total ?? null,
+        period_scores: periodScores(g.scores),
         kickoff_time: g.date,
         venue: g.venue ?? 'Por confirmar',
         city: 'Estados Unidos',

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, LEAGUE_DISPLAY_ORDER, LEAGUE_SLUGS, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
+import { NBA_COMPETITION_ID } from '@/lib/nba'
 
 export const metadata: Metadata = {
   title: 'Inteligencia | Veredicto',
@@ -26,6 +27,15 @@ export default async function InteligenciaPage() {
     .not('was_correct', 'is', null)
   const wcResolved = wcPreds ?? []
   const wcCorrect = wcResolved.filter((p: any) => p.was_correct === true).length
+
+  // Rendimiento NBA (backtest nba-1.0, moneyline — línea base 50%)
+  const { data: nbaPreds } = await supabase
+    .from('predictions')
+    .select('was_correct, match:matches!inner(competition_id)')
+    .eq('match.competition_id', NBA_COMPETITION_ID)
+    .not('was_correct', 'is', null)
+  const nbaResolved = nbaPreds ?? []
+  const nbaCorrect = nbaResolved.filter((p: any) => p.was_correct === true).length
 
   // Rendimiento por liga (backtest liga-1.0)
   const slugById = Object.fromEntries(Object.entries(LEAGUE_SLUGS).map(([slug, id]) => [id, slug]))
@@ -64,21 +74,26 @@ export default async function InteligenciaPage() {
       </div>
 
       {/* Precisión viva */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-xl border border-emerald-500/30 bg-zinc-900 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Mundial 2026 · v{MODEL_VERSION}</p>
           <p className="mt-1 text-3xl font-bold text-emerald-400 mono">{pct(wcCorrect, wcResolved.length)}%</p>
-          <p className="text-xs text-zinc-500">{wcCorrect}/{wcResolved.length} resultados 1X2 acertados</p>
+          <p className="text-xs text-zinc-500">{wcCorrect}/{wcResolved.length} · azar 33%</p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Ligas · liga-1.0 (backtest 2024-25)</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Ligas · liga-1.0</p>
           <p className="mt-1 text-3xl font-bold text-white mono">{pct(ligaTotals.c, ligaTotals.t)}%</p>
-          <p className="text-xs text-zinc-500">{ligaTotals.c}/{ligaTotals.t} picks en 5 ligas</p>
+          <p className="text-xs text-zinc-500">{ligaTotals.c}/{ligaTotals.t} · azar 33%</p>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">NBA · nba-1.0</p>
+          <p className="mt-1 text-3xl font-bold text-white mono">{pct(nbaCorrect, nbaResolved.length)}%</p>
+          <p className="text-xs text-zinc-500">{nbaCorrect}/{nbaResolved.length} · azar 50%</p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Líneas base</p>
-          <p className="mt-1 text-lg font-bold text-zinc-300 mono">33% · 44%</p>
-          <p className="text-xs text-zinc-500">elegir al azar · apostar siempre local</p>
+          <p className="mt-1 text-lg font-bold text-zinc-300 mono">33% / 50%</p>
+          <p className="text-xs text-zinc-500">azar en fútbol / baloncesto</p>
         </div>
       </div>
 
@@ -107,7 +122,7 @@ export default async function InteligenciaPage() {
                 <td className="px-3 py-2.5 text-center font-bold text-emerald-400 mono">{pct(wcCorrect, wcResolved.length)}%</td>
               </tr>
               {leagues.map((l) => (
-                <tr key={l.slug} className="border-b border-zinc-800/60 last:border-0">
+                <tr key={l.slug} className="border-b border-zinc-800/60">
                   <td className="px-4 py-2.5 font-medium text-zinc-200">
                     <Link href={`/ligas/${l.slug}`} className="hover:text-emerald-400">{l.name}</Link>
                   </td>
@@ -116,12 +131,23 @@ export default async function InteligenciaPage() {
                   <td className="px-3 py-2.5 text-center font-bold text-white mono">{pct(l.correct, l.total)}%</td>
                 </tr>
               ))}
+              {/* NBA — línea base 50% (moneyline, sin empate) */}
+              <tr className="border-b border-zinc-800/60 last:border-0">
+                <td className="px-4 py-2.5 font-medium text-zinc-200">
+                  <Link href="/nba" className="hover:text-emerald-400">NBA</Link>
+                  <span className="ml-2 text-[10px] text-zinc-600">baloncesto · azar 50%</span>
+                </td>
+                <td className="px-3 py-2.5 text-center text-zinc-400 mono">{nbaResolved.length}</td>
+                <td className="px-3 py-2.5 text-center text-zinc-400 mono">{nbaCorrect}</td>
+                <td className="px-3 py-2.5 text-center font-bold text-white mono">{pct(nbaCorrect, nbaResolved.length)}%</td>
+              </tr>
             </tbody>
           </table>
         </div>
         <p className="border-t border-zinc-800 px-4 py-2.5 text-[11px] text-zinc-600">
-          Un acierto = el resultado 1X2 con mayor probabilidad del modelo coincidió
-          con el resultado real a los 90 minutos. Referencias: azar 33% · siempre-local ≈44%.
+          Un acierto = el resultado con mayor probabilidad del modelo coincidió con
+          el real (fútbol: 1X2 a 90&apos;; NBA: ganador). Líneas base: azar 33% y
+          siempre-local ≈44% en fútbol; azar 50% en baloncesto.
         </p>
       </div>
 

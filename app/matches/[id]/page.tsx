@@ -12,6 +12,7 @@ import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 import { COMPETITIONS_NAV } from '@/lib/sports'
 import { VerdictPanel } from '@/components/matches/VerdictPanel'
 import { MatchTimeline } from '@/components/matches/MatchTimeline'
+import { QuarterBreakdown } from '@/components/nba/QuarterBreakdown'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -231,9 +232,11 @@ export default async function MatchDetailPage({ params }: Props) {
       <LiveMatchRefresh status={m.status} kickoffTime={m.kickoff_time} />
       <MatchHeader match={m} competition={competitionCtx} prediction={savedPrediction} />
 
-      {/* Veredicto post-partido (solo finalizados) + línea de tiempo */}
+      {/* Veredicto post-partido (solo finalizados) */}
       {m.status === 'finished' && <VerdictPanel matchId={m.id} />}
-      {['finished', 'live'].includes(m.status) && (
+
+      {/* Cronología: fútbol → eventos (goles/tarjetas); baloncesto → cuartos */}
+      {isFootball && ['finished', 'live'].includes(m.status) && (
         <MatchTimeline
           matchId={m.id}
           homeTeamId={m.home_team_id}
@@ -241,6 +244,13 @@ export default async function MatchDetailPage({ params }: Props) {
           awayName={m.away_team?.short_name ?? m.away_team?.name ?? 'Visitante'}
           hasSource={m.api_football_id != null}
           status={m.status}
+        />
+      )}
+      {!isFootball && ['finished', 'live'].includes(m.status) && (
+        <QuarterBreakdown
+          matchId={m.id}
+          homeCode={m.home_team?.code ?? 'LOC'}
+          awayCode={m.away_team?.code ?? 'VIS'}
         />
       )}
 

@@ -77,3 +77,8 @@ export const ACTIVE_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === '
 export function competitionHref(competitionId: string): string {
   return COMPETITIONS_NAV.find((c) => c.id === competitionId)?.href ?? '/ligas'
 }
+
+/** Deporte de una competición (por defecto fútbol, que es lo histórico). */
+export function sportOfCompetition(competitionId: string): SportSlug {
+  return COMPETITIONS_NAV.find((c) => c.id === competitionId)?.sport ?? 'futbol'
+}

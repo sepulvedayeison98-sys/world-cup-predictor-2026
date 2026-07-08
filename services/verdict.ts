@@ -11,6 +11,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureMatchEvents } from '@/services/sync/match-events'
 import { buildDeterministicVerdict, type VerdictInput, type VerdictOutput } from '@/lib/verdictEngine'
+import { buildNbaVerdict } from '@/lib/nbaVerdict'
+import { sportOfCompetition } from '@/lib/sports'
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 
@@ -58,6 +60,41 @@ Responde SOLO con JSON válido, mismas claves y misma cantidad de factores:
   }
 }
 
+/** Pulido de prosa genérico (sport-neutral): conserva los hechos del base. */
+async function polishVerdictText(
+  base: VerdictOutput, sport: string, matchLine: string,
+): Promise<VerdictOutput | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+  try {
+    const client = new Anthropic({ apiKey })
+    const prompt = `Eres el analista de una plataforma seria de inteligencia deportiva en español.
+Reescribe este veredicto post-partido (${sport}) con prosa clara y sobria, sin exclamaciones
+y sin inventar NINGÚN dato que no esté aquí.
+
+PARTIDO: ${matchLine}
+
+VEREDICTO BASE (los hechos — consérvalos todos):
+${JSON.stringify(base, null, 2)}
+
+Responde SOLO con JSON válido, mismas claves y misma cantidad de factores:
+{"summary":"...","factors":[{"title":"...","text":"..."}],"prediction_review":"...","model_lesson":"..."}`
+    const message = await client.messages.create({
+      model: CLAUDE_MODEL, max_tokens: 1200,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const text = message.content[0]?.type === 'text' ? message.content[0].text : ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+    const parsed = JSON.parse(jsonMatch[0]) as VerdictOutput
+    if (!parsed.summary || !Array.isArray(parsed.factors) || !parsed.prediction_review || !parsed.model_lesson) return null
+    return parsed
+  } catch (err: any) {
+    console.error('[verdict] polish falló, se usa determinista:', err?.message)
+    return null
+  }
+}
+
 export async function getOrCreateVerdict(matchId: string): Promise<StoredVerdict | null> {
   const supabase = createAdminClient()
 
@@ -73,7 +110,7 @@ export async function getOrCreateVerdict(matchId: string): Promise<StoredVerdict
   const { data: match } = await supabase
     .from('matches')
     .select(`
-      id, status, home_score, away_score, home_score_ht, away_score_ht,
+      id, status, home_score, away_score, home_score_ht, away_score_ht, period_scores,
       home_team_id, away_team_id, competition_id,
       home_team:teams!matches_home_team_id_fkey(name),
       away_team:teams!matches_away_team_id_fkey(name),
@@ -85,6 +122,37 @@ export async function getOrCreateVerdict(matchId: string): Promise<StoredVerdict
     .maybeSingle()
   const m = match as any
   if (!m || m.status !== 'finished' || m.home_score == null || m.away_score == null) return null
+  const pred0 = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+
+  // ── Baloncesto: veredicto por puntos/cuartos, sin API de fútbol ──
+  if (sportOfCompetition(m.competition_id) === 'baloncesto') {
+    const final = buildNbaVerdict({
+      homeName: m.home_team?.name ?? 'Local',
+      awayName: m.away_team?.name ?? 'Visitante',
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+      competitionName: m.competition?.name ?? 'la competición',
+      periodScores: m.period_scores ?? null,
+      prediction: pred0
+        ? {
+            home: Number(pred0.home_win_probability),
+            away: Number(pred0.away_win_probability),
+            predictedHome: pred0.predicted_home_score,
+            predictedAway: pred0.predicted_away_score,
+          }
+        : null,
+    })
+    const polished = await polishVerdictText(final, 'baloncesto',
+      `${m.home_team?.name} ${m.home_score}-${m.away_score} ${m.away_team?.name} (${m.competition?.name})`)
+    const chosen = polished ?? final
+    const gen = polished ? CLAUDE_MODEL : 'deterministic'
+    await (supabase.from('match_verdicts') as any).upsert({
+      match_id: matchId, summary: chosen.summary, factors: chosen.factors,
+      prediction_review: chosen.prediction_review, model_lesson: chosen.model_lesson,
+      generator: gen, model_version: pred0?.model_version ?? null,
+    }, { onConflict: 'match_id', ignoreDuplicates: true })
+    return { ...chosen, generator: gen, created_at: new Date().toISOString() }
+  }
 
   // 3. Eventos (reutiliza la ingesta bajo demanda de P2)
   const { events } = await ensureMatchEvents(matchId)

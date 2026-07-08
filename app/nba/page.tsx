@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { NBA_COMPETITION_ID } from '@/lib/nba'
 import { computeNbaRecords } from '@/lib/nbaEngine'
 import { fetchAllRows } from '@/lib/fetchAll'
 import { ConferenceStandings, type NbaStandingView } from '@/components/nba/ConferenceStandings'
+import { NbaSchedule } from '@/components/nba/NbaSchedule'
 
 export const metadata: Metadata = {
   title: 'NBA | Veredicto',
@@ -25,7 +25,7 @@ export default async function NbaHubPage() {
     .eq('phase', 'regular_season')
     .range(from, to))
 
-  const [{ data: teams }, matches, { data: preds }, { data: upcoming }] = await Promise.all([
+  const [{ data: teams }, matches, { data: preds }, { data: anchorRow }] = await Promise.all([
     supabase
       .from('teams')
       .select('id, name, code, logo_url, conference, elo_rating')
@@ -36,19 +36,31 @@ export default async function NbaHubPage() {
       .select('was_correct, match:matches!inner(competition_id)')
       .eq('match.competition_id', NBA_COMPETITION_ID)
       .not('was_correct', 'is', null),
+    // Fecha ancla del calendario: el próximo partido, o el último jugado
     supabase
       .from('matches')
-      .select(`
-        id, kickoff_time, status,
-        home_team:teams!matches_home_team_id_fkey(name, code),
-        away_team:teams!matches_away_team_id_fkey(name, code),
-        predictions(home_win_probability, away_win_probability, predicted_home_score, predicted_away_score)
-      `)
+      .select('kickoff_time')
       .eq('competition_id', NBA_COMPETITION_ID)
-      .in('status', ['scheduled', 'live'])
+      .gte('kickoff_time', new Date().toISOString())
       .order('kickoff_time', { ascending: true })
-      .limit(6),
+      .limit(1)
+      .maybeSingle(),
   ])
+
+  let anchor = (anchorRow as any)?.kickoff_time
+  if (!anchor) {
+    const { data: last } = await supabase
+      .from('matches')
+      .select('kickoff_time')
+      .eq('competition_id', NBA_COMPETITION_ID)
+      .order('kickoff_time', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    anchor = (last as any)?.kickoff_time
+  }
+  const initialDate = anchor
+    ? new Date(anchor).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })
+    : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })
 
   const dataReady = (teams?.length ?? 0) > 0 && (matches?.length ?? 0) > 0
 
@@ -126,39 +138,8 @@ export default async function NbaHubPage() {
 
           <ConferenceStandings east={east} west={west} />
 
-          {/* Próximos partidos */}
-          {(upcoming?.length ?? 0) > 0 && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-              <div className="border-b border-zinc-800 px-4 py-3">
-                <h2 className="text-sm font-bold text-white">Próximos partidos</h2>
-              </div>
-              <ul className="divide-y divide-zinc-800/60">
-                {(upcoming as any[]).map((m) => {
-                  const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
-                  return (
-                    <li key={m.id}>
-                      <Link href={`/matches/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-200">
-                            {m.home_team?.name} <span className="text-zinc-500">vs</span> {m.away_team?.name}
-                          </p>
-                          <p className="text-xs text-zinc-500">
-                            {new Date(m.kickoff_time).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {p && (
-                          <span className="shrink-0 text-xs mono text-zinc-400">
-                            {Math.round(p.home_win_probability * 100)}%–{Math.round(p.away_win_probability * 100)}%
-                            <span className="ml-2 text-zinc-600">est. {p.predicted_home_score}-{p.predicted_away_score}</span>
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
+          {/* Calendario navegable: cualquier partido abre su detalle */}
+          <NbaSchedule initialDate={initialDate} />
         </>
       )}
 

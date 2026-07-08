@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
+import { NbaPredictionPanel } from '@/components/nba/NbaPredictionPanel'
 import { MatchStatsComparison } from './MatchStatsComparison'
 import { TeamAvgStats } from './TeamAvgStats'
 import { OddsComparisonTable } from './OddsComparisonTable'
@@ -329,28 +330,33 @@ export function MatchAnalysisTabs({
       {/* Content */}
       <div className="mt-6">
 
-        {/* ── Predicción (incluye Smart Bets como bloque) ── */}
+        {/* ── Predicción (incluye Smart Bets como bloque en fútbol) ── */}
         {active === 'prediccion' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-1 space-y-6">
-                {prediction ? (
-                  <>
-                    <MatchPredictionPanel prediction={prediction} match={match} />
-                    {(prediction.exact_score_predictions?.length ?? 0) > 0 && (
-                      <ExactScoresTable scores={prediction.exact_score_predictions} />
-                    )}
-                  </>
-                ) : (
-                  <div className="card p-8 text-center text-zinc-500 text-sm">
-                    Sin predicción disponible para este partido.
-                  </div>
-                )}
+            {football ? (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-1 space-y-6">
+                  {prediction ? (
+                    <>
+                      <MatchPredictionPanel prediction={prediction} match={match} />
+                      {(prediction.exact_score_predictions?.length ?? 0) > 0 && (
+                        <ExactScoresTable scores={prediction.exact_score_predictions} />
+                      )}
+                    </>
+                  ) : (
+                    <div className="card p-8 text-center text-zinc-500 text-sm">
+                      Sin predicción disponible para este partido.
+                    </div>
+                  )}
+                </div>
+                <div className="lg:col-span-2">
+                  <ProbabilityHistoryChart matchId={match.id} />
+                </div>
               </div>
-              <div className="lg:col-span-2">
-                <ProbabilityHistoryChart matchId={match.id} />
-              </div>
-            </div>
+            ) : (
+              // Baloncesto: moneyline + hándicap + total (sin gráfico de historial 1X2)
+              <NbaPredictionPanel prediction={prediction} match={match} />
+            )}
 
             {football && (
               <>
