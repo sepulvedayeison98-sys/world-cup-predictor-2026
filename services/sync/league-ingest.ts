@@ -37,11 +37,10 @@ function toCode(name: string, apiCode: string | null, used: Set<string>): string
   return code
 }
 
-/** "Regular Season - 12" → 12 (match_number es NOT NULL; 0 si no parsea). */
-function roundNumber(round: string): number {
-  const m = round.match(/(\d+)\s*$/)
-  return m ? Number(m[1]) : 0
-}
+// match_number tiene UNIQUE (competition_id, match_number) — heredado del
+// Mundial — así que NO puede ser el número de jornada (10 partidos por
+// jornada chocarían). Se numera secuencialmente por fecha (1..380),
+// determinista entre corridas: desempate por id de fixture.
 
 export interface LeagueIngestResult {
   key: string
@@ -102,11 +101,12 @@ export async function ingestLeagues(season: number): Promise<{
 
     const matchRows = fixtures
       .filter((f) => teamUuid.has(f.homeId) && teamUuid.has(f.awayId))
-      .map((f) => ({
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+      .map((f, idx) => ({
         api_football_id: f.id,
         competition_id: competitionId,
         phase: 'league',
-        match_number: roundNumber(f.round),
+        match_number: idx + 1,
         status: STATUS_MAP[f.statusShort] ?? 'scheduled',
         home_team_id: teamUuid.get(f.homeId),
         away_team_id: teamUuid.get(f.awayId),
