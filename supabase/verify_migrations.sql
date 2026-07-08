@@ -48,6 +48,7 @@ UNION ALL SELECT '042 forma sin fuga de amistosos', NOT EXISTS(SELECT 1 FROM tea
 UNION ALL SELECT '043 ligas PL/LaLiga', EXISTS(SELECT 1 FROM competitions WHERE name='Premier League' AND season='2024-25') AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='api_football_id') AND 'league' IN (SELECT unnest(enum_range(NULL::match_phase))::text)
 UNION ALL SELECT '044 jornadas de liga', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='round') AND (SELECT count(DISTINCT round)=38 FROM matches WHERE competition_id='39000000-0000-4000-8000-000000000039' AND round IS NOT NULL)
 UNION ALL SELECT '045 cinco grandes ligas', (SELECT count(*)=5 FROM competitions WHERE type='league' AND season='2024-25') AND (SELECT count(*)=34 FROM (SELECT DISTINCT round FROM matches WHERE competition_id='78000000-0000-4000-8000-000000000078' AND round IS NOT NULL) s)
+UNION ALL SELECT '046 eventos y veredictos', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_events') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_verdicts')
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

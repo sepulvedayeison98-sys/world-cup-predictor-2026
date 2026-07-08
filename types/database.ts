@@ -677,6 +677,80 @@ export type Database = {
           },
         ]
       }
+      match_events: {
+        Row: {
+          assist_name: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          match_id: string
+          minute: number | null
+          minute_extra: number | null
+          period: string | null
+          player_name: string | null
+          source: string
+          team_id: string | null
+          type: string
+        }
+        Insert: {
+          assist_name?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          match_id: string
+          minute?: number | null
+          minute_extra?: number | null
+          period?: string | null
+          player_name?: string | null
+          source?: string
+          team_id?: string | null
+          type: string
+        }
+        Update: {
+          assist_name?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          match_id?: string
+          minute?: number | null
+          minute_extra?: number | null
+          period?: string | null
+          player_name?: string | null
+          source?: string
+          team_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "events_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "participants_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_statistics: {
         Row: {
           big_chances: number | null
@@ -771,6 +845,54 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_verdicts: {
+        Row: {
+          created_at: string
+          factors: Json
+          generator: string
+          match_id: string
+          model_lesson: string
+          model_version: string | null
+          prediction_review: string
+          summary: string
+        }
+        Insert: {
+          created_at?: string
+          factors?: Json
+          generator: string
+          match_id: string
+          model_lesson: string
+          model_version?: string | null
+          prediction_review: string
+          summary: string
+        }
+        Update: {
+          created_at?: string
+          factors?: Json
+          generator?: string
+          match_id?: string
+          model_lesson?: string
+          model_version?: string | null
+          prediction_review?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_verdicts_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "events_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_verdicts_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "matches"
             referencedColumns: ["id"]
           },
         ]

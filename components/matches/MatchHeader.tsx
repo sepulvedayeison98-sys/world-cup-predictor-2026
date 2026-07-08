@@ -1,35 +1,93 @@
 'use client'
 
 import { formatColTime, formatColLongDate, formatColFull } from '@/lib/datetime'
-import { MapPin, Clock, CloudSun, Users, ArrowLeft } from 'lucide-react'
+import { MapPin, Clock, CloudSun, Users, ArrowLeft, Check, X } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
+import { PHASE_LABELS } from '@/lib/constants'
 
 interface Props {
   match: any
+  /** Contexto de competición para el regreso y la etiqueta (universal) */
+  competition?: { name: string; href: string } | null
+  /** Predicción del motor: muestra el pick y su estado en finalizados */
+  prediction?: any | null
 }
 
-export function MatchHeader({ match }: Props) {
+/**
+ * Cabecera universal del partido (plantilla EVENTO): funciona para
+ * selecciones (bandera + FIFA) y clubes (escudo + ELO) de cualquier
+ * competición presente o futura. El contexto lo aporta la página.
+ */
+function TeamBadge({ team }: { team: any }) {
+  if (team?.logo_url) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden p-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={team.logo_url} alt="" className="h-full w-full object-contain" />
+      </div>
+    )
+  }
+  return (
+    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl overflow-hidden">
+      <Flag code={team?.code} className="h-11 w-16 rounded-none" />
+    </div>
+  )
+}
+
+function TeamCredential({ team }: { team: any }) {
+  // Selecciones: FIFA + ELO · Clubes (sin ranking FIFA): solo ELO
+  const fifa = team?.fifa_ranking
+  return (
+    <p className="text-xs text-zinc-500">
+      {fifa > 0 ? `FIFA #${fifa} · ` : ''}ELO {team?.elo_rating}
+    </p>
+  )
+}
+
+export function MatchHeader({ match, competition, prediction }: Props) {
   const kickoff = new Date(match.kickoff_time)
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const hasScore = match.home_score !== null && match.away_score !== null
+
+  // Etiqueta de contexto: jornada de liga o fase de torneo
+  const contextLabel = match.round != null
+    ? `Jornada ${match.round}`
+    : match.group_id
+      ? 'Fase de Grupos'
+      : (PHASE_LABELS[match.phase] ?? null)
+
+  // Pick del motor y su estado (solo con predicción publicada)
+  const pick = prediction && prediction.id !== 'computed'
+    ? (() => {
+        const h = Number(prediction.home_win_probability)
+        const d = Number(prediction.draw_probability)
+        const a = Number(prediction.away_win_probability)
+        const outcome = h >= d && h >= a ? 'home' : a >= d ? 'away' : 'draw'
+        const label = outcome === 'home'
+          ? match.home_team?.short_name ?? 'Local'
+          : outcome === 'away'
+            ? match.away_team?.short_name ?? 'Visita'
+            : 'Empate'
+        return { label, prob: Math.round(Math.max(h, d, a) * 100), correct: prediction.was_correct as boolean | null }
+      })()
+    : null
 
   return (
     <div className="card overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5 bg-zinc-900/80">
         <Link
-          href="/matches"
+          href={competition?.href ?? '/matches'}
           className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Volver a Partidos
+          {competition?.name ?? 'Partidos'}
         </Link>
         <div className="flex items-center gap-3">
-          {match.group_id && (
-            <span className="text-xs font-medium text-zinc-400">Fase de Grupos</span>
+          {contextLabel && (
+            <span className="text-xs font-medium text-zinc-400">{contextLabel}</span>
           )}
           {isLive && (
             <span className="flex items-center gap-1.5 text-xs font-bold text-red-400">
@@ -55,12 +113,10 @@ export function MatchHeader({ match }: Props) {
 
           {/* Home team */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl overflow-hidden">
-              <Flag code={match.home_team?.code} className="h-11 w-16 rounded-none" />
-            </div>
+            <TeamBadge team={match.home_team} />
             <div className="text-center">
               <p className="text-lg font-bold text-white">{match.home_team?.name}</p>
-              <p className="text-xs text-zinc-500">FIFA #{match.home_team?.fifa_ranking} · ELO {match.home_team?.elo_rating}</p>
+              <TeamCredential team={match.home_team} />
             </div>
           </div>
 
@@ -94,15 +150,30 @@ export function MatchHeader({ match }: Props) {
 
           {/* Away team */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-2xl overflow-hidden">
-              <Flag code={match.away_team?.code} className="h-11 w-16 rounded-none" />
-            </div>
+            <TeamBadge team={match.away_team} />
             <div className="text-center">
               <p className="text-lg font-bold text-white">{match.away_team?.name}</p>
-              <p className="text-xs text-zinc-500">FIFA #{match.away_team?.fifa_ranking} · ELO {match.away_team?.elo_rating}</p>
+              <TeamCredential team={match.away_team} />
             </div>
           </div>
         </div>
+
+        {/* Pick del motor: qué dijo antes del partido y cómo le fue */}
+        {pick && (
+          <div className="mt-5 flex justify-center">
+            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 text-xs">
+              <span className="text-zinc-500">Pick del motor:</span>
+              <span className="font-bold text-zinc-200">{pick.label}</span>
+              <span className="mono text-zinc-500">{pick.prob}%</span>
+              {isFinished && pick.correct === true && (
+                <span className="flex items-center gap-1 font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" /> Acertado</span>
+              )}
+              {isFinished && pick.correct === false && (
+                <span className="flex items-center gap-1 font-semibold text-red-400"><X className="h-3.5 w-3.5" /> Fallado</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Meta row */}

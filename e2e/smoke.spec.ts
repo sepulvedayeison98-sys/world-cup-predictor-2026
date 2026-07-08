@@ -62,6 +62,27 @@ test('detalle de partido: 4 pestañas fusionadas con secciones internas', async 
   await expect(page.getByText('Alineaciones y bajas')).toBeVisible()
 })
 
+test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {
+  await page.goto('/ligas/premier-league')
+  // Clic en el primer partido del calendario (jornada por defecto)
+  await page.locator('a[href^="/matches/"]').first().click()
+  await expect(page).toHaveURL(/\/matches\/[0-9a-f-]{36}/)
+  // Cabecera universal: contexto de liga, regreso a la competición y credencial ELO
+  await expect(page.getByText(/Jornada \d+/)).toBeVisible()
+  await expect(page.getByRole('main').getByRole('link', { name: /Premier League/ })).toBeVisible()
+  await expect(page.getByText(/ELO \d+/).first()).toBeVisible()
+  // Pick del motor visible con su estado (partido finalizado)
+  await expect(page.getByText('Pick del motor:')).toBeVisible()
+  await expect(page.getByText(/Acertado|Fallado/)).toBeVisible()
+  // Veredicto post-partido (primera vez se genera; hasta 15 s)
+  await expect(page.getByText('Veredicto del partido')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Predicción vs realidad')).toBeVisible({ timeout: 15_000 })
+  // Línea de tiempo presente (con eventos o con su estado honesto)
+  await expect(page.getByText('Línea de tiempo')).toBeVisible()
+  // Las 4 pestañas universales también aplican a ligas
+  await expect(page.getByRole('button', { name: 'Análisis del modelo' })).toBeVisible()
+})
+
 test('buscador global: abre desde la topbar y lista competiciones', async ({ page }) => {
   await page.goto('/dashboard')
   await page.getByRole('button', { name: 'Buscar equipo o competición' }).click()

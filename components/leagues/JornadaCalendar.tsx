@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -87,7 +88,12 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
           const played = m.status === 'finished' && m.home_score !== null
           const p = m.prediction
           return (
-            <li key={m.id} className="px-4 py-3">
+            // Todo partido es clicable: abre la vista de detalle completa
+            <li key={m.id}>
+              <Link
+                href={`/matches/${m.id}`}
+                className="block px-4 py-3 transition-colors hover:bg-zinc-800/40 focus-visible:bg-zinc-800/40 focus-visible:outline-none"
+              >
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <TeamCell team={m.home} align="right" />
                 <div className="text-center">
@@ -122,6 +128,7 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
                   </span>
                 </div>
               )}
+              </Link>
             </li>
           )
         })}
