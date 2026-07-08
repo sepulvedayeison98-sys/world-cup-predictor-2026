@@ -212,6 +212,8 @@ export default async function MatchDetailPage({ params }: Props) {
   // primero el registro (Mundial + ligas); si no está (p. ej. amistosos),
   // el nombre viene de la BD y el regreso cae en /matches.
   const registryEntry = COMPETITIONS_NAV.find((c) => c.id === m.competition_id)
+  // Deportes sin modelo de goles (NBA) ocultan Smart Bets / gemelo Poisson
+  const isFootball = registryEntry ? registryEntry.sport === 'futbol' : true
   let competitionCtx: { name: string; href: string } | null = registryEntry
     ? { name: registryEntry.name, href: registryEntry.href }
     : null
@@ -254,6 +256,7 @@ export default async function MatchDetailPage({ params }: Props) {
         awayRecentMatches={awayRecentMatches}
         homeGroupContext={homeGroupContext ?? undefined}
         awayGroupContext={awayGroupContext ?? undefined}
+        football={isFootball}
       />
     </div>
   )

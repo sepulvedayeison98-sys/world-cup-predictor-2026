@@ -1884,8 +1884,10 @@ export type Database = {
           coach: string | null
           code: string
           competition_id: string
-          confederation: Database["public"]["Enums"]["confederation"]
+          confederation: Database["public"]["Enums"]["confederation"] | null
+          conference: string | null
           created_at: string
+          division: string | null
           elo_rating: number
           fifa_ranking: number
           flag_url: string | null
@@ -1901,8 +1903,10 @@ export type Database = {
           coach?: string | null
           code: string
           competition_id: string
-          confederation: Database["public"]["Enums"]["confederation"]
+          confederation?: Database["public"]["Enums"]["confederation"] | null
+          conference?: string | null
           created_at?: string
+          division?: string | null
           elo_rating?: number
           fifa_ranking?: number
           flag_url?: string | null
@@ -1918,8 +1922,10 @@ export type Database = {
           coach?: string | null
           code?: string
           competition_id?: string
-          confederation?: Database["public"]["Enums"]["confederation"]
+          confederation?: Database["public"]["Enums"]["confederation"] | null
+          conference?: string | null
           created_at?: string
+          division?: string | null
           elo_rating?: number
           fifa_ranking?: number
           flag_url?: string | null
@@ -2395,6 +2401,8 @@ export type Database = {
         | "final"
         | "round_of_32"
         | "league"
+        | "regular_season"
+        | "playoffs"
       match_status:
         | "scheduled"
         | "live"
@@ -2597,6 +2605,8 @@ export const Constants = {
         "final",
         "round_of_32",
         "league",
+        "regular_season",
+        "playoffs",
       ],
       match_status: ["scheduled", "live", "finished", "postponed", "cancelled"],
       odds_market: [

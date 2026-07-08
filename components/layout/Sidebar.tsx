@@ -15,6 +15,7 @@ import {
   Globe,
   BrainCircuit,
   Activity,
+  Dribbble,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MODEL_VERSION } from '@/lib/constants'
@@ -110,7 +111,7 @@ export function Sidebar() {
           <SectionLabel collapsed={collapsed}>Competiciones</SectionLabel>
           <ul className="flex flex-col gap-0.5">
             {ACTIVE_COMPETITIONS.map((c) => {
-              const Icon = c.slug === 'mundial-2026' ? Trophy : Globe
+              const Icon = c.sport === 'baloncesto' ? Dribbble : c.slug === 'mundial-2026' ? Trophy : Globe
               const active = pathname === c.href || pathname.startsWith(c.href + '/')
               return <li key={c.slug}>{navItem(c.href, c.name, Icon, active)}</li>
             })}

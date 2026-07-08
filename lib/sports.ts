@@ -7,6 +7,7 @@
  * Agregar un deporte/competición = agregar una entrada aquí + su hub.
  */
 import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS } from '@/lib/constants'
+import { NBA_COMPETITION_ID } from '@/lib/nba'
 
 export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
 export type CompetitionStatus = 'activa' | 'proximamente'
@@ -32,7 +33,7 @@ export interface SportEntry {
 
 export const SPORTS: SportEntry[] = [
   { slug: 'futbol', name: 'Fútbol', status: 'activa' },
-  { slug: 'baloncesto', name: 'Baloncesto', status: 'proximamente' },
+  { slug: 'baloncesto', name: 'Baloncesto', status: 'activa' },
   { slug: 'tenis', name: 'Tenis', status: 'proximamente' },
 ]
 
@@ -55,10 +56,18 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     status: 'activa' as CompetitionStatus,
     note: 'Temporada 2026-27 en agosto',
   })),
+  {
+    id: NBA_COMPETITION_ID,
+    slug: 'nba',
+    name: 'NBA',
+    sport: 'baloncesto',
+    href: '/nba',
+    status: 'activa',
+    note: 'Temporada 2024-25',
+  },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },
   { id: null, slug: 'copa-libertadores', name: 'Copa Libertadores', sport: 'futbol', href: '#', status: 'proximamente' },
-  { id: null, slug: 'nba', name: 'NBA', sport: 'baloncesto', href: '#', status: 'proximamente' },
   { id: null, slug: 'atp-wta', name: 'Tenis ATP/WTA', sport: 'tenis', href: '#', status: 'proximamente' },
 ]
 

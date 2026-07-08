@@ -50,6 +50,7 @@ UNION ALL SELECT '044 jornadas de liga', EXISTS(SELECT 1 FROM information_schema
 UNION ALL SELECT '045 cinco grandes ligas', (SELECT count(*)=5 FROM competitions WHERE type='league' AND season='2024-25') AND (SELECT count(*)=34 FROM (SELECT DISTINCT round FROM matches WHERE competition_id='78000000-0000-4000-8000-000000000078' AND round IS NOT NULL) s)
 UNION ALL SELECT '046 eventos y veredictos', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_events') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_verdicts')
 UNION ALL SELECT '047 historial smart bets', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='smart_bet_picks')
+UNION ALL SELECT '048 núcleo NBA', EXISTS(SELECT 1 FROM competitions WHERE short_name='NBA') AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='conference') AND 'regular_season' IN (SELECT unnest(enum_range(NULL::match_phase))::text)
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

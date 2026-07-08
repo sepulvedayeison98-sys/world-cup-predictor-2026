@@ -79,6 +79,9 @@ interface Props {
   awayRecentMatches?: MatchFormEntry[]
   homeGroupContext?: import('@/app/api/analysis/match/[id]/route').GroupContext
   awayGroupContext?: import('@/app/api/analysis/match/[id]/route').GroupContext
+  /** false para deportes sin modelo de goles (NBA): oculta Smart Bets y
+   *  el "Análisis del modelo" (gemelo/Monte Carlo son Poisson de goles). */
+  football?: boolean
 }
 
 // ─── Always-available comparison panel using ELO + Rankings + Group ──────────
@@ -287,6 +290,7 @@ export function MatchAnalysisTabs({
   awayRecentMatches,
   homeGroupContext,
   awayGroupContext,
+  football = true,
 }: Props) {
   const [active, setActive] = useState<TabId>('prediccion')
 
@@ -294,11 +298,14 @@ export function MatchAnalysisTabs({
   const effectiveHomeStats = homeStats ?? computeStatsFromForm(homeRecentMatches ?? [])
   const effectiveAwayStats = awayStats ?? computeStatsFromForm(awayRecentMatches ?? [])
 
+  // El "Análisis del modelo" (gemelo/Monte Carlo) es Poisson de goles → solo fútbol
+  const visibleTabs = football ? TABS : TABS.filter((t) => t.id !== 'analisis')
+
   return (
     <div>
       {/* Tab bar */}
       <div className="flex border-b border-zinc-800 overflow-x-auto">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon
           const isActive = active === tab.id
           return (
@@ -345,24 +352,28 @@ export function MatchAnalysisTabs({
               </div>
             </div>
 
-            <SectionHeader
-              title="Smart Bets del partido"
-              desc="Oportunidades de valor detectadas por la IA para este cruce — ver todas en la sección Smart Bets."
-            />
-            {!homeStats && <DerivedDataBadge />}
-            <AISmartBetsPanel
-              prediction={prediction}
-              homeStats={effectiveHomeStats}
-              awayStats={effectiveAwayStats}
-              match={match}
-              injuries={injuries}
-              odds={odds}
-              homeRecentMatches={homeRecentMatches}
-              awayRecentMatches={awayRecentMatches}
-              homeGroupContext={homeGroupContext}
-              awayGroupContext={awayGroupContext}
-            />
-            <ResponsibleGamingNotice odds={odds} />
+            {football && (
+              <>
+                <SectionHeader
+                  title="Smart Bets del partido"
+                  desc="Oportunidades de valor detectadas por la IA para este cruce — ver todas en la sección Smart Bets."
+                />
+                {!homeStats && <DerivedDataBadge />}
+                <AISmartBetsPanel
+                  prediction={prediction}
+                  homeStats={effectiveHomeStats}
+                  awayStats={effectiveAwayStats}
+                  match={match}
+                  injuries={injuries}
+                  odds={odds}
+                  homeRecentMatches={homeRecentMatches}
+                  awayRecentMatches={awayRecentMatches}
+                  homeGroupContext={homeGroupContext}
+                  awayGroupContext={awayGroupContext}
+                />
+                <ResponsibleGamingNotice odds={odds} />
+              </>
+            )}
           </div>
         )}
 
