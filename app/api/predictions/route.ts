@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { computeModelPrediction, computeConfidenceLevel, devigMarket } from '@/lib/predictionEngine'
-import { MODEL_VERSION } from '@/lib/constants'
+import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
 
 /**
  * POST /api/predictions
@@ -179,9 +179,17 @@ export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient()
 
   const matchId = req.nextUrl.searchParams.get('match_id')
-  let query = supabase.from('predictions').select('*, exact_score_predictions(*)')
-  if (matchId) query = query.eq('match_id', matchId)
-  else query = query.eq('is_published', true).order('created_at', { ascending: false }).limit(50)
+  // Sin match_id, el listado global queda acotado al Mundial: desde la
+  // Fase 4 conviven en la tabla las predicciones de ligas (liga-1.0).
+  const query = matchId
+    ? supabase.from('predictions').select('*, exact_score_predictions(*)').eq('match_id', matchId)
+    : supabase
+        .from('predictions')
+        .select('*, exact_score_predictions(*), match:matches!inner(competition_id)')
+        .eq('is_published', true)
+        .eq('match.competition_id', COMPETITION_ID)
+        .order('created_at', { ascending: false })
+        .limit(50)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

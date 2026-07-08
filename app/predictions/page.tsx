@@ -14,14 +14,16 @@ export default async function PredictionsPage() {
     .from('predictions')
     .select(`
       *,
-      match:matches(
-        kickoff_time, venue, city, status, phase, home_score, away_score,
+      match:matches!inner(
+        competition_id, kickoff_time, venue, city, status, phase, home_score, away_score,
         home_team:teams!matches_home_team_id_fkey(name, short_name, code, fifa_ranking),
         away_team:teams!matches_away_team_id_fkey(name, short_name, code, fifa_ranking)
       ),
       exact_score_predictions(home_score, away_score, probability, rank)
     `)
     .eq('is_published', true)
+    // Esta página es del Mundial; las predicciones de ligas viven en /ligas
+    .eq('match.competition_id', COMPETITION_ID)
 
   // Orden cronológico por fecha y hora del partido (el `.order` de PostgREST no
   // ordena el nivel superior por una columna de la tabla embebida, así que se

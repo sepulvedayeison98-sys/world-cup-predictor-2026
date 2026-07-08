@@ -55,18 +55,25 @@ export default async function DashboardPage() {
     { data: simForScorers },
     { data: matchCounts },
   ] = await Promise.all([
-    supabase.from('matches').select('*', { count: 'exact', head: true }),
-    supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('is_published', true),
+    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('competition_id', COMPETITION_ID),
+    // Solo predicciones del Mundial: desde la Fase 4 conviven en la tabla
+    // con las de ligas (liga-1.0), que tienen su propia sección.
+    supabase
+      .from('predictions')
+      .select('*, match:matches!inner(competition_id)', { count: 'exact', head: true })
+      .eq('is_published', true)
+      .eq('match.competition_id', COMPETITION_ID),
     supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('value_bets').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('grade', 'high'),
     supabase
       .from('predictions')
       .select(`
         was_correct, home_win_probability, draw_probability, away_win_probability,
-        match:matches(phase, home_score, away_score, kickoff_time,
+        match:matches!inner(competition_id, phase, home_score, away_score, kickoff_time,
           home_team:teams!matches_home_team_id_fkey(code),
           away_team:teams!matches_away_team_id_fkey(code))
       `)
+      .eq('match.competition_id', COMPETITION_ID)
       .not('was_correct', 'is', null),
     supabase.from('value_bets').select('result, odds_value').in('result', ['won', 'lost']),
     // Cuadro eliminatorio para el widget del dashboard
@@ -87,9 +94,10 @@ export default async function DashboardPage() {
       .from('predictions')
       .select(`
         id, home_win_probability, draw_probability, away_win_probability, created_at,
-        match:matches(id, home_team:teams!matches_home_team_id_fkey(code), away_team:teams!matches_away_team_id_fkey(code))
+        match:matches!inner(id, competition_id, home_team:teams!matches_home_team_id_fkey(code), away_team:teams!matches_away_team_id_fkey(code))
       `)
       .eq('is_published', true)
+      .eq('match.competition_id', COMPETITION_ID)
       .order('created_at', { ascending: false })
       .limit(10),
     // Recent value bets — solo columnas que existen en el schema
