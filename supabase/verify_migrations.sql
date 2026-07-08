@@ -32,11 +32,15 @@ UNION ALL SELECT '024 event_simulations', EXISTS(SELECT 1 FROM information_schem
 UNION ALL SELECT '025 data_quality_score', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='predictions' AND column_name='data_quality_score')
 UNION ALL SELECT '026 jugadores curados (78)', (SELECT count(*)>=78 FROM players)
 UNION ALL SELECT '027/028 cuotas seed', (SELECT count(*)>0 FROM odds)
-UNION ALL SELECT '029 mercados extendidos', (SELECT count(DISTINCT market)>5 FROM odds)
+-- 029: los seeds de mercados extendidos fueron reemplazados por cuotas reales
+-- (sync h2h+totals de Pinnacle). Firma estable: pipeline real activo con 1X2+over.
+UNION ALL SELECT '029 mercados extendidos', (SELECT count(DISTINCT market)>=4 FROM odds WHERE source IS NOT NULL)
 UNION ALL SELECT '031 amistosos pre-mundial', (SELECT count(*)=72 FROM matches WHERE competition_id='f1f2f3f4-f5f6-7890-abcd-ef1234567890')
 UNION ALL SELECT '032 alineaciones', (SELECT count(*)>0 FROM lineups)
 UNION ALL SELECT '033 grupos + R32 (WC2026)', (SELECT count(*)=72 FROM matches WHERE status='finished' AND phase='group' AND competition_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890') AND (SELECT count(*)=16 FROM matches WHERE phase='round_of_32')
-UNION ALL SELECT '035 fechas R32 corregidas', EXISTS(SELECT 1 FROM matches WHERE phase='round_of_32' AND kickoff_time='2026-07-04 00:30:00+00')
+-- 035: el sync de ESPN corrige kickoffs con horarios reales, así que no se
+-- fija una hora exacta: las 16 llaves de R32 deben caer en su ventana real.
+UNION ALL SELECT '035 fechas R32 corregidas', (SELECT count(*)=16 FROM matches WHERE phase='round_of_32' AND kickoff_time::date BETWEEN '2026-06-28' AND '2026-07-04')
 UNION ALL SELECT '036 backfill match_statistics', (SELECT count(*)>=288 FROM match_statistics)
 UNION ALL SELECT '040 procedencia (source)', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='match_statistics' AND column_name='source')
 UNION ALL SELECT '041 núcleo multi-deporte', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='sports') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='data_provenance') AND EXISTS(SELECT 1 FROM information_schema.views WHERE table_name='events_v')

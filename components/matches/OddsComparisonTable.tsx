@@ -301,7 +301,7 @@ export function OddsComparisonTable({ odds, prediction, homeTeam, awayTeam }: Pr
           </div>
 
           <p className="mt-3 text-[10px] text-zinc-600">
-            Fila "Modelo" = cuotas justas implícitas del motor de predicción (sin margen de casa).
+            Fila &quot;Modelo&quot; = cuotas justas implícitas del motor de predicción (sin margen de casa).
             Margen = sobreround de la casa; menor es mejor para el apostador.
           </p>
         </div>

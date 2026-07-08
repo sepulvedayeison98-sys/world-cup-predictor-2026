@@ -64,16 +64,24 @@ Prefiere respuestas claras, directas, sin rodeos.
 
 ## 4. ESTADO ACTUAL (lo que YA está hecho)
 
-✅ **Fase 1** — Tipos, schema SQL (15 tablas), servicios, layout, dashboard con KPIs
-✅ **Fase 2** — Partidos (tabla + filtros + detalle), grupos, predicciones, apuestas de valor
-✅ **Fase 3** — Jugadores + perfiles, simulador en tiempo real, API routes, realtime hooks
-✅ **GitHub** — Repo creado y código subido
-✅ **Supabase** — Proyecto creado, 4 migraciones ejecutadas, datos del Grupo C cargados
-✅ **Acceso libre** — Login eliminado, RLS de lectura pública para rol anon
-✅ **Build de producción** — Verificado, compila limpio (15 rutas)
+✅ **Plataforma Mundial 2026 en producción** — world-cup-predictor-2026-flax.vercel.app
+   (dashboard, partidos + detalle, grupos, predicciones, campeón, eliminatorias,
+   goleadores, apuestas de valor, simulador, jugadores, admin oculto)
+✅ **Motor v1.2** — 5 factores + Poisson/Dixon-Coles, recalibración automática
+   post-resultado, bracket automático, backtest del torneo
+✅ **Sincronización en vivo** — ESPN (resultados/stats), The Odds API (Pinnacle),
+   keepalive del cliente + /api/sync/live con throttle
+✅ **Data First** — procedencia (source) en stats/cuotas, sin datos sintéticos,
+   badges de "oficial vs estimación" en la UI
+✅ **Fase 4 (ligas de clubes)** — Premier League y La Liga 2024-25 completas
+   (ingesta API-Football idempotente), motor liga-1.0 con backtest walk-forward
+   (49-50% acierto 1X2, Brier ~0.60), páginas /ligas y /ligas/[slug] con
+   calendario por jornada y predicciones por partido
+✅ **Calidad** — 29 tests unitarios + 6 e2e Playwright, lint 0 errores,
+   verify_migrations.sql (36/36 verificadas), types regenerados
 
-⏳ **PENDIENTE INMEDIATO:** Deploy en Vercel
-⏳ **PENDIENTE FUTURO:** Más datos (resto de grupos), fuentes en vivo, dominio propio
+⏳ **PENDIENTE:** upgrade del plan API-Football (~agosto, para la temporada
+   2026-27 en vivo) · sistema de usuarios/polla (pospuesto por decisión del dueño)
 
 ---
 
@@ -189,28 +197,21 @@ value_bets · simulation_results · sync_logs · notifications
 
 ## 8. PRÓXIMOS PASOS SUGERIDOS (en orden)
 
-### Inmediato
-1. **Deploy en Vercel** — conectar repo GitHub, agregar las 4 variables de entorno, deploy
+### Corto plazo (durante el Mundial)
+1. Seguir operando el Mundial (sync ESPN + odds + recalibración automáticos)
+2. Mundial termina el 19 de julio → retrospectiva del modelo (accuracy final del torneo)
 
-### Corto plazo
-2. **Cargar el resto de datos del Mundial 2026** — 48 equipos, 12 grupos completos, 104 partidos
-   (crear una migración 005 o un script de ingesta)
-3. **Generar predicciones para todos los partidos** — usar el endpoint POST /api/predictions
-4. **Dominio propio** — comprar dominio y conectarlo en Vercel
+### Agosto 2026 (arranque de temporada europea)
+3. **Upgrade del plan API-Football** (~19 USD/mes) — la 2026-27 en vivo
+4. Conectar la ingesta de ligas al cron (hoy es manual: /api/sync/leagues/ingest)
+5. Predicciones pre-partido semanales para Premier/La Liga (motor liga-1.0 ya calibrado)
+6. Cuotas y value bets para ligas (The Odds API cubre EPL/La Liga)
 
 ### Medio plazo
-5. **Conectar fuente de datos en vivo:**
-   - API-Football (api-sports.io) para resultados/estadísticas en tiempo real
-   - The Odds API para cuotas automáticas
-   - Crear cron jobs / Vercel Cron para sincronización periódica
-6. **Mejorar el tipado de Supabase** — regenerar `types/database.ts` con:
-   `npx supabase gen types typescript --project-id jruanwjjsygcmmvwxexh > types/database.ts`
-7. **Sistema de roles** — si en el futuro se quiere panel de admin para editar predicciones
-
-### Largo plazo
-8. **App móvil** (React Native / Expo reutilizando la lógica)
-9. **Extender a otras competiciones** (el schema ya lo soporta con `competition_type`)
-10. **Notificaciones push** cuando salen alineaciones o se detectan value bets
+7. Más ligas (Serie A, Bundesliga, Ligue 1, Champions) — el pipeline es genérico:
+   agregar entrada en TARGET_LEAGUES + LEAGUE_COMPETITION_IDS + LEAGUE_SLUGS
+8. Sistema de usuarios + polla (cuando el dueño lo retome)
+9. App móvil / notificaciones push
 
 ---
 

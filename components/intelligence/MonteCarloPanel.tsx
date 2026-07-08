@@ -326,7 +326,7 @@ export function MonteCarloPanel({ prediction, homeStats, awayStats, match, injur
               Timeline de eventos
             </h4>
             <span className="text-[10px] text-zinc-600">
-              Primer gol esperado: min. {eventSim.expectedFirstGoalMinute}'
+              Primer gol esperado: min. {eventSim.expectedFirstGoalMinute}&apos;
             </span>
           </div>
 
@@ -347,7 +347,7 @@ export function MonteCarloPanel({ prediction, homeStats, awayStats, match, injur
                 <div className="flex flex-wrap gap-1">
                   {minutes.map(m => (
                     <span key={m} className={cn('text-[10px] mono font-bold border rounded px-1.5 py-0.5', color)}>
-                      {m}'
+                      {m}&apos;
                     </span>
                   ))}
                 </div>

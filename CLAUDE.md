@@ -12,7 +12,12 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 
 - `npm run dev` — servidor de desarrollo (localhost:3000)
 - `npm run build` — build de producción (correr SIEMPRE antes de hacer push para verificar)
-- `npm run lint` — linter
+- `npm run lint` — linter (0 errores es lo esperado; quedan warnings heredados)
+- `npm run type-check` — TypeScript sin emitir
+- `npm test` — pruebas unitarias (motores de predicción, ligas, bracket)
+- `npm run test:e2e` — Playwright. En el sandbox de Claude Code correr con:
+  `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt PW_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npx playwright test`
+  (el fetch de Node necesita el proxy para llegar a Supabase; el build local igual)
 
 ## Reglas de trabajo
 
@@ -37,5 +42,13 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 ## Identificadores clave
 
 - Competición activa: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- Ligas (Fase 4): Premier `39000000-0000-4000-8000-000000000039`,
+  La Liga `14000000-0000-4000-8000-000000000140` (ver `lib/constants.ts`)
 - Supabase project: `jruanwjjsygcmmvwxexh`
 - Repo: github.com/sepulvedayeison98-sys/world-cup-predictor-2026
+
+## Regla de oro multi-competición
+
+Toda query a `matches`, `teams`, `team_statistics` o `predictions` DEBE
+filtrar por competición (directo o con `matches!inner`). Desde la Fase 4
+conviven Mundial, amistosos y ligas de clubes en las mismas tablas.

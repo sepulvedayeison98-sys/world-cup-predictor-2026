@@ -51,7 +51,7 @@ export default async function PredictionsPage() {
         </p>
         <p className="mt-1 text-xs text-zinc-500">
           El acierto se mide por el resultado (gana local / empate / gana visitante), no por el marcador exacto.
-          El "Pronóstico" es el marcador estimado; en los partidos finalizados se muestra también el marcador real.
+          El &quot;Pronóstico&quot; es el marcador estimado; en los partidos finalizados se muestra también el marcador real.
         </p>
       </div>
 

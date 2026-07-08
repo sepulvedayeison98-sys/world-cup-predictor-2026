@@ -186,7 +186,7 @@ export function PlayersTable({ competitionId }: Props) {
     col.accessor(r => r.player_statistics?.minutes_played ?? 0, {
       id: 'minutes_played',
       header: 'Min.',
-      cell: info => <span className="mono text-xs text-zinc-400">{info.getValue()}'</span>,
+      cell: info => <span className="mono text-xs text-zinc-400">{info.getValue()}&apos;</span>,
       size: 60,
     }),
     col.accessor(r => r.player_statistics?.goals ?? 0, {
