@@ -65,10 +65,11 @@ test('detalle de partido: 4 pestañas fusionadas con secciones internas', async 
 test('value bets: historial de aciertos de Smart Bets visible', async ({ page }) => {
   await page.goto('/value-bets')
   await expect(page.getByText('Historial de aciertos')).toBeVisible()
-  // Con o sin datos resueltos aún, el bloque siempre debe decir algo honesto
-  const hasEmptyState = await page.getByText('Aún no hay recomendaciones resueltas').isVisible().catch(() => false)
-  const hasStats = await page.getByText('Efectividad').isVisible().catch(() => false)
-  expect(hasEmptyState || hasStats).toBe(true)
+  // Con o sin datos, el bloque siempre dice algo: panel acumulativo
+  // (Efectividad) o el estado vacío honesto. .or() auto-espera al render.
+  await expect(
+    page.getByText('Efectividad').first().or(page.getByText('Aún no hay recomendaciones registradas')),
+  ).toBeVisible()
 })
 
 test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {

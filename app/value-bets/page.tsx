@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Zap } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
-import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat } from '@/components/predictions/SmartBetsTrackRecord'
+import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat, type PendingMatchRow } from '@/components/predictions/SmartBetsTrackRecord'
 
 export const metadata: Metadata = {
   title: 'Apuestas de Valor | World Cup Predictor',
@@ -50,11 +50,34 @@ export default async function ValueBetsPage() {
   const avgEV       = bets.length > 0 ? totalEV / bets.length : 0
   const bestEdge    = bets.reduce((max, b: any) => Math.max(max, b.edge ?? 0), 0)
 
-  // ── Historial de aciertos Smart Bets (picks resueltos) ──────────────
-  const { data: resolvedRaw } = await supabase
-    .from('smart_bet_picks')
-    .select('id, category, gradable, correct')
-    .eq('resolved', true)
+  // ── Historial de aciertos Smart Bets — 3 consultas en paralelo ──────
+  const [{ data: resolvedRaw }, { data: recentRaw }, { data: pendingRaw }] = await Promise.all([
+    supabase
+      .from('smart_bet_picks')
+      .select('id, category, gradable, correct')
+      .eq('resolved', true),
+    supabase
+      .from('smart_bet_picks')
+      .select(`
+        id, match_id, market_id, category, label, rank, confidence, gradable, correct, actual_detail, resolved_at,
+        match:matches(
+          home_team:teams!matches_home_team_id_fkey(name, code),
+          away_team:teams!matches_away_team_id_fkey(name, code)
+        )
+      `)
+      .eq('resolved', true)
+      .order('resolved_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('smart_bet_picks')
+      .select(`
+        id, match_id, market_id, label, category, confidence,
+        match:matches(kickoff_time,
+          home_team:teams!matches_home_team_id_fkey(code),
+          away_team:teams!matches_away_team_id_fkey(code))
+      `)
+      .eq('resolved', false),
+  ])
 
   const resolved = (resolvedRaw ?? []) as any[]
   const gradedRows = resolved.filter((r) => r.gradable)
@@ -71,18 +94,24 @@ export default async function ValueBetsPage() {
   }
   const byCategory = [...categoryMap.values()].sort((a, b) => b.analyzed - a.analyzed)
 
-  const { data: recentRaw } = await supabase
-    .from('smart_bet_picks')
-    .select(`
-      id, match_id, market_id, category, label, rank, confidence, gradable, correct, actual_detail, resolved_at,
-      match:matches(
-        home_team:teams!matches_home_team_id_fkey(name, code),
-        away_team:teams!matches_away_team_id_fkey(name, code)
-      )
-    `)
-    .eq('resolved', true)
-    .order('resolved_at', { ascending: false })
-    .limit(20)
+  // Recomendaciones registradas que aún esperan resultado (partido por jugarse)
+  const pendingByMatch = new Map<string, PendingMatchRow>()
+  for (const p of ((pendingRaw ?? []) as any[])) {
+    let entry = pendingByMatch.get(p.match_id)
+    if (!entry) {
+      entry = {
+        match_id: p.match_id,
+        home_code: p.match?.home_team?.code ?? '?',
+        away_code: p.match?.away_team?.code ?? '?',
+        kickoff_time: p.match?.kickoff_time ?? '',
+        picks: [],
+      }
+      pendingByMatch.set(p.match_id, entry)
+    }
+    entry.picks.push({ id: p.id, label: p.label, category: p.category, confidence: Number(p.confidence) })
+  }
+  const pendingMatches = [...pendingByMatch.values()]
+    .sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time))
 
   const recentPicks: ResolvedPickRow[] = ((recentRaw ?? []) as any[]).map((p) => ({
     id: p.id,
@@ -180,6 +209,7 @@ export default async function ValueBetsPage() {
         byCategory={byCategory}
         ungradedCount={ungradedCount}
         recent={recentPicks}
+        pending={pendingMatches}
       />
     </div>
   )
