@@ -37,13 +37,17 @@ test('el panel admin pide clave y lista partidos', async ({ page }) => {
   await expect(page.getByPlaceholder(/Clave de administración/)).toBeVisible()
 })
 
-test('ligas: overview con pestañas y tabla de 20 equipos', async ({ page }) => {
+test('ligas: overview con las 5 grandes ligas', async ({ page }) => {
   await page.goto('/ligas')
   await expect(page.getByRole('heading', { name: 'Ligas' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Premier League' })).toBeVisible()
-  // Cambiar a La Liga y verificar que la tabla tiene 20 filas
+  for (const liga of ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']) {
+    await expect(page.getByRole('button', { name: liga })).toBeVisible()
+  }
+  // La Liga: 20 filas; Bundesliga: 18 (sin el rival del playoff de descenso)
   await page.getByRole('button', { name: 'La Liga' }).click()
   await expect(page.locator('tbody tr')).toHaveCount(20)
+  await page.getByRole('button', { name: 'Bundesliga' }).click()
+  await expect(page.locator('tbody tr')).toHaveCount(18)
   await expect(page.getByText('Descenso')).toBeVisible()
 })
 

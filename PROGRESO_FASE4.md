@@ -1,4 +1,59 @@
-# Informe de progreso — Fase 4: Ligas de clubes
+# Informe de progreso — Fase 4 y Etapa 5: Ligas de clubes
+
+**Fecha:** 8 de julio de 2026 (dos sesiones autónomas el mismo día)
+
+---
+
+## ETAPA 5 (segunda sesión) — Las 5 grandes ligas + motor en vivo
+
+### Fase 1 — Expansión a las 5 grandes ligas
+
+Serie A, Bundesliga y Ligue 1 se sumaron a Premier League y La Liga
+(migración 045, ingesta y calibración en producción). Verificación
+contra la realidad de la 2024-25 — los cuatro campeones reproducidos
+exactamente: Liverpool 84, Barcelona 88, **Napoli 82, Bayern München 82
+y PSG 84 puntos**.
+
+Hallazgo corregido durante la prueba: API-Football incluye los
+**playoffs de descenso** de Bundesliga y Ligue 1 (2 partidos extra y un
+rival de segunda división). Se filtró todo a temporada regular
+(`round IS NOT NULL`): posiciones, calendario, ELO y backtest quedan
+limpios (18 equipos exactos en ambas ligas).
+
+### Fase 2 — Motor pre-partido y automatización
+
+- `leagueEngine` ahora también predice **partidos programados o en
+  vivo** con el estado final del modelo (`upcoming`): al conectar la
+  temporada 2026-27, cada corrida de calibración deja lista la
+  predicción de la siguiente jornada automáticamente. En pretemporada
+  el encogimiento lleva las probabilidades a la media de la liga —
+  honesto, sin inventar datos.
+- La calibración protege la pretemporada (no pisa ELO/estadísticas de
+  equipos sin partidos) y publica las predicciones pre-partido
+  (`was_correct` NULL hasta que el partido termina).
+- **Workflow `sync-leagues.yml`**: ingesta + calibración automáticas
+  lunes y viernes 03:00 UTC (10 requests de cuota por corrida).
+
+### Fase 3 — Revisión y métricas de las 5 ligas
+
+Backtest 2024-25 completo (1,512 partidos evaluados en total):
+
+| Liga | Acierto 1X2 | Brier | Log-loss |
+|------|------------|-------|----------|
+| Premier League | 49.4% | 0.608 | 1.016 |
+| La Liga | 50.3% | 0.604 | 1.010 |
+| Serie A | 51.8% | 0.591 | 0.989 |
+| Bundesliga | 47.9% | 0.641 | 1.069 |
+| Ligue 1 | 56.3% | 0.600 | 1.011 |
+
+Coherencia futbolística: Ligue 1 es la más predecible (dominio del
+PSG) y la Bundesliga la más volátil — igual que en la literatura de
+modelos de fútbol. Pruebas: 31/31 unitarias, 6/6 e2e (Bundesliga con
+18 filas verificadas), 37/37 migraciones, lint 0 errores.
+
+---
+
+# Informe original — Fase 4 (primera sesión)
 
 **Fecha:** 8 de julio de 2026
 **Alcance:** sesión autónoma de tres fases sobre la expansión a ligas

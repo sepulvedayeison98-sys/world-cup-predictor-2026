@@ -73,10 +73,11 @@ Prefiere respuestas claras, directas, sin rodeos.
    keepalive del cliente + /api/sync/live con throttle
 ✅ **Data First** — procedencia (source) en stats/cuotas, sin datos sintéticos,
    badges de "oficial vs estimación" en la UI
-✅ **Fase 4 (ligas de clubes)** — Premier League y La Liga 2024-25 completas
-   (ingesta API-Football idempotente), motor liga-1.0 con backtest walk-forward
-   (49-50% acierto 1X2, Brier ~0.60), páginas /ligas y /ligas/[slug] con
-   calendario por jornada y predicciones por partido
+✅ **Fase 4 + Etapa 5 (ligas de clubes)** — Las 5 grandes ligas 2024-25
+   completas (Premier, La Liga, Serie A, Bundesliga, Ligue 1) con ingesta
+   API-Football idempotente, motor liga-1.0 (backtest walk-forward, 48-56%
+   acierto 1X2 según liga), predicciones pre-partido para la 2026-27,
+   páginas /ligas y /ligas/[slug], sync automático lunes y viernes
 ✅ **Calidad** — 29 tests unitarios + 6 e2e Playwright, lint 0 errores,
    verify_migrations.sql (36/36 verificadas), types regenerados
 
@@ -208,7 +209,8 @@ value_bets · simulation_results · sync_logs · notifications
 6. Cuotas y value bets para ligas (The Odds API cubre EPL/La Liga)
 
 ### Medio plazo
-7. Más ligas (Serie A, Bundesliga, Ligue 1, Champions) — el pipeline es genérico:
+7. Champions League (requiere manejar fase de liga + eliminatorias, no es
+   round-robin puro) y más ligas — el pipeline es genérico:
    agregar entrada en TARGET_LEAGUES + LEAGUE_COMPETITION_IDS + LEAGUE_SLUGS
 8. Sistema de usuarios + polla (cuando el dueño lo retome)
 9. App móvil / notificaciones push
