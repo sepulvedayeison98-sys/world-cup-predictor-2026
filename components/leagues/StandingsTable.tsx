@@ -25,9 +25,11 @@ export function StandingsTable({ standings }: { standings: LeagueStandingRow[] }
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
+            {/* Q5: # + Equipo fijos a la izquierda y Pts a la derecha — en
+                móvil el scroll horizontal nunca esconde lo esencial. */}
             <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-500">
-              <th className="px-3 py-2 text-left w-10">#</th>
-              <th className="px-3 py-2 text-left">Equipo</th>
+              <th className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-left w-10">#</th>
+              <th className="sticky left-10 z-10 bg-zinc-900 px-3 py-2 text-left">Equipo</th>
               <th className="px-2 py-2 text-center">PJ</th>
               <th className="px-2 py-2 text-center">G</th>
               <th className="px-2 py-2 text-center">E</th>
@@ -35,7 +37,7 @@ export function StandingsTable({ standings }: { standings: LeagueStandingRow[] }
               <th className="px-2 py-2 text-center hidden sm:table-cell">GF</th>
               <th className="px-2 py-2 text-center hidden sm:table-cell">GC</th>
               <th className="px-2 py-2 text-center">DG</th>
-              <th className="px-2 py-2 text-center font-bold">Pts</th>
+              <th className="sticky right-0 z-10 border-l border-zinc-800 bg-zinc-900 px-2 py-2 text-center font-bold">Pts</th>
               <th className="px-3 py-2 text-center hidden md:table-cell">Forma</th>
             </tr>
           </thead>
@@ -48,8 +50,8 @@ export function StandingsTable({ standings }: { standings: LeagueStandingRow[] }
                   zoneClass(row.position, standings.length),
                 )}
               >
-                <td className="px-3 py-2 text-zinc-400 tabular-nums">{row.position}</td>
-                <td className="px-3 py-2">
+                <td className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-zinc-400 tabular-nums">{row.position}</td>
+                <td className="sticky left-10 z-10 bg-zinc-900 px-3 py-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {row.team.logo_url && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -67,7 +69,7 @@ export function StandingsTable({ standings }: { standings: LeagueStandingRow[] }
                 <td className={cn('px-2 py-2 text-center tabular-nums', row.goal_difference > 0 ? 'text-emerald-400' : row.goal_difference < 0 ? 'text-red-400' : 'text-zinc-400')}>
                   {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
                 </td>
-                <td className="px-2 py-2 text-center font-bold text-white tabular-nums">{row.points}</td>
+                <td className="sticky right-0 z-10 border-l border-zinc-800 bg-zinc-900 px-2 py-2 text-center font-bold text-white tabular-nums">{row.points}</td>
                 <td className="px-3 py-2 hidden md:table-cell">
                   <div className="flex justify-center gap-1">
                     {row.form.map((r, i) => (

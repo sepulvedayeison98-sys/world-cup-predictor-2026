@@ -46,9 +46,13 @@ export function TerminalHeader({ modelVersion, accuracy, totalMatches, analyzedM
           <span className="text-[10px] text-zinc-600 mono">{time} COT</span>
         </div>
 
-        <div className="order-last w-full min-w-0 flex items-center gap-4 overflow-x-auto sm:order-none sm:w-auto sm:flex-1 sm:justify-center">
+        {/* Q6: en móvil la cinta dice solo lo esencial (Motor + Precisión);
+            los demás segmentos entran por breakpoint, nunca truncados. */}
+        <div className="order-last w-full min-w-0 flex items-center gap-4 sm:order-none sm:w-auto sm:flex-1 sm:justify-center">
           <Ticker label="Motor" value={`v${modelVersion}`} color="text-emerald-400" />
-          <Ticker label="Partidos" value={`${analyzedMatches}/${totalMatches}`} />
+          <div className="hidden sm:block">
+            <Ticker label="Partidos" value={`${analyzedMatches}/${totalMatches}`} />
+          </div>
           <Ticker
             label="Precisión"
             value={accuracy === null ? '—' : `${(accuracy * 100).toFixed(1)}%`}

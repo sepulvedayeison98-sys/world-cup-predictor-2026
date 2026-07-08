@@ -241,7 +241,7 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
 
 // ─── Main Table Component ─────────────────────────────────────
 
-export function MatchesTable() {
+export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([
@@ -250,9 +250,10 @@ export function MatchesTable() {
   const [pageIndex, setPageIndex] = useState(0)
   const PAGE_SIZE = 15
 
-  // Por defecto muestra los partidos del día actual
+  // Por defecto muestra la fecha inteligente del servidor: hoy si hay
+  // partidos, o la próxima fecha con actividad (Q2 — nunca abre vacía)
   const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
-  const dateParam = searchParams.get('date') ?? todayStr
+  const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr
   // Convertir a ISO UTC para que Supabase filtre correctamente según zona horaria del usuario
   const date_from = new Date(`${dateParam}T00:00:00`).toISOString()
   const date_to   = new Date(`${dateParam}T23:59:59`).toISOString()

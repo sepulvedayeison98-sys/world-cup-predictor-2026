@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Bell, Search, Sun, Moon, Menu } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { Search, Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
@@ -17,11 +15,8 @@ const ROUTE_LABELS: Record<string, string> = {
 }
 
 export function Topbar() {
-  const { theme, setTheme } = useTheme()
   const pathname = usePathname()
   const { setOpen } = useMobileNav()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
 
   const label = Object.entries(ROUTE_LABELS).find(([key]) =>
     pathname.startsWith(key)
@@ -56,24 +51,9 @@ export function Topbar() {
           <Search className="h-4 w-4" />
         </button>
 
-        <button
-          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-          aria-label="Notificaciones"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-          aria-label="Cambiar tema"
-        >
-          {/* Guard de montado: evita el mismatch de hidratacion del icono */}
-          <span className="flex h-4 w-4 items-center justify-center">
-            {mounted && (theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />)}
-          </span>
-        </button>
-
+        {/* Q7: campana y toggle de tema retirados — no había sistema de
+            notificaciones ni modo claro detrás. El producto es solo-oscuro
+            por identidad (terminal financiera). */}
         <div className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-400">
           A
         </div>

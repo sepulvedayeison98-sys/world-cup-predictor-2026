@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { LEAGUE_COMPETITION_IDS, leagueSlugById } from '@/lib/constants'
+import { LEAGUE_COMPETITION_IDS, LEAGUE_DISPLAY_ORDER, leagueSlugById } from '@/lib/constants'
 import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { LeagueTabs, type LeagueTabData } from '@/components/leagues/LeagueTabs'
 
@@ -15,11 +15,14 @@ export default async function LigasPage() {
   const supabase = createStaticSupabaseClient()
   const leagueIds = Object.values(LEAGUE_COMPETITION_IDS)
 
-  const { data: competitions } = await supabase
+  const { data: competitionsRaw } = await supabase
     .from('competitions')
     .select('id, name, season, country')
     .in('id', leagueIds)
-    .order('name')
+  // Q4: orden editorial (Premier → La Liga → Serie A → Bundesliga → Ligue 1)
+  const competitions = (competitionsRaw ?? []).slice().sort(
+    (a: any, b: any) => LEAGUE_DISPLAY_ORDER.indexOf(a.id) - LEAGUE_DISPLAY_ORDER.indexOf(b.id),
+  )
 
   const leagues: LeagueTabData[] = []
   for (const comp of (competitions ?? []) as any[]) {

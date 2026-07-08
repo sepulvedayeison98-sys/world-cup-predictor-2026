@@ -126,7 +126,7 @@ export default async function LeagueDetailPage({ params }: Props) {
     { label: 'Líder', value: leader?.team.name ?? '—', sub: leader ? `${leader.points} pts` : '' },
     { label: 'Mejor ataque', value: bestAttack?.team.name ?? '—', sub: bestAttack ? `${bestAttack.goals_for} goles` : '' },
     { label: 'Mejor defensa', value: bestDefense?.team.name ?? '—', sub: bestDefense ? `${bestDefense.goals_against} en contra` : '' },
-    { label: 'Precisión del modelo', value: accuracy ? `${accuracy}%` : '—', sub: evaluated ? `${correct}/${evaluated} picks 1X2` : 'sin evaluar' },
+    { label: 'Precisión del modelo', value: accuracy ? `${accuracy}%` : '—', sub: evaluated ? `${correct}/${evaluated} picks · azar 33% · siempre-local ≈44%` : 'sin evaluar' },
   ]
 
   return (

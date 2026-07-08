@@ -43,6 +43,15 @@ export const LEAGUE_SLUGS: Record<string, string> = {
   'ligue-1':        LEAGUE_COMPETITION_IDS.ligue_1,
 }
 
+// Q4: orden editorial de las ligas (relevancia para la audiencia), no alfabético.
+export const LEAGUE_DISPLAY_ORDER = [
+  LEAGUE_COMPETITION_IDS.premier_league,
+  LEAGUE_COMPETITION_IDS.la_liga,
+  LEAGUE_COMPETITION_IDS.serie_a,
+  LEAGUE_COMPETITION_IDS.bundesliga,
+  LEAGUE_COMPETITION_IDS.ligue_1,
+]
+
 export const LEAGUE_NAMES: Record<string, string> = {
   'premier-league': 'Premier League',
   'la-liga':        'La Liga',

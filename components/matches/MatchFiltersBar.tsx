@@ -11,6 +11,7 @@ interface Team  { id: string; name: string; short_name: string; code: string }
 interface Props {
   groups: Group[]
   teams: Team[]
+  defaultDate?: string
 }
 
 const STATUS_OPTIONS = [
@@ -26,14 +27,16 @@ const CONFIDENCE_OPTIONS = [
   { value: '5', label: '⭐⭐⭐⭐⭐' },
 ]
 
-export function MatchFiltersBar({ groups, teams }: Props) {
+export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   // Fecha local en formato YYYY-MM-DD
   const todayStr = new Date().toLocaleDateString('en-CA')
-  const dateParam = searchParams.get('date') ?? todayStr
+  // Q2: sin fecha en la URL, cae en la fecha por defecto del servidor
+  // (hoy si hay partidos; si no, la próxima fecha con actividad)
+  const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr
 
   const shiftDate = (base: string, days: number) => {
     const d = new Date(`${base}T12:00:00`)

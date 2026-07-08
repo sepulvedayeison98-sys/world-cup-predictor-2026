@@ -20,6 +20,7 @@ import {
   Globe,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MODEL_VERSION } from '@/lib/constants'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
 const NAV_ITEMS = [
@@ -33,7 +34,7 @@ const NAV_ITEMS = [
   { href: '/value-bets',   label: 'Apuestas Valor',  icon: Zap },
   { href: '/simulation',   label: 'Simulador',       icon: FlaskConical },
   { href: '/players',      label: 'Jugadores',       icon: User },
-  { href: '/settings',     label: 'Información',     icon: Settings },
+  { href: '/settings',     label: 'Configuración',   icon: Settings },
 ]
 
 export function Sidebar() {
@@ -118,7 +119,8 @@ export function Sidebar() {
             <div className="live-dot" />
             <p className="text-xs font-medium text-zinc-300">Motor activo</p>
           </div>
-          <p className="mt-1 text-[10px] text-zinc-500">Modelo v1.1.0 · WC2026</p>
+          {/* Q1: versión desde la fuente única — nunca más desincronizada */}
+          <p className="mt-1 text-[10px] text-zinc-500">Modelo v{MODEL_VERSION}</p>
         </div>
 
         {/* Collapse toggle (solo escritorio) */}

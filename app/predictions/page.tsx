@@ -70,6 +70,11 @@ export default async function PredictionsPage() {
         ))}
       </div>
 
+      {/* Q9: la precisión sin líneas base no dice nada — con ellas, demuestra habilidad */}
+      <p className="-mt-3 text-[11px] text-zinc-600">
+        Referencias: elegir al azar acierta ~33% · apostar siempre por el local ~44%.
+      </p>
+
       <PredictionsTable predictions={ordered} />
     </div>
   )

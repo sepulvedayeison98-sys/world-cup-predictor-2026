@@ -102,7 +102,24 @@ export default async function ValueBetsPage() {
         </p>
       </div>
 
-      <ValueBetsFullTable bets={bets} />
+      {bets.length === 0 ? (
+        /* Q8: el mercado sin valor no es un error — es información */
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-zinc-300">
+            El mercado no ofrece valor en este momento
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-xs text-zinc-500">
+            El detector compara el modelo contra la línea justa de Pinnacle de
+            forma continua; cuando una cuota supere el umbral de edge, la
+            oportunidad aparecerá aquí automáticamente.
+          </p>
+          <a href="/predictions" className="mt-4 inline-block text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+            Ver predicciones del motor →
+          </a>
+        </div>
+      ) : (
+        <ValueBetsFullTable bets={bets} />
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@
 
 'use client'
 
-import { Target, BarChart3, Zap, TrendingUp, DollarSign, Search, Radio } from 'lucide-react'
+import { Target, BarChart3, Zap, DollarSign, Search, Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRealtimeKPIs } from '@/hooks/useRealtimeKPIs'
 import type { DashboardKPIs } from '@/types'
@@ -19,6 +19,9 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
   const { kpis, isLive } = useRealtimeKPIs({ initialKPIs, competitionId })
   const roiPositive = (kpis.roi ?? 0) >= 0
 
+  // Q3: sin KPIs muertos ni duplicados — ROI y Picks solo aparecen cuando
+  // hay datos que los respalden; "Partidos Analizados" (duplicado de Total
+  // Partidos) se eliminó.
   const cards = [
     {
       label: 'Total Partidos',
@@ -29,7 +32,7 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       bg: 'bg-blue-500/10',
       border: 'border-blue-500/20',
     },
-    {
+    ...(kpis.active_picks > 0 ? [{
       label: 'Picks Premium',
       value: kpis.active_picks.toString(),
       sub: `de ${kpis.value_bets_pending} activas`,
@@ -37,7 +40,7 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       color: 'text-violet-400',
       bg: 'bg-violet-500/10',
       border: 'border-violet-500/20',
-    },
+    }] : []),
     {
       label: 'Precisión',
       value: kpis.historical_accuracy === null ? '—' : `${(kpis.historical_accuracy * 100).toFixed(1)}%`,
@@ -48,15 +51,15 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       border: 'border-emerald-500/20',
       highlight: kpis.historical_accuracy !== null && kpis.historical_accuracy >= 0.65,
     },
-    {
+    ...(kpis.roi !== null && kpis.value_bets_won > 0 ? [{
       label: 'ROI',
-      value: kpis.roi === null ? '—' : `${roiPositive ? '+' : ''}${kpis.roi.toFixed(1)}%`,
-      sub: kpis.roi === null ? 'sin apuestas resueltas' : `${kpis.value_bets_won} apuestas ganadas`,
+      value: `${roiPositive ? '+' : ''}${kpis.roi.toFixed(1)}%`,
+      sub: `${kpis.value_bets_won} apuestas ganadas`,
       icon: DollarSign,
-      color: kpis.roi === null ? 'text-zinc-400' : roiPositive ? 'text-emerald-400' : 'text-red-400',
-      bg: kpis.roi === null ? 'bg-zinc-500/10' : roiPositive ? 'bg-emerald-500/10' : 'bg-red-500/10',
-      border: kpis.roi === null ? 'border-zinc-500/20' : roiPositive ? 'border-emerald-500/20' : 'border-red-500/20',
-    },
+      color: roiPositive ? 'text-emerald-400' : 'text-red-400',
+      bg: roiPositive ? 'bg-emerald-500/10' : 'bg-red-500/10',
+      border: roiPositive ? 'border-emerald-500/20' : 'border-red-500/20',
+    }] : []),
     {
       label: 'Apuestas de Valor',
       value: kpis.value_bets_detected.toString(),
@@ -65,15 +68,6 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
       color: 'text-amber-400',
       bg: 'bg-amber-500/10',
       border: 'border-amber-500/20',
-    },
-    {
-      label: 'Partidos Analizados',
-      value: kpis.analyzed_matches.toString(),
-      sub: `de ${kpis.total_matches} programados`,
-      icon: TrendingUp,
-      color: 'text-blue-400',
-      bg: 'bg-blue-500/10',
-      border: 'border-blue-500/20',
     },
   ]
 
@@ -92,8 +86,11 @@ export function KPICardsRealtime({ initialKPIs, competitionId }: Props) {
         </div>
       </div>
 
-      {/* Grid de tarjetas KPI */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      {/* Grid de tarjetas KPI (el nº de tarjetas varía según haya datos) */}
+      <div className={cn(
+        'grid grid-cols-2 gap-3 sm:grid-cols-3',
+        { 3: 'xl:grid-cols-3', 4: 'xl:grid-cols-4', 5: 'xl:grid-cols-5', 6: 'xl:grid-cols-6' }[cards.length] ?? 'xl:grid-cols-4',
+      )}>
         {cards.map((card) => {
           const Icon = card.icon
           return (

@@ -5,6 +5,7 @@
 
 'use client'
 
+import Link from 'next/link'
 import { useRealtimeMatches } from '@/hooks/useRealtimeMatches'
 import { MatchCard } from '@/components/matches/MatchCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,7 +46,23 @@ export function UpcomingMatchesWidgetRealtime() {
               <MatchCard key={match.id} match={match} />
             ))
           ) : (
-            <p className="text-sm text-zinc-500">No hay partidos próximos.</p>
+            // Q8: el vacío explica qué pasó, qué viene y ofrece una acción
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-6 text-center">
+              <p className="text-sm font-medium text-zinc-300">
+                No hay partidos en las próximas horas
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                La actividad regresa con la próxima fecha del calendario.
+              </p>
+              <div className="mt-3 flex justify-center gap-4 text-xs font-semibold">
+                <Link href="/matches" className="text-emerald-400 hover:text-emerald-300">
+                  Ver agenda completa →
+                </Link>
+                <Link href="/ligas" className="text-zinc-400 hover:text-zinc-200">
+                  Explorar ligas →
+                </Link>
+              </div>
+            </div>
           )}
         </div>
       </CardContent>
