@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { LEAGUE_SLUGS } from '@/lib/constants'
 import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { StandingsTable } from '@/components/leagues/StandingsTable'
@@ -36,7 +36,8 @@ export default async function LeagueDetailPage({ params }: Props) {
   const competitionId = LEAGUE_SLUGS[slug]
   if (!competitionId) notFound()
 
-  const supabase = await createServerSupabaseClient()
+  // Cliente sin cookies(): permite el prerender estático (ISR) de la página
+  const supabase = createStaticSupabaseClient()
   const [{ data: comp }, { data: teams }, { data: matches }] = await Promise.all([
     supabase
       .from('competitions')

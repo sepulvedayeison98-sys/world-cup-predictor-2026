@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { LEAGUE_COMPETITION_IDS, leagueSlugById } from '@/lib/constants'
 import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { LeagueTabs, type LeagueTabData } from '@/components/leagues/LeagueTabs'
@@ -8,10 +8,11 @@ export const metadata: Metadata = {
   title: 'Ligas | World Cup Predictor',
 }
 
-export const revalidate = 300 // los datos de liga cambian poco (temporada histórica)
+// ISR real: cliente sin cookies() — ver lib/supabase/static.ts
+export const revalidate = 300
 
 export default async function LigasPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   const leagueIds = Object.values(LEAGUE_COMPETITION_IDS)
 
   const { data: competitions } = await supabase
