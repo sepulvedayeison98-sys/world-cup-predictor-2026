@@ -81,6 +81,19 @@ test('nba: hub con standings por conferencia (primer deporte no-fútbol)', async
   // 30 franquicias repartidas en dos conferencias (15 filas cada tabla)
   await expect(page.locator('tbody tr')).toHaveCount(30)
   await expect(page.getByText('Playoffs directo (1-6)').first()).toBeVisible()
+  // Calendario navegable presente
+  await expect(page.getByRole('heading', { name: 'Calendario' })).toBeVisible()
+})
+
+test('nba: detalle de partido con moneyline, cuartos y veredicto (sin paneles de fútbol)', async ({ page }) => {
+  await page.goto('/matches/b39bc056-85ff-419f-a17b-367e81609d42') // Spurs 125-118 Raptors
+  await expect(page.getByRole('main').getByRole('link', { name: /NBA/ })).toBeVisible()
+  await expect(page.getByText('Ganador (moneyline)')).toBeVisible()
+  await expect(page.getByText('Hándicap', { exact: true })).toBeVisible()
+  await expect(page.getByText('Desglose por cuarto')).toBeVisible()
+  await expect(page.getByText('Veredicto del partido')).toBeVisible({ timeout: 20_000 })
+  // Las pestañas de fútbol NO aplican al baloncesto
+  await expect(page.getByRole('button', { name: 'Análisis del modelo' })).toHaveCount(0)
 })
 
 test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {

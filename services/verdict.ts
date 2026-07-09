@@ -53,6 +53,8 @@ Responde SOLO con JSON válido, mismas claves y misma cantidad de factores:
     if (!jsonMatch) return null
     const parsed = JSON.parse(jsonMatch[0]) as VerdictOutput
     if (!parsed.summary || !Array.isArray(parsed.factors) || !parsed.prediction_review || !parsed.model_lesson) return null
+    // No dejar que el pulido pierda factores del determinista (la señal real)
+    if (parsed.factors.length < base.factors.length) return null
     return parsed
   } catch (err: any) {
     console.error('[verdict] Claude falló, se usa la versión determinista:', err?.message)
@@ -88,6 +90,8 @@ Responde SOLO con JSON válido, mismas claves y misma cantidad de factores:
     if (!jsonMatch) return null
     const parsed = JSON.parse(jsonMatch[0]) as VerdictOutput
     if (!parsed.summary || !Array.isArray(parsed.factors) || !parsed.prediction_review || !parsed.model_lesson) return null
+    // No dejar que el pulido pierda factores del determinista (la señal real)
+    if (parsed.factors.length < base.factors.length) return null
     return parsed
   } catch (err: any) {
     console.error('[verdict] polish falló, se usa determinista:', err?.message)
