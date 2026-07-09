@@ -1,7 +1,7 @@
 /**
  * Estadísticas reales de temporada NBA — módulo puro del dominio baloncesto.
  *
- * TODO dato sale de partidos jugados de verdad (marcadores finales y
+ * Cada dato sale de partidos jugados de verdad (marcadores finales y
  * puntos por cuarto de la BD). No se calculan métricas que exigirían
  * datos de posesión que no tenemos (ORtg/DRtg/Pace/eFG% requieren
  * tiros, rebotes ofensivos y pérdidas — ver backlog en PROGRESS_REPORT):
