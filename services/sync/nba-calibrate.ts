@@ -5,9 +5,9 @@
  * de los juegos por jugarse. No consume cuota de API.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
-import { runNbaBacktest } from '@/lib/nbaEngine'
-import { computeConfidenceLevel } from '@/lib/predictionEngine'
-import { NBA_COMPETITION_ID, NBA_MODEL_VERSION } from '@/lib/nba'
+import { runNbaBacktest } from '@/lib/nba/engine'
+import { nbaConfidenceLevel } from '@/lib/nba/engine'
+import { NBA_COMPETITION_ID, NBA_MODEL_VERSION } from '@/lib/nba/constants'
 import { fetchAllRows } from '@/lib/fetchAll'
 import { syncSmartBetTracking } from '@/services/smartBetTracking'
 
@@ -69,7 +69,7 @@ export async function calibrateNba(): Promise<NbaCalibrationResult> {
     away_win_probability: p.away_win_probability,
     predicted_home_score: p.predicted_home_score,
     predicted_away_score: p.predicted_away_score,
-    confidence_level: computeConfidenceLevel(p.confidence_score),
+    confidence_level: nbaConfidenceLevel(p.confidence_score),
     confidence_score: p.confidence_score,
     model_version: NBA_MODEL_VERSION,
     is_published: true,
@@ -84,7 +84,7 @@ export async function calibrateNba(): Promise<NbaCalibrationResult> {
     away_win_probability: p.away_win_probability,
     predicted_home_score: p.predicted_home_score,
     predicted_away_score: p.predicted_away_score,
-    confidence_level: computeConfidenceLevel(p.confidence_score),
+    confidence_level: nbaConfidenceLevel(p.confidence_score),
     confidence_score: p.confidence_score,
     model_version: NBA_MODEL_VERSION,
     is_published: true,

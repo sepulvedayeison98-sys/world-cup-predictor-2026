@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { NBA_COMPETITION_ID } from '@/lib/nba'
-import { computeNbaRecords } from '@/lib/nbaEngine'
+import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
+import { computeNbaRecords } from '@/lib/nba/engine'
 import { fetchAllRows } from '@/lib/fetchAll'
 import { ConferenceStandings, type NbaStandingView } from '@/components/nba/ConferenceStandings'
 import { NbaSchedule } from '@/components/nba/NbaSchedule'
@@ -135,6 +136,25 @@ export default async function NbaHubPage() {
               <p className="text-xs text-zinc-500">2 conferencias · 6 divisiones</p>
             </div>
           </div>
+
+          {/* Secciones del dominio NBA */}
+          <section aria-label="Secciones NBA" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { href: '/nba/rankings', title: 'Rankings', desc: 'Las 30 franquicias por ELO del modelo' },
+              { href: '/nba/estadisticas', title: 'Estadísticas', desc: 'Anotación real de la liga, por cuarto' },
+              { href: '/nba/tendencias', title: 'Tendencias', desc: 'Rachas, fortines y clutch' },
+              { href: '/nba/predicciones', title: 'Predicciones', desc: 'Precisión y calibración del modelo' },
+            ].map((s) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                className="group rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 transition-colors hover:border-zinc-700"
+              >
+                <p className="text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors">{s.title}</p>
+                <p className="mt-1 text-[11px] leading-snug text-zinc-500">{s.desc}</p>
+              </Link>
+            ))}
+          </section>
 
           <ConferenceStandings east={east} west={west} />
 

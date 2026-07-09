@@ -11,7 +11,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureMatchEvents } from '@/services/sync/match-events'
 import { buildDeterministicVerdict, type VerdictInput, type VerdictOutput } from '@/lib/verdictEngine'
-import { buildNbaVerdict } from '@/lib/nbaVerdict'
+import { buildNbaVerdict } from '@/lib/nba/verdict'
 import { sportOfCompetition } from '@/lib/sports'
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6'

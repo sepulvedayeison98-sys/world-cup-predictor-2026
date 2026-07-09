@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, LEAGUE_DISPLAY_ORDER, LEAGUE_SLUGS, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
-import { NBA_COMPETITION_ID } from '@/lib/nba'
+import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 
 export const metadata: Metadata = {
   title: 'Inteligencia | Veredicto',

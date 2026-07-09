@@ -11,7 +11,7 @@ import {
   NBA_ELO_BASE,
   NBA_WARMUP_GAMES,
   type NbaEngineMatch,
-} from '../lib/nbaEngine'
+} from '../lib/nba/engine'
 
 let seq = 0
 function G(home: string, away: string, hs: number | null, as: number | null, day: number): NbaEngineMatch {

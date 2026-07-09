@@ -11,9 +11,21 @@
  * con la información previa a jugarse; los primeros de cada equipo son
  * calentamiento y no se evalúan. Módulo puro — ver tests/nbaEngine.test.ts.
  */
-import { computeConfidenceLevel } from './predictionEngine'
-
 // ─── Parámetros ──────────────────────────────────────────────────────────────
+/**
+ * Nivel de confianza 1-5 a partir del score 0-100. Mismos umbrales que
+ * el motor de fútbol, definidos aquí a propósito: el dominio NBA no
+ * importa NADA del motor de fútbol (barrera arquitectónica anti-
+ * contaminación; ver regla no-restricted-imports en .eslintrc.json).
+ */
+export function nbaConfidenceLevel(score: number): 1 | 2 | 3 | 4 | 5 {
+  if (score >= 85) return 5
+  if (score >= 75) return 4
+  if (score >= 65) return 3
+  if (score >= 55) return 2
+  return 1
+}
+
 export const NBA_ELO_BASE = 1500
 export const NBA_ELO_K = 20
 export const NBA_ELO_HOME_ADV = 60      // ventaja de local en puntos ELO (~+2.4 pts, ~58% local)

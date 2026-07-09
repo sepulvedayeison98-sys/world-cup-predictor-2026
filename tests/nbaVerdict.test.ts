@@ -4,7 +4,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildNbaVerdict, type NbaVerdictInput } from '../lib/nbaVerdict'
+import { buildNbaVerdict, type NbaVerdictInput } from '../lib/nba/verdict'
 
 function base(o: Partial<NbaVerdictInput> = {}): NbaVerdictInput {
   return {

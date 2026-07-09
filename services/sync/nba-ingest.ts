@@ -12,7 +12,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   NBA_COMPETITION_ID, NBA_API_LEAGUE_ID, NBA_API_SEASON, matchFranchise,
-} from '@/lib/nba'
+} from '@/lib/nba/constants'
 
 const HOST = 'v1.basketball.api-sports.io'
 

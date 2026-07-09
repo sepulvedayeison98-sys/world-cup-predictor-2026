@@ -83,6 +83,40 @@ test('nba: hub con standings por conferencia (primer deporte no-fútbol)', async
   await expect(page.getByText('Playoffs directo (1-6)').first()).toBeVisible()
   // Calendario navegable presente
   await expect(page.getByRole('heading', { name: 'Calendario' })).toBeVisible()
+  // Tarjetas de sección del dominio NBA
+  for (const s of ['Rankings', 'Tendencias', 'Predicciones']) {
+    await expect(page.getByRole('main').getByRole('link', { name: new RegExp(s) }).first()).toBeVisible()
+  }
+})
+
+test('nba: secciones del dominio con métricas reales', async ({ page }) => {
+  // Primer render de rutas dinámicas sin caché ISR, bajo carga paralela
+  test.slow()
+  // Rankings: 30 franquicias por ELO
+  await page.goto('/nba/rankings')
+  await expect(page.getByRole('heading', { name: 'Rankings' })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(30)
+  // Del ranking al perfil del equipo: se valida el href real de la tabla
+  // y se navega directo (el clic client-side es flaky bajo la carga
+  // paralela del sandbox; el destino y el contenido son lo que se prueba)
+  const teamHref = await page.locator('tbody a[href^="/nba/equipos/"]').first().getAttribute('href')
+  expect(teamHref).toMatch(/^\/nba\/equipos\/[0-9a-f-]{36}$/)
+  await page.goto(teamHref!)
+  await expect(page).toHaveURL(/\/nba\/equipos\/[0-9a-f-]{36}/)
+  await expect(page.getByText('Récord', { exact: true })).toBeVisible()
+  await expect(page.getByText('Local / visitante')).toBeVisible()
+  await expect(page.getByText('Perfil por cuarto')).toBeVisible()
+  // Predicciones: calibración honesta del modelo
+  await page.goto('/nba/predicciones')
+  await expect(page.getByText('Calibración: lo prometido vs lo cumplido')).toBeVisible()
+  await expect(page.getByText(/azar 50%/)).toBeVisible()
+  // Estadísticas y tendencias de liga
+  await page.goto('/nba/estadisticas')
+  await expect(page.getByRole('heading', { name: 'Estadísticas de la liga' })).toBeVisible()
+  await expect(page.getByText('Anotación por cuarto (promedio liga)')).toBeVisible()
+  await page.goto('/nba/tendencias')
+  await expect(page.getByText('Rachas positivas')).toBeVisible()
+  await expect(page.getByText(/clutch/)).toBeVisible()
 })
 
 test('nba: detalle de partido con moneyline, cuartos y veredicto (sin paneles de fútbol)', async ({ page }) => {
@@ -92,8 +126,12 @@ test('nba: detalle de partido con moneyline, cuartos y veredicto (sin paneles de
   await expect(page.getByText('Hándicap', { exact: true })).toBeVisible()
   await expect(page.getByText('Desglose por cuarto')).toBeVisible()
   await expect(page.getByText('Veredicto del partido')).toBeVisible({ timeout: 20_000 })
-  // Las pestañas de fútbol NO aplican al baloncesto
+  // Las pestañas de fútbol NO aplican al baloncesto (ni Análisis ni Cuotas)
   await expect(page.getByRole('button', { name: 'Análisis del modelo' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Cuotas' })).toHaveCount(0)
+  // La comparación de temporada NBA sustituye a los paneles de fútbol
+  await page.getByRole('button', { name: 'Estadísticas' }).click()
+  await expect(page.getByText('Comparación de temporada')).toBeVisible()
 })
 
 test('detalle universal: partido de liga clicable con veredicto y timeline', async ({ page }) => {

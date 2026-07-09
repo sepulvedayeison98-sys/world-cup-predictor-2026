@@ -1,7 +1,10 @@
-# 🏆 World Cup Predictor 2026
+# Veredicto · Inteligencia Deportiva
 
-Plataforma profesional de análisis y predicción para el Mundial FIFA 2026.  
-Inspirada en TradingView · Sofascore · Bloomberg Terminal.
+Plataforma pública de análisis y predicción multi-deporte: **Mundial FIFA
+2026**, las **5 grandes ligas europeas** (Premier, La Liga, Serie A,
+Bundesliga, Ligue 1) y la **NBA**. Estética de terminal financiera
+(TradingView/Bloomberg), honestidad estadística como principio: toda
+precisión se publica con su línea base y ningún dato se fabrica.
 
 **🌐 En vivo:** https://world-cup-predictor-2026-flax.vercel.app
 
@@ -11,151 +14,81 @@ Inspirada en TradingView · Sofascore · Bloomberg Terminal.
 
 | Capa | Tecnología |
 |------|-----------|
-| Frontend | Next.js 15 + TypeScript |
-| Estilos | Tailwind CSS + shadcn/ui |
+| Frontend | Next.js 15 (App Router) + TypeScript |
+| Estilos | Tailwind CSS (tema oscuro, acento esmeralda #10b981) |
 | Gráficos | Recharts |
-| Tablas | TanStack Table |
-| Estado servidor | React Query |
-| Backend | Supabase (PostgreSQL + Auth + RLS) |
-| Deploy | Vercel |
+| Tablas | TanStack Table (partidos/jugadores) + tablas propias |
+| Estado servidor | React Query (componentes cliente) + ISR |
+| Backend | Supabase (PostgreSQL + RLS, acceso libre sin auth) |
+| IA | Claude (pulido de veredictos y análisis, con fallback determinista) |
+| Deploy | Vercel + GitHub Actions (crons de sync) |
 
 ---
 
-## Fases del proyecto
+## Qué hace
 
-| Fase | Contenido | Estado |
-|------|-----------|--------|
-| **1** | Fundamentos: tipos, schema SQL, servicios, layout, dashboard | ✅ Completa |
-| 2 | Módulo de Partidos: tabla avanzada + filtros + detalle | 🔜 |
-| 3 | Módulo de Predicción + motor de cálculo | 🔜 |
-| 4 | Jugadores, Alineaciones, Lesiones | 🔜 |
-| 5 | Apuestas de valor + Simulación + Grupos completos | 🔜 |
+- **Predicciones verificables**: motor híbrido de 5 factores +
+  Poisson/Dixon-Coles (fútbol) y ELO sin empates (NBA), con backtest
+  walk-forward y calibración publicada en `/inteligencia`.
+- **Detalle universal de partido**: cualquier partido de cualquier
+  competición es clicable — predicción, veredicto post-partido,
+  estadísticas del deporte que corresponda (timeline de eventos en
+  fútbol, desglose por cuarto en NBA).
+- **Smart Bets** (fútbol): recomendaciones con historial de aciertos
+  público y aislamiento estricto por deporte.
+- **Dominio NBA**: hub con standings por conferencia, calendario
+  navegable, perfiles de franquicia, rankings, estadísticas de liga,
+  tendencias y calibración del modelo — todo con datos reales.
+
+## Arquitectura multi-deporte
+
+- `lib/sports.ts` es el **registro único** de deportes y competiciones:
+  la navegación raíz nunca crece; crece el registro.
+- Cada deporte es un dominio aislado (`lib/nba/`, motores de fútbol en
+  `lib/`): una regla ESLint (`no-restricted-imports`) impide que el
+  código NBA importe motores o componentes de fútbol.
+- **Regla de oro**: toda query a `matches`/`teams`/`team_statistics`/
+  `predictions` filtra por competición; los procesos transversales usan
+  `competitionIdsOfSport()` como lista blanca.
 
 ---
 
-## Instalación local
-
-### 1. Clonar y preparar
+## Desarrollo local
 
 ```bash
-git clone https://github.com/tu-user/world-cup-predictor.git
-cd world-cup-predictor
+git clone https://github.com/sepulvedayeison98-sys/world-cup-predictor-2026.git
+cd world-cup-predictor-2026
 npm install
-cp .env.example .env.local
-# Rellena las variables en .env.local
+cp .env.example .env.local   # rellenar claves (Supabase, APIs)
+npm run dev                  # http://localhost:3000
 ```
 
-### 2. Supabase
+**Base de datos**: aplicar `supabase/migrations/` en orden (001 → 050;
+`032b` ordena entre 032 y 033). Verificar con
+`supabase/verify_migrations.sql` (43 chequeos).
 
-1. Crear proyecto en [supabase.com](https://supabase.com)
-2. Ir a **SQL Editor** y ejecutar en orden:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_seed_data.sql`
-3. Copiar las claves en `.env.local`
-
-### 3. Ejecutar en desarrollo
-
-```bash
-npm run dev
-# → http://localhost:3000
-```
+**Comandos**: `npm run build` (obligatorio antes de push) ·
+`npm test` (68 unitarias) · `npm run test:e2e` (15 Playwright) ·
+`npm run lint` · `npm run type-check`.
 
 ---
 
-## Estructura de archivos (Fase 1)
+## Fuentes de datos
 
-```
-world-cup-predictor/
-├── app/
-│   ├── layout.tsx              # Root layout con sidebar + topbar
-│   ├── globals.css             # Design tokens + componentes base
-│   └── dashboard/
-│       └── page.tsx            # Dashboard principal (Server Component)
-├── components/
-│   ├── layout/
-│   │   ├── Sidebar.tsx         # Sidebar colapsable
-│   │   ├── Topbar.tsx          # Barra superior
-│   │   ├── ThemeProvider.tsx
-│   │   └── QueryProvider.tsx
-│   ├── dashboard/
-│   │   ├── KPICards.tsx        # 7 KPIs principales
-│   │   ├── UpcomingMatchesWidget.tsx
-│   │   ├── ValueBetsWidget.tsx
-│   │   └── GroupStandingsWidget.tsx
-│   └── charts/
-│       └── ROIChart.tsx        # ROI + Accuracy charts
-├── services/
-│   ├── matches.service.ts
-│   ├── predictions.service.ts  # Incluye motor de cálculo
-│   └── teams.service.ts
-├── types/
-│   └── index.ts                # Todos los tipos del dominio
-├── lib/
-│   ├── supabase/
-│   │   ├── client.ts
-│   │   └── server.ts
-│   └── utils.ts
-└── supabase/
-    └── migrations/
-        ├── 001_initial_schema.sql  # Schema + RLS + triggers
-        └── 002_seed_data.sql       # WC 2026 data real
-```
+| Fuente | Uso |
+|--------|-----|
+| ESPN (pública) | Resultados y estadísticas del Mundial |
+| The Odds API | Cuotas (Pinnacle) y value bets de fútbol |
+| API-Football (api-sports.io) | Ligas europeas: equipos, calendario, eventos |
+| API-Basketball (api-sports.io) | NBA: equipos, calendario, marcadores por cuarto |
+
+Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
+`CRON_SECRET`. Ninguna clave vive en el código.
 
 ---
 
-## Motor de predicción
+## Documentación
 
-El modelo usa 10 variables con los siguientes pesos:
-
-| Variable | Peso |
-|----------|------|
-| Forma reciente | 20% |
-| Calidad de plantilla | 15% |
-| Estado de jugadores | 15% |
-| Estadísticas avanzadas (xG/xGA) | 15% |
-| Análisis táctico | 10% |
-| ELO Rating | 10% |
-| Mercado de apuestas | 5% |
-| Motivación / contexto | 5% |
-| Factores externos | 3% |
-| Historial H2H | 2% |
-
-Las probabilidades se normalizan para sumar exactamente 100%.  
-Ver: `services/predictions.service.ts → computePrediction()`
-
----
-
-## Base de datos
-
-- **15 tablas** con relaciones completas
-- **Índices** sobre todos los campos de filtrado frecuente
-- **RLS** activado en todas las tablas
-- **Triggers** automáticos para standings y snapshot de predicciones
-- **Función SQL** `recalculate_group_standings()` que recalcula al finalizar cada partido
-
----
-
-## Deploy en Vercel
-
-```bash
-# Instalar CLI de Vercel
-npm i -g vercel
-
-# Deploy
-vercel --prod
-
-# Agregar variables de entorno en Vercel Dashboard:
-# NEXT_PUBLIC_SUPABASE_URL
-# NEXT_PUBLIC_SUPABASE_ANON_KEY
-# SUPABASE_SERVICE_ROLE_KEY
-```
-
----
-
-## Fase 2 — próximos pasos
-
-- Tabla avanzada de partidos con TanStack Table
-- Filtros: fecha, grupo, equipo, confianza, estado
-- Vista detallada de partido con comparación visual de equipos
-- Radar chart de estadísticas avanzadas
-- Historial de probabilidades (línea temporal)
+- `CLAUDE.md` / `CLAUDE_CONTEXT.md` — guía de trabajo y contexto maestro
+- `PROGRESS_REPORT.md` — último plan ejecutado y su estado
+- `AUDIT_REPORT.md` — auditoría técnica histórica (jun-2026)

@@ -6,7 +6,7 @@
  * moneyline); la redacción con IA (opcional) los pule sin cambiarlos.
  * Módulo puro — ver tests/nbaVerdict.test.ts.
  */
-import type { VerdictOutput } from './verdictEngine'
+import type { VerdictOutput } from '../verdictEngine'
 
 export interface NbaVerdictInput {
   homeName: string

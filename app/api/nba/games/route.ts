@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { NBA_COMPETITION_ID } from '@/lib/nba'
+import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -1,3 +1,26 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["lib/nba/**/*.ts", "components/nba/**/*.tsx", "app/nba/**/*.tsx", "services/sync/nba-*.ts", "services/nba.service.ts", "app/api/nba/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": [
+                "**/predictionEngine", "**/leagueEngine", "**/simulationEngine",
+                "**/scenarioEngine", "**/smartBetsEngine", "**/smartBetGrading",
+                "**/valueBets", "**/bracket", "**/leagueStandings",
+                "@/lib/models/*", "@/lib/agents/*", "@/lib/intelligence/*",
+                "@/components/matches/*", "@/components/predictions/*",
+                "@/components/leagues/*", "@/components/groups/*",
+                "@/components/champion/*", "@/components/bracket/*"
+              ],
+              "message": "Barrera anti-contaminación: el dominio NBA no importa módulos de fútbol. Si necesitas una utilidad compartida, muévela a un módulo neutro (lib/utils, lib/sports) o duplícala en lib/nba/."
+            }
+          ]
+        }]
+      }
+    }
+  ]
 }

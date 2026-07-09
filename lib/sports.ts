@@ -7,7 +7,7 @@
  * Agregar un deporte/competición = agregar una entrada aquí + su hub.
  */
 import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS } from '@/lib/constants'
-import { NBA_COMPETITION_ID } from '@/lib/nba'
+import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 
 export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
 export type CompetitionStatus = 'activa' | 'proximamente'

@@ -66,7 +66,12 @@ function ConferenceTable({ title, rows, accent }: { title: string; rows: NbaStan
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={row.logo_url} alt="" className="h-5 w-5 shrink-0 object-contain" loading="lazy" />
                     )}
-                    <span className="truncate font-medium text-zinc-200">{row.name}</span>
+                    <Link
+                      href={`/nba/equipos/${row.team_id}`}
+                      className="truncate font-medium text-zinc-200 hover:text-emerald-400 transition-colors"
+                    >
+                      {row.name}
+                    </Link>
                   </div>
                 </td>
                 <td className="px-2 py-2 text-center font-bold text-white tabular-nums">{row.won}</td>

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 
 import { competitionIdsOfSport, sportOfCompetition, ACTIVE_COMPETITIONS } from '../lib/sports'
 import { COMPETITION_ID, LEAGUE_SLUGS } from '../lib/constants'
-import { NBA_COMPETITION_ID } from '../lib/nba'
+import { NBA_COMPETITION_ID } from '../lib/nba/constants'
 
 test('aislamiento: la lista de fútbol incluye Mundial y las 5 ligas, nunca la NBA', () => {
   const futbol = competitionIdsOfSport('futbol')

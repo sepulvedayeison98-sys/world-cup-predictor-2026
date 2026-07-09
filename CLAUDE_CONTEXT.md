@@ -1,263 +1,178 @@
-# 📋 CONTEXTO DEL PROYECTO — World Cup Predictor 2026
+# 📋 CONTEXTO DEL PROYECTO — Veredicto · Inteligencia Deportiva
 
 > Documento maestro para continuar el desarrollo en Claude Code.
-> Pega este archivo o referéncialo al inicio de cualquier sesión nueva.
+> Actualizado: 2026-07-09 (post plan maestro de saneamiento).
 
 ---
 
 ## 1. QUÉ ES ESTE PROYECTO
 
-**World Cup Predictor 2026** es una plataforma web pública de análisis y predicción
-de partidos del Mundial FIFA 2026. Genera automáticamente:
+**Veredicto** (repo histórico: world-cup-predictor-2026) es una plataforma
+web pública de análisis y predicción **multi-deporte**:
 
-- Probabilidades de victoria/empate/derrota por partido
-- Marcadores exactos más probables (top 10)
-- Apuestas de valor (EV positivo) comparando el modelo vs cuotas de casas de apuestas
-- Estadísticas avanzadas de equipos y jugadores
-- Tablas de grupos con probabilidad de clasificación
-- Simulador de escenarios (modificar lesiones/clima/alineaciones y recalcular)
+- **Mundial FIFA 2026** — probabilidades 1X2, marcadores exactos, value
+  bets, grupos, eliminatorias, goleadores, simulador.
+- **5 grandes ligas europeas** (Premier, La Liga, Serie A, Bundesliga,
+  Ligue 1) — temporada 2024-25 completa, motor calibrado para la 2026-27.
+- **NBA** — temporada 2024-25 completa (1.314 partidos con puntos por
+  cuarto), hub con standings, calendario, perfiles de equipo, rankings,
+  estadísticas de liga, tendencias y calibración del modelo.
 
-El motor de predicción usa un **modelo híbrido de 5 factores ponderados**: xG y
-capacidad ofensiva/defensiva (40%), ELO Rating (25%), forma reciente — últimos 10
-partidos (15%), mercado de apuestas — cuotas 1X2 de-vigueadas (10%), noticias/lesiones
-(10%). Las probabilidades 1X2 y el top-10 de marcadores exactos se derivan de una
-distribución de goles esperados (lambda por equipo) resuelta sobre la rejilla de
-Poisson — equivalente al resultado de una simulación de Montecarlo. Única fuente de
-verdad: `lib/predictionEngine.ts` (lo usan `services/sync/recalibrate.ts`,
-`app/api/predictions/route.ts` y `lib/simulationEngine.ts`).
+**Motores** (uno por deporte, aislados):
+- Fútbol: híbrido 5 factores (xG 40%, ELO 25%, forma 15%, mercado 10%,
+  noticias 10%) sobre rejilla Poisson/Dixon-Coles. Fuente única:
+  `lib/predictionEngine.ts`. Ligas: `lib/leagueEngine.ts` (liga-1.0).
+- NBA: ELO sin empates, local +60 ELO, margen por diferencia de ELO.
+  Dominio completo en `lib/nba/` (nba-1.0).
 
----
-
-## 2. FINALIDAD Y VISIÓN
-
-**Objetivo inmediato:** App web pública (acceso libre, sin login) que la gente pueda
-usar como apoyo para informarse sobre los partidos del Mundial.
-
-**Visión a futuro:**
-- Página web / app móvil completa y escalable
-- Conectar fuentes de datos en vivo (API-Football, The Odds API) para actualización automática
-- Extender a otras competiciones: Champions League, Copa América, Eurocopa, ligas nacionales
-- Posible modelo SaaS
-
-**Contexto del dueño:** Yeison (usuario analítico, enfocado en crecimiento profesional/financiero,
-vive en Medellín, interés en logística, optimización, automatización con dashboards/KPIs/IA).
-Prefiere respuestas claras, directas, sin rodeos.
+**Principios innegociables**: honestidad estadística (toda precisión con
+su línea base: azar 33% fútbol / 50% baloncesto), Data First (cero datos
+fabricados — si la fuente no lo da, no se publica), identidad de terminal
+financiera oscura con esmeralda #10b981.
 
 ---
 
-## 3. STACK TECNOLÓGICO
+## 2. ARQUITECTURA MULTI-DEPORTE
 
-| Capa | Tecnología | Versión |
-|------|-----------|---------|
-| Framework | Next.js (App Router) | 15.5.19 |
-| Lenguaje | TypeScript | 5.x |
-| Estilos | Tailwind CSS (tema oscuro tipo TradingView) | 3.4 |
-| Tablas | TanStack Table | 8.20 |
-| Gráficos | Recharts (Radar, Line, Bar) | 2.15 |
-| Estado servidor | TanStack React Query | 5.62 |
-| Backend/DB | Supabase (PostgreSQL + RLS + Realtime) | — |
-| Auth | Ninguna (acceso libre) | — |
-| Deploy | Vercel (pendiente) | — |
-| Iconos | lucide-react | 0.460 |
-
----
-
-## 4. ESTADO ACTUAL (lo que YA está hecho)
-
-✅ **Plataforma Mundial 2026 en producción** — world-cup-predictor-2026-flax.vercel.app
-   (dashboard, partidos + detalle, grupos, predicciones, campeón, eliminatorias,
-   goleadores, apuestas de valor, simulador, jugadores, admin oculto)
-✅ **Motor v1.2** — 5 factores + Poisson/Dixon-Coles, recalibración automática
-   post-resultado, bracket automático, backtest del torneo
-✅ **Sincronización en vivo** — ESPN (resultados/stats), The Odds API (Pinnacle),
-   keepalive del cliente + /api/sync/live con throttle
-✅ **Data First** — procedencia (source) en stats/cuotas, sin datos sintéticos,
-   badges de "oficial vs estimación" en la UI
-✅ **Fase 4 + Etapa 5 (ligas de clubes)** — Las 5 grandes ligas 2024-25
-   completas (Premier, La Liga, Serie A, Bundesliga, Ligue 1) con ingesta
-   API-Football idempotente, motor liga-1.0 (backtest walk-forward, 48-56%
-   acierto 1X2 según liga), predicciones pre-partido para la 2026-27,
-   páginas /ligas y /ligas/[slug], sync automático lunes y viernes
-✅ **Calidad** — 29 tests unitarios + 6 e2e Playwright, lint 0 errores,
-   verify_migrations.sql (36/36 verificadas), types regenerados
-
-⏳ **PENDIENTE:** upgrade del plan API-Football (~agosto, para la temporada
-   2026-27 en vivo) · sistema de usuarios/polla (pospuesto por decisión del dueño)
+- **`lib/sports.ts`** — registro único de deportes y competiciones. La
+  navegación raíz NUNCA crece: crece el registro. Helpers:
+  `sportOfCompetition(id)`, `competitionIdsOfSport(sport)` (lista blanca
+  para procesos transversales — así se aisló Smart Bets).
+- **Dominio NBA** — `lib/nba/{constants,engine,verdict,stats}.ts`,
+  `components/nba/`, `app/nba/`, `services/nba.service.ts`. Una regla
+  ESLint (`no-restricted-imports` en `.eslintrc.json`) impide importar
+  motores/componentes de fútbol desde el dominio NBA.
+- **Regla de oro**: toda query a `matches`/`teams`/`team_statistics`/
+  `predictions` filtra por competición (directo o `matches!inner`).
+- **Detalle universal** (`app/matches/[id]`): sport-aware — timeline de
+  eventos y pestañas de análisis Poisson para fútbol; desglose por
+  cuarto, panel moneyline y comparación NBA para baloncesto.
 
 ---
 
-## 5. ACCESOS Y CREDENCIALES
+## 3. STACK
 
-### GitHub
-- **Repo:** https://github.com/sepulvedayeison98-sys/world-cup-predictor-2026
-- **Usuario:** sepulvedayeison98-sys
-- **Branch principal:** main
-- **Visibilidad:** Público
-
-### Supabase
-- **Project URL:** https://jruanwjjsygcmmvwxexh.supabase.co
-- **Publishable key (anon, pública):** sb_publishable_pc8dmXXxxVls5qG2CR_-wA__lDRLPFl
-- **Secret key:** ⚠️ NO incluida aquí — está solo en el panel de Supabase. Nunca commitear.
-
-### Variables de entorno (.env.local — NO se sube a git)
-```
-NEXT_PUBLIC_SUPABASE_URL=https://jruanwjjsygcmmvwxexh.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_pc8dmXXxxVls5qG2CR_-wA__lDRLPFl
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME=World Cup Predictor 2026
-NEXT_PUBLIC_COMPETITION_ID=a1b2c3d4-e5f6-7890-abcd-ef1234567890
-```
-
-> ⚠️ Nota de seguridad: la publishable key es segura para el frontend (RLS la protege).
-> Si quieres máxima seguridad, puedes rotar las llaves en Supabase y actualizar el .env.
+| Capa | Tecnología |
+|------|-----------|
+| Framework | Next.js 15 (App Router), Server Components + ISR |
+| Lenguaje | TypeScript (types/database.ts generado del schema real) |
+| Estilos | Tailwind CSS, tema oscuro fijo |
+| Datos cliente | TanStack React Query (sin Supabase Realtime — retirado) |
+| Backend/BD | Supabase (PostgreSQL + RLS; acceso libre, SIN auth) |
+| IA | Claude `claude-sonnet-4-6` (pulido de veredictos/análisis, fail-open a determinista) |
+| Deploy | Vercel + GitHub Actions (workflows de sync con CRON_SECRET) |
 
 ---
 
-## 6. ESTRUCTURA DE ARCHIVOS
+## 4. ESTADO ACTUAL (2026-07-09)
+
+✅ Plataforma multi-deporte en producción — world-cup-predictor-2026-flax.vercel.app
+✅ Mundial: motor v1.2.0, recalibración automática, bracket, veredictos
+✅ Ligas: liga-1.0 walk-forward (1.512 partidos evaluados), /ligas
+✅ NBA: nba-1.0 (65.9% acierto, Brier 0.428), 6 secciones, dominio aislado
+✅ Smart Bets con historial público y aislamiento por deporte
+✅ Saneamiento completo (ver PROGRESS_REPORT.md): migraciones
+   reconstruibles (032b), hardening BD (050), páginas de error, cero
+   rutas muertas, cero huérfanos
+✅ Calidad: 68 tests unitarios · 15 e2e · lint 0 · verify_migrations 43/43
+
+⏳ BACKLOG: temporada NBA 2025-26 (octubre, autollenado por cron) ·
+   stats de jugadores NBA y métricas de posesión (requiere fuente con
+   boxscores) · Smart Bets NBA (requiere cuotas de baloncesto) · upgrade
+   API-Football (~19 USD/mes, agosto) · deuda de fútbol congelada
+   (paginación Jugadores, Kelly/EV triplicado, ISR en páginas dinámicas)
+
+---
+
+## 5. ACCESOS
+
+- **Repo:** https://github.com/sepulvedayeison98-sys/world-cup-predictor-2026 (main)
+- **Supabase:** proyecto `jruanwjjsygcmmvwxexh` (claves solo en
+  Vercel/Supabase/env — NUNCA en el código ni en chat)
+- **IDs clave:** Mundial `a1b2c3d4-e5f6-7890-abcd-ef1234567890` · NBA
+  `12000000-0000-4000-8000-000000000012` · ligas en `lib/constants.ts`
+
+---
+
+## 6. ESTRUCTURA (rutas y módulos clave)
 
 ```
-world-cup-predictor-2026/
-├── app/
-│   ├── layout.tsx                    # Layout raíz: sidebar + topbar + providers
-│   ├── globals.css                   # Design tokens, tema oscuro
-│   ├── dashboard/page.tsx            # Dashboard principal (KPIs, widgets)
-│   ├── matches/
-│   │   ├── page.tsx                  # Lista de partidos (TanStack Table + filtros)
-│   │   └── [id]/page.tsx             # Detalle de partido (radar, prob history, lineup)
-│   ├── groups/page.tsx               # 12 grupos con standings
-│   ├── predictions/page.tsx          # Tabla de predicciones + accuracy
-│   ├── value-bets/page.tsx           # Apuestas de valor con EV/Kelly
-│   ├── players/
-│   │   ├── page.tsx                  # Lista de jugadores (tabla)
-│   │   └── [id]/page.tsx             # Perfil individual + radar
-│   ├── simulation/page.tsx           # Simulador de escenarios
-│   ├── settings/page.tsx             # Página informativa (sin login)
-│   └── api/
-│       ├── predictions/route.ts      # POST: motor de predicción REST
-│       ├── odds/route.ts             # POST: ingesta cuotas + genera value bets
-│       └── simulation/route.ts       # POST: guardar escenarios
-├── components/
-│   ├── layout/                       # Sidebar, Topbar, ThemeProvider, QueryProvider
-│   ├── dashboard/                    # KPICards, UpcomingMatches, ValueBets, GroupStandings widgets
-│   ├── charts/                       # ROIChart, PredictionAccuracy, TeamComparisonRadar, ProbabilityHistory, PlayerRadar
-│   ├── matches/                      # MatchesTable, MatchFiltersBar, MatchHeader, MatchPredictionPanel, MatchStatsComparison, ExactScoresTable, LineupDisplay, InjuriesPanel
-│   ├── players/                      # PlayersTable, PlayersFiltersBar, PlayerProfileHeader, PlayerStatsPanel
-│   ├── groups/                       # GroupCard
-│   ├── predictions/                  # PredictionsTable, ValueBetsFullTable
-│   ├── simulation/                   # SimulationEngine (recálculo en cliente)
-│   └── ui/                           # sonner (toast placeholder)
-├── services/
-│   ├── matches.service.ts            # Queries de partidos con filtros + predictions join
-│   ├── predictions.service.ts        # Motor de cálculo + KPIs + value bets
-│   └── teams.service.ts              # Teams, groups, players, injuries
-├── hooks/
-│   └── useRealtimeMatches.ts         # Supabase Realtime subscriptions
-├── lib/
-│   ├── supabase/client.ts            # Cliente browser
-│   ├── supabase/server.ts            # Cliente server (con cookies)
-│   └── utils.ts                      # cn(), formatProbability, kellyFraction, expectedValue, etc.
-├── types/
-│   ├── index.ts                      # TODOS los tipos del dominio (Match, Team, Player, Prediction...)
-│   └── database.ts                   # Tipado Supabase (genérico — regenerar con supabase gen types)
-├── supabase/migrations/
-│   ├── 001_initial_schema.sql        # 15 tablas, enums, RLS, triggers, funciones
-│   ├── 002_seed_data.sql             # Datos Grupo C (Brasil, Marruecos, Haití, Escocia) + B y D parcial
-│   ├── 003_realtime_and_sync.sql     # Realtime, notificaciones, sync_logs, vista dashboard_kpis
-│   └── 004_public_read_access.sql    # Políticas RLS lectura pública (rol anon)
-├── middleware.ts                     # Acceso libre: raíz → /dashboard
-├── next.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── postcss.config.mjs
-├── package.json
-└── README.md
+app/
+├── dashboard/            # Inicio global (ISR 60s)
+├── mundial/              # Hub del torneo
+├── ligas/ + ligas/[slug] # Las 5 grandes ligas
+├── nba/                  # Hub + equipos/[id], rankings, estadisticas,
+│                         #   tendencias, predicciones (ISR 300s)
+├── matches/ + [id]       # Partidos + detalle universal sport-aware
+├── inteligencia/         # Precisión verificable + metodología
+├── value-bets/           # Smart Bets fútbol + historial
+├── {champion,bracket,groups,scorers,players,simulation}/  # Mundial legacy
+├── error.tsx / not-found.tsx / global-error.tsx
+└── api/
+    ├── predictions (GET) · search · nba/games · matches/[id]/{events,verdict,periods}
+    ├── analysis/match/[id] · admin/{health,result} · simulate
+    └── sync/{auto,window,live,results,espn-results,odds,recalibrate,
+             smart-bets,leagues/*,nba/*}   # todos con CRON_SECRET
+
+lib/
+├── predictionEngine.ts   # FÚTBOL — fuente única Poisson/Dixon-Coles
+├── leagueEngine.ts · simulationEngine.ts · scenarioEngine.ts · bracket.ts
+├── smartBetsEngine.ts · smartBetGrading.ts · valueBets.ts   # fútbol
+├── nba/                  # DOMINIO NBA (no importa nada de fútbol)
+│   ├── constants.ts · engine.ts · verdict.ts · stats.ts
+├── sports.ts             # Registro multi-deporte + listas blancas
+├── verdictEngine.ts      # Veredicto fútbol (tipo compartido VerdictOutput)
+├── fetchAll.ts           # Paginación >1000 filas PostgREST
+└── constants.ts · teamForm.ts · models/ · agents/ · intelligence/
+
+services/
+├── verdict.ts            # Orquestación veredictos (dispatch por deporte)
+├── smartBetTracking.ts   # Historial Smart Bets (SOLO fútbol, con guardia)
+├── nba.service.ts        # Datos del dominio NBA
+└── sync/                 # espn, odds, api-football, leagues, nba, recalibrate
 ```
 
 ---
 
-## 7. BASE DE DATOS — TABLAS (15)
+## 7. BASE DE DATOS
 
-users · competitions · groups · teams · team_statistics · group_standings ·
-players · player_statistics · matches · match_statistics · lineups · lineup_players ·
-injuries · predictions · exact_score_predictions · prediction_history · odds ·
-value_bets · simulation_results · sync_logs · notifications
+Migraciones `001` → `050` (aplicar en orden; `032b` entre 032 y 033).
+Verificación: `supabase/verify_migrations.sql` — 43 chequeos.
 
-**Datos cargados actualmente:** 11 equipos, 22 jugadores, 6 partidos del Grupo C,
-1 predicción (Brasil vs Marruecos), cuotas y 2 value bets. Grupos B y D parciales.
+Tablas principales: competitions, sports, teams (+conference/division),
+team_statistics, matches (+period_scores JSONB, round), predictions,
+exact_score_predictions, odds, value_bets, smart_bet_picks, match_events,
+match_verdicts, players, group_standings, injuries, sync_logs + tablas V3
+(model_registry, prediction_audit_log, …) con RLS + lectura anon.
 
-**ID de competición activa:** `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-
-**Convención de UUIDs en seed data:**
-- `10000000-*` = equipos
-- `20000000-*` = jugadores
-- `30000000-*` = partidos
-- `40000000-*` = predicciones
-- `00000000-*` = grupos
+Datos reales cargados: Mundial 48 equipos/104 partidos · 5 ligas 2024-25
+completas (~1.900 partidos) · NBA 30 equipos/1.314 partidos con cuartos.
 
 ---
 
-## 8. PRÓXIMOS PASOS SUGERIDOS (en orden)
-
-### Corto plazo (durante el Mundial)
-1. Seguir operando el Mundial (sync ESPN + odds + recalibración automáticos)
-2. Mundial termina el 19 de julio → retrospectiva del modelo (accuracy final del torneo)
-
-### Agosto 2026 (arranque de temporada europea)
-3. **Upgrade del plan API-Football** (~19 USD/mes) — la 2026-27 en vivo
-4. Conectar la ingesta de ligas al cron (hoy es manual: /api/sync/leagues/ingest)
-5. Predicciones pre-partido semanales para Premier/La Liga (motor liga-1.0 ya calibrado)
-6. Cuotas y value bets para ligas (The Odds API cubre EPL/La Liga)
-
-### Medio plazo
-7. Champions League (requiere manejar fase de liga + eliminatorias, no es
-   round-robin puro) y más ligas — el pipeline es genérico:
-   agregar entrada en TARGET_LEAGUES + LEAGUE_COMPETITION_IDS + LEAGUE_SLUGS
-8. Sistema de usuarios + polla (cuando el dueño lo retome)
-9. App móvil / notificaciones push
-
----
-
-## 9. COMANDOS ÚTILES
+## 8. COMANDOS
 
 ```bash
-# Desarrollo local
-npm install
-npm run dev                    # http://localhost:3000
-
-# Build de producción (verificar antes de deploy)
-npm run build
-
-# Regenerar tipos de Supabase (mejora el tipado)
-npx supabase gen types typescript --project-id jruanwjjsygcmmvwxexh > types/database.ts
-
-# Git
-git add -A && git commit -m "mensaje" && git push origin main
+npm run dev          # desarrollo
+npm run build        # SIEMPRE antes de push
+npm test             # 68 unitarias
+npm run test:e2e     # Playwright (en sandbox: ver CLAUDE.md para proxy)
+npm run lint         # 0 errores esperado (incluye barrera NBA)
+npm run type-check
 ```
 
 ---
 
-## 10. NOTAS TÉCNICAS IMPORTANTES
+## 9. NOTAS TÉCNICAS
 
-- **Acceso libre:** No hay autenticación. El middleware solo redirige `/` → `/dashboard`.
-- **RLS activo:** Todas las tablas tienen Row Level Security. El rol `anon` tiene lectura
-  pública (migración 004). La escritura sigue restringida a admin/analyst (no usado aún).
-- **Tipado Supabase:** Actualmente `types/database.ts` es genérico (acepta `any`). Las API
-  routes usan casts `(x as any)`. Al regenerar los tipos reales, se puede endurecer.
-- **typedRoutes desactivado** en next.config (causaba fricción con hrefs dinámicos).
-- **Fuentes:** Inter + JetBrains Mono vía next/font/google. Funcionan en Vercel.
-- **El simulador** recalcula en el cliente (sin llamada a servidor) en <50ms.
-- **Migraciones idempotentes:** Si re-ejecutas una migración puede dar error "already exists".
-  Para empezar limpio: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` + permisos.
-
----
-
-## 11. PROMPTS PROVENIENTES DEL DISEÑO ORIGINAL
-
-El proyecto nació de dos documentos de especificación:
-1. **WORLD CUP PREDICTOR DASHBOARD V1** — arquitectura completa SaaS con todos los módulos
-2. **PROMPT ULTRA PRO - MOTOR DE PREDICCIÓN MUNDIALISTA 2026** — lógica del motor de
-   predicción, simulación Monte Carlo, generador de marcadores, índice de confianza,
-   tabla de probabilidades por mercado.
-
-Ambos están reflejados en el código actual. El motor implementado es una versión
-estadística de los pesos definidos en el prompt ultra pro.
+- **Sin auth**: middleware solo redirige `/` → `/dashboard`. RLS con
+  lectura pública (rol anon); escritura solo service-role.
+- **ISR**: dashboard 60s, mundial 120s, ligas/nba/inteligencia 300s con
+  `createStaticSupabaseClient` (sin cookies). El resto usa el cliente de
+  cookies (deuda conocida, ver backlog).
+- **Veredictos**: deterministas siempre; Claude pule si hay
+  `ANTHROPIC_API_KEY` con guarda anti-pérdida de factores. Caché
+  permanente en `match_verdicts`.
+- **NBA sin fabricar**: métricas de posesión (Pace/ORtg/eFG%) y stats de
+  jugadores NO se calculan — la fuente free no da boxscores. La UI lo
+  declara. No "estimar" jamás estos valores.
