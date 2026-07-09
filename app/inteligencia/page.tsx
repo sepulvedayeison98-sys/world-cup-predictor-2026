@@ -41,11 +41,12 @@ export default async function InteligenciaPage() {
   const slugById = Object.fromEntries(Object.entries(LEAGUE_SLUGS).map(([slug, id]) => [id, slug]))
   const leagues: { name: string; slug: string; correct: number; total: number }[] = []
   for (const compId of LEAGUE_DISPLAY_ORDER) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
       .eq('match.competition_id', compId)
       .not('was_correct', 'is', null)
+    if (error) console.error('[inteligencia] precisión de liga:', error.message)
     const rows = data ?? []
     const slug = slugById[compId]
     leagues.push({
@@ -182,7 +183,7 @@ export default async function InteligenciaPage() {
           <h2 className="text-sm font-bold text-white">Versiones del motor</h2>
           <ul className="mt-3 space-y-3 text-sm text-zinc-400">
             <li className="flex gap-3">
-              <span className="shrink-0 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-400 mono h-fit">v1.2.0</span>
+              <span className="shrink-0 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-400 mono h-fit">v{MODEL_VERSION}</span>
               <span>Corrección Dixon-Coles, pesos de 5 factores recalibrados, resolución de llaves con prórroga y penales, recalibración automática post-resultado.</span>
             </li>
             <li className="flex gap-3">

@@ -71,11 +71,12 @@ export default async function MatchDetailPage({ params }: Props) {
 
   async function fetchGroupContext(groupId: string | null, teamId: string): Promise<GroupContext | null> {
     if (!groupId || !isKnockout) return null
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('group_standings')
       .select('won, drawn, lost, goals_for, goals_against, points, team_id, groups(letter, name), teams(id, name, short_name)')
       .eq('group_id', groupId)
       .order('points', { ascending: false })
+    if (error) console.error('[match-detail] contexto de grupo:', error.message)
     if (!data || data.length === 0) return null
     const rows = data as any[]
     // Sort by points desc, goal_difference desc for position

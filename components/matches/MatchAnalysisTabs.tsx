@@ -8,6 +8,7 @@ import type { GroupContext } from '@/app/api/analysis/match/[id]/route'
 import { MatchPredictionPanel } from './MatchPredictionPanel'
 import { ExactScoresTable } from './ExactScoresTable'
 import { NbaPredictionPanel } from '@/components/nba/NbaPredictionPanel'
+import { NbaTeamComparison } from '@/components/nba/NbaTeamComparison'
 import { MatchStatsComparison } from './MatchStatsComparison'
 import { TeamAvgStats } from './TeamAvgStats'
 import { OddsComparisonTable } from './OddsComparisonTable'
@@ -299,8 +300,10 @@ export function MatchAnalysisTabs({
   const effectiveHomeStats = homeStats ?? computeStatsFromForm(homeRecentMatches ?? [])
   const effectiveAwayStats = awayStats ?? computeStatsFromForm(awayRecentMatches ?? [])
 
-  // El "Análisis del modelo" (gemelo/Monte Carlo) es Poisson de goles → solo fútbol
-  const visibleTabs = football ? TABS : TABS.filter((t) => t.id !== 'analisis')
+  // El "Análisis del modelo" (gemelo/Monte Carlo) es Poisson de goles → solo fútbol.
+  // "Cuotas" también: los mercados cargados son 1X2/goles y hoy no existe
+  // fuente de cuotas NBA — mejor sin pestaña que con una tabla de otro deporte.
+  const visibleTabs = football ? TABS : TABS.filter((t) => t.id !== 'analisis' && t.id !== 'cuotas')
 
   return (
     <div>
@@ -425,8 +428,19 @@ export function MatchAnalysisTabs({
           </div>
         )}
 
-        {/* ── Estadísticas ── */}
-        {active === 'estadisticas' && (
+        {/* ── Estadísticas (baloncesto): comparación NBA propia — sin
+            paneles de fútbol (xG, FIFA, radar de goles, alineaciones) ── */}
+        {active === 'estadisticas' && !football && (
+          <NbaTeamComparison
+            homeTeam={match.home_team}
+            awayTeam={match.away_team}
+            homeStats={homeStats}
+            awayStats={awayStats}
+          />
+        )}
+
+        {/* ── Estadísticas (fútbol) ── */}
+        {active === 'estadisticas' && football && (
           <div className="space-y-6">
             {/* Always-visible power comparison: ELO + FIFA + group stage data */}
             <TeamPowerComparison

@@ -82,3 +82,15 @@ export function competitionHref(competitionId: string): string {
 export function sportOfCompetition(competitionId: string): SportSlug {
   return COMPETITIONS_NAV.find((c) => c.id === competitionId)?.sport ?? 'futbol'
 }
+
+/**
+ * IDs de las competiciones activas de un deporte. Es la lista blanca que
+ * deben usar los procesos transversales (Smart Bets, sync globales) para
+ * no cruzar deportes: un motor de fútbol jamás debe procesar partidos
+ * de baloncesto, y viceversa.
+ */
+export function competitionIdsOfSport(sport: SportSlug): string[] {
+  return ACTIVE_COMPETITIONS
+    .filter((c) => c.sport === sport && c.id !== null)
+    .map((c) => c.id as string)
+}

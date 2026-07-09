@@ -52,6 +52,9 @@ UNION ALL SELECT '045 cinco grandes ligas', (SELECT count(*)=5 FROM competitions
 UNION ALL SELECT '046 eventos y veredictos', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_events') AND EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='match_verdicts')
 UNION ALL SELECT '047 historial smart bets', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='smart_bet_picks')
 UNION ALL SELECT '048 núcleo NBA', EXISTS(SELECT 1 FROM competitions WHERE short_name='NBA') AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='teams' AND column_name='conference') AND 'regular_season' IN (SELECT unnest(enum_range(NULL::match_phase))::text)
+UNION ALL SELECT '032b enum round_of_32 versionado', 'round_of_32' IN (SELECT unnest(enum_range(NULL::match_phase))::text)
+UNION ALL SELECT '049 marcadores por cuarto', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='period_scores') AND (SELECT count(*)>=1300 FROM matches WHERE period_scores IS NOT NULL AND competition_id='12000000-0000-4000-8000-000000000012')
+UNION ALL SELECT '050 hardening seguridad', NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef AND p.proconfig IS NULL) AND (SELECT bool_and(rowsecurity) FROM pg_tables WHERE tablename IN ('model_registry','prediction_audit_log','market_movements','tournament_predictions','event_simulations','data_quality_snapshots'))
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

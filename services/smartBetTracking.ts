@@ -12,11 +12,17 @@
  * Ambos son best-effort: se llaman desde las cadenas de recalibración
  * existentes (Mundial y ligas) envueltos en try/catch — un fallo aquí
  * jamás debe romper la recalibración de predicciones.
+ *
+ * AISLAMIENTO POR DEPORTE: el motor de Smart Bets es exclusivo de fútbol
+ * (goles, córners, tarjetas). Ambas funciones filtran por la lista blanca
+ * de competiciones de fútbol del registro — un partido de NBA (o de
+ * cualquier deporte futuro) jamás entra a este pipeline.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeSmartBets } from '@/lib/smartBetsEngine'
 import { gradeSmartBetPick } from '@/lib/smartBetGrading'
 import { fetchTeamForm } from '@/lib/teamForm'
+import { competitionIdsOfSport } from '@/lib/sports'
 
 async function buildMatchInputs(supabase: any, matchId: string) {
   const { data: match } = await supabase
@@ -59,6 +65,7 @@ export async function snapshotScheduledPicks(): Promise<{ matchesSnapshotted: nu
     .from('matches')
     .select('id')
     .eq('status', 'scheduled')
+    .in('competition_id', competitionIdsOfSport('futbol'))
   let matchesSnapshotted = 0
   let picksStored = 0
 
@@ -100,6 +107,7 @@ export async function resolvePendingPicks(): Promise<{ matchesResolved: number; 
     .from('smart_bet_picks')
     .select('id, match_id, market_id')
     .eq('resolved', false)
+    .in('competition_id', competitionIdsOfSport('futbol'))
   if (!pending?.length) return { matchesResolved: 0, picksResolved: 0 }
 
   const matchIds = [...new Set((pending as any[]).map((p) => p.match_id))]
