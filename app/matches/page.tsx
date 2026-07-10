@@ -1,15 +1,18 @@
 import type { Metadata } from 'next'
 import { MatchesTable } from '@/components/matches/MatchesTable'
 import { MatchFiltersBar } from '@/components/matches/MatchFiltersBar'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { PHASE_LABELS, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Partidos | World Cup Predictor',
 }
 
+// ISR: cacheado y revalidado cada 60s (sin cookies → renderizado estático)
+export const revalidate = 60
+
 export default async function MatchesPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   // Fetch groups for filter dropdown (server-side)
   const { data: groups } = await supabase
     .from('groups')

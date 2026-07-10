@@ -38,8 +38,8 @@ export function GroupCard({ group }: Props) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-800/50">
-              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600 w-5">#</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</th>
+              <th className="sticky left-0 z-20 bg-zinc-900 w-10 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600">#</th>
+              <th className="sticky left-10 z-20 bg-zinc-900 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Equipo</th>
               <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PJ</th>
               <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PG</th>
               <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">PE</th>
@@ -61,12 +61,18 @@ export function GroupCard({ group }: Props) {
                   key={s.id}
                   className={cn(
                     'transition-colors',
-                    isDirectQ ? 'border-l-2 border-emerald-500/50 hover:bg-emerald-500/5'
-                    : isMaybeQ ? 'border-l-2 border-amber-500/40 hover:bg-amber-500/5'
+                    isDirectQ ? 'hover:bg-emerald-500/5'
+                    : isMaybeQ ? 'hover:bg-amber-500/5'
                     : 'hover:bg-zinc-800/30'
                   )}
                 >
-                  <td className="px-3 py-2">
+                  {/* Sticky: el borde de clasificación vive en esta celda (no en el
+                      <tr>) para que no lo tape el fondo opaco al hacer scroll móvil */}
+                  <td className={cn(
+                    'sticky left-0 z-10 bg-zinc-900 w-10 px-3 py-2',
+                    isDirectQ ? 'border-l-2 border-emerald-500/50'
+                    : isMaybeQ ? 'border-l-2 border-amber-500/40' : ''
+                  )}>
                     <span className={cn(
                       'text-[10px] font-bold',
                       isDirectQ ? 'text-emerald-400' : isMaybeQ ? 'text-amber-400' : 'text-zinc-600'
@@ -74,7 +80,7 @@ export function GroupCard({ group }: Props) {
                       {idx + 1}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="sticky left-10 z-10 bg-zinc-900 px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       <Flag code={s.team?.code} />
                       <span className="text-xs font-semibold text-zinc-200">

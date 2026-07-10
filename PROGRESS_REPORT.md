@@ -22,7 +22,97 @@ globales que la plataforma nunca tuvo. Todo verificado: 68/68 tests
 unitarios, 15/15 e2e, lint 0 errores, type-check y build limpios, 43/43
 verificaciones de migración contra la BD viva.
 
-## Fases completadas
+---
+
+## Actualización 2026-07-10 · Optimización pre-final (Mundial)
+
+Ejecución autónoma de estabilización de cara al pico de tráfico de la final
+(19-jul). **Interpretación de alcance documentada:** "No modificar Football"
+se aplicó como *no tocar el motor de predicción (Poisson/Dixon-Coles) ni la
+lógica de negocio ni ampliar alcance* — no impide mejoras transversales de
+rendimiento/UX sobre páginas que renderizan datos de fútbol. La decisión de
+producto sobre cobertura de jugadores (roster parcial: 78 filas / 19 de 48
+selecciones, seed manual de la migración 026) queda **fuera** de esta
+ejecución, pendiente de decisión específica. El motor de fútbol no se tocó.
+
+### Paso previo · Transacción del sync de cuotas (auditoría 🟡-10 / 🔴 disponibilidad)
+
+- **`services/sync/odds.ts`**: el sync borraba y luego insertaba cuotas y
+  value bets sin atomicidad; un fallo entre ambos pasos dejaba las tablas
+  **vacías** para esos partidos (páginas de cuotas/value bets en blanco en
+  plena jornada). Reescrito a **reemplazo por swap**: primero escribe el
+  lote nuevo (`odds.recorded_at = now`, `value_bets.updated_at = now`) y
+  solo después elimina lo previo con filtro estrictamente anterior
+  (`< now`). Si el insert falla, corta antes del delete y no pierde nada;
+  nunca queda vacío y el siguiente sync sanea cualquier resto. El lector ya
+  deduplica por más-reciente, así que la convivencia momentánea es inocua.
+
+### Fase 1 · Limpieza (auditoría 🟡-12, 🟢-16, 🟢-17, 🟢-18)
+
+- **Kelly/EV deduplicado**: eliminadas las copias muertas
+  `kellyFraction`/`expectedValue`/`impliedProbability` de `lib/utils.ts`
+  (0 referencias; además la de `utils` no tenía guardia de división por
+  cero). Única fuente canónica: `lib/valueBets.ts` (con `if (b<=0) return 0`).
+- **Topbar** (`components/layout/Topbar.tsx`): retirado el avatar "A"
+  hardcodeado — simulaba una sesión inexistente (la app es pública sin
+  auth). Buscar queda como única acción real del topbar.
+- **Simulador** (`components/simulation/SimulationEngine.tsx`): "Guardar
+  escenario" → "Añadir a comparación" + nota "se reinicia al recargar". Ya
+  no sugiere una persistencia que no ocurre (la API muerta se eliminó en el
+  saneamiento previo). ROI fabricado (🔴-1) y versión de modelo (🟢-14) ya
+  estaban resueltos.
+
+### Fase 2 · Columnas fijas en móvil (sticky)
+
+Patrón `sticky left-0 z-10 bg-zinc-900` (identidad) replicando el ya usado
+en la clasificación de ligas y NBA. Aplicado a las tablas que faltaban:
+
+- **`GroupCard`** (clasificación de grupos del Mundial): `#` + `Equipo`
+  fijos; el borde de color de clasificación se movió del `<tr>` a la celda
+  `#` para que no lo tape el fondo opaco al hacer scroll.
+- **`PredictionsTable`**: columna `Partido` fija (`!bg` para ganar sobre la
+  regla `.data-table tr:hover td`).
+- **`ValueBetsFullTable`**: estrella (top pick) + `Partido` fijos en la vista
+  de tabla (tablet/desktop; móvil ya usa tarjetas apiladas).
+- **`PlayersTable`**: columna `Jugador` fija (solo presentación; sin tocar
+  datos ni lógica de jugadores).
+- **Excepción justificada — `MatchesTable`**: no se fija. Su identidad
+  (equipos) va en columnas centrales, no en la primera (`Fecha`), y la fila
+  entera es clicable al detalle; un sticky sobre `Fecha` no serviría al
+  objetivo. Ya tenían sticky: `StandingsTable` (ligas), `ConferenceStandings`
+  y rankings (NBA).
+
+### Fase 3 · Estrategia ISR
+
+11 páginas usaban el cliente Supabase de cookies, lo que fuerza render
+dinámico en **cada visita** (la app no tiene auth: la cookie no aporta).
+Migradas a `createStaticSupabaseClient` (sin cookies) + `revalidate` por
+volatilidad del dato:
+
+| Páginas | revalidate | Antes → Después |
+|---------|-----------|-----------------|
+| `matches` | 60s | ƒ Dynamic → ○ Static ISR |
+| `groups`, `bracket`, `predictions`, `value-bets` | 120s | ƒ Dynamic → ○ Static ISR |
+| `champion`, `scorers`, `players`, `simulation` | 300s | ƒ Dynamic → ○ Static ISR |
+| `matches/[id]`, `players/[id]` | 60s / 300s | ƒ (sin caché) → ƒ con caché por-id en runtime |
+
+Las dos de detalle siguen etiquetadas `ƒ` (segmento dinámico sin
+`generateStaticParams`) pero al quitar `cookies()` ahora se cachean por-id
+con su `revalidate` — mismo patrón ya aceptado en `nba/equipos/[id]`. Bajo
+carga (1.000 visitas simultáneas a `/matches` → antes 1.000 queries, ahora
+~1-2 por ventana de revalidación). `app/api/predictions/route.ts` conserva
+el cliente de cookies: es un route handler (ya dinámico, sin beneficio ISR).
+
+### Verificación
+
+type-check limpio · lint 0 errores (solo warnings heredados) · build de
+producción OK (las 9 páginas de lista ahora `○ Static` con su revalidate) ·
+**68/68** unitarias · **15/15** e2e (incluye buscador desde el topbar tras
+quitar el avatar). Nada del motor de fútbol fue tocado.
+
+---
+
+## Fases completadas (plan maestro previo)
 
 | Fase | Alcance | Estado |
 |------|---------|--------|

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Zap } from 'lucide-react'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat, type PendingMatchRow } from '@/components/predictions/SmartBetsTrackRecord'
 
@@ -8,8 +8,11 @@ export const metadata: Metadata = {
   title: 'Apuestas de Valor | World Cup Predictor',
 }
 
+// ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)
+export const revalidate = 120
+
 export default async function ValueBetsPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
 
   const { data: betsRaw } = await supabase
     .from('value_bets')

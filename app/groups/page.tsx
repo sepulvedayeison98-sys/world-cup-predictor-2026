@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { GroupCard } from '@/components/groups/GroupCard'
 import { COMPETITION_ID } from '@/lib/constants'
 
@@ -8,8 +8,11 @@ export const metadata: Metadata = {
 }
 
 
+// ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)
+export const revalidate = 120
+
 export default async function GroupsPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   const { data: groups } = await supabase
     .from('groups')
     .select(`

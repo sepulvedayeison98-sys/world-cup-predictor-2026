@@ -242,8 +242,8 @@ export function ValueBetsFullTable({ bets }: Props) {
         <table className="w-full data-table">
           <thead>
             <tr className="border-b border-zinc-800">
-              <th className="text-left w-4"></th>
-              <th className="text-left">Partido</th>
+              <th className="sticky left-0 z-10 bg-zinc-900 w-8 text-left"></th>
+              <th className="sticky left-8 z-10 bg-zinc-900 text-left">Partido</th>
               <th className="text-left">Mercado</th>
               <th className="text-left">Casa</th>
               <th className="text-right cursor-pointer hover:text-zinc-300" onClick={() => toggleSort('odds')}>
@@ -284,13 +284,15 @@ export function ValueBetsFullTable({ bets }: Props) {
 
                 return (
                   <tr key={bet.id} className={cn(isTop && 'bg-violet-500/3')}>
-                    {/* Top pick indicator */}
-                    <td className="pl-3 pr-0 py-2.5">
+                    {/* Sticky: estrella (top pick) + partido quedan fijos al hacer
+                        scroll horizontal de la tabla ancha en tablet/desktop.
+                        `!bg` gana sobre la regla .data-table tr:hover td */}
+                    <td className="sticky left-0 z-10 !bg-zinc-900 w-8 pl-3 pr-0 py-2.5">
                       {isTop && <Star className="h-3 w-3 text-violet-400 fill-violet-400/50" />}
                     </td>
 
                     {/* Match */}
-                    <td>
+                    <td className="sticky left-8 z-10 !bg-zinc-900">
                       <div>
                         <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
                           <Flag code={m?.home_team?.code} />

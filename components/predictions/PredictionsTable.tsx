@@ -91,7 +91,7 @@ export function PredictionsTable({ predictions }: Props) {
         <table className="w-full data-table">
           <thead>
             <tr className="border-b border-zinc-800">
-              <th className="text-left">Partido</th>
+              <th className="sticky left-0 z-10 bg-zinc-900 text-left">Partido</th>
               <th className="text-left">Fecha</th>
               <th className="text-right">Local</th>
               <th className="text-right">Empate</th>
@@ -140,7 +140,9 @@ export function PredictionsTable({ predictions }: Props) {
                     p.was_correct === true  && 'bg-emerald-500/5',
                     p.was_correct === false && 'bg-red-500/5',
                   )}>
-                    <td>
+                    {/* Sticky: mantiene el partido visible al hacer scroll horizontal
+                        en móvil. `!bg` gana sobre la regla .data-table tr:hover td */}
+                    <td className="sticky left-0 z-10 !bg-zinc-900">
                       <div>
                         <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
                           <Flag code={m?.home_team?.code} />

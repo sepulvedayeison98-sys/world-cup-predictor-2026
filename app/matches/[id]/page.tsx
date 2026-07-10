@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { MatchHeader } from '@/components/matches/MatchHeader'
 import { LiveMatchRefresh } from '@/components/matches/LiveMatchRefresh'
 import { MatchAnalysisTabs } from '@/components/matches/MatchAnalysisTabs'
@@ -18,9 +18,12 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
+// ISR: cacheado y revalidado cada 60s (sin cookies → renderizado estático)
+export const revalidate = 60
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   const { data: match } = await supabase
     .from('matches')
     .select('*, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)')
@@ -35,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function MatchDetailPage({ params }: Props) {
   const { id } = await params
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
 
   // Fetch match data y odds en paralelo
   const [{ data: match }, { data: oddsRaw }] = await Promise.all([

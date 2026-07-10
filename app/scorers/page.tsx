@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Crosshair } from 'lucide-react'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { TopScorersPrediction } from '@/components/scorers/TopScorersPrediction'
 import { COMPETITION_ID } from '@/lib/constants'
 
@@ -9,8 +9,11 @@ export const metadata: Metadata = {
 }
 
 
+// ISR: cacheado y revalidado cada 300s (sin cookies → renderizado estático)
+export const revalidate = 300
+
 export default async function ScorersPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
 
   // Paso 1: obtener última corrida de simulación
   const { data: latestSimRun } = await supabase

@@ -292,11 +292,16 @@ export function PlayersTable({ competitionId }: Props) {
           <thead>
             {table.getHeaderGroups().map(hg => (
               <tr key={hg.id} className="border-b border-zinc-800">
-                {hg.headers.map(header => (
+                {hg.headers.map((header, colIdx) => (
                   <th
                     key={header.id}
                     style={{ width: header.getSize() }}
-                    className={cn('text-left', header.column.getCanSort() && 'cursor-pointer select-none hover:text-zinc-300')}
+                    className={cn(
+                      'text-left',
+                      // Primera columna (Jugador) fija en scroll horizontal móvil
+                      colIdx === 0 && 'sticky left-0 z-10 bg-zinc-900',
+                      header.column.getCanSort() && 'cursor-pointer select-none hover:text-zinc-300',
+                    )}
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     <div className="flex items-center gap-1">
@@ -323,8 +328,13 @@ export function PlayersTable({ competitionId }: Props) {
                     row.original.status === 'doubt'     && 'bg-amber-500/3',
                     row.original.status === 'suspended' && 'bg-yellow-500/3',
                   )}>
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    {row.getVisibleCells().map((cell, colIdx) => (
+                      <td
+                        key={cell.id}
+                        className={cn(colIdx === 0 && 'sticky left-0 z-10 !bg-zinc-900')}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
                     ))}
                   </tr>
                 ))

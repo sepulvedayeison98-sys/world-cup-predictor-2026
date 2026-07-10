@@ -37,21 +37,3 @@ export function getConfidenceLabel(level: number): string {
   }
   return map[level] ?? 'N/A'
 }
-
-/** Implied probability from decimal odds */
-export function impliedProbability(odds: number): number {
-  return 1 / odds
-}
-
-/** Kelly criterion stake suggestion */
-export function kellyFraction(modelProb: number, odds: number): number {
-  const q = 1 - modelProb
-  const b = odds - 1
-  const k = (modelProb * b - q) / b
-  return Math.max(0, Math.min(k * 0.25, 0.05)) // Quarter Kelly, cap at 5%
-}
-
-/** Expected Value */
-export function expectedValue(modelProb: number, odds: number): number {
-  return modelProb * odds - 1
-}

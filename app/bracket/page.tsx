@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { GitBranch } from 'lucide-react'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { TournamentBracket } from '@/components/bracket/TournamentBracket'
 import { COMPETITION_ID } from '@/lib/constants'
 
@@ -9,8 +9,11 @@ export const metadata: Metadata = {
 }
 
 
+// ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)
+export const revalidate = 120
+
 export default async function BracketPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
 
   // Paso 1: obtener última corrida de simulación
   const { data: latestSimRun } = await supabase

@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import {
-  Play, RotateCcw, Save, ChevronDown, ChevronUp,
+  Play, RotateCcw, Layers, ChevronDown, ChevronUp,
   Zap, AlertTriangle, CloudLightning, Users,
 } from 'lucide-react'
 import { applyScenario, type SimScenario, type SimResult } from '@/lib/scenarioEngine'
@@ -366,7 +366,7 @@ export function SimulationEngine({ matches, activeInjuries, userId }: Props) {
             disabled={!result}
             className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-40"
           >
-            <Save className="h-4 w-4" /> Guardar escenario
+            <Layers className="h-4 w-4" /> Añadir a comparación
           </button>
         </div>
       </div>
@@ -485,7 +485,8 @@ export function SimulationEngine({ matches, activeInjuries, userId }: Props) {
         {/* Saved scenarios */}
         {savedResults.length > 0 && (
           <div className="card p-4">
-            <h3 className="text-sm font-semibold text-white mb-3">Escenarios Guardados</h3>
+            <h3 className="text-sm font-semibold text-white mb-1">Escenarios en comparación</h3>
+            <p className="text-[10px] text-zinc-600 mb-3">Comparación temporal — se reinicia al recargar la página</p>
             <div className="space-y-2">
               {savedResults.map((saved, i) => {
                 const match = matches.find(m => m.id === saved.matchId)

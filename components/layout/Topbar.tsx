@@ -65,6 +65,11 @@ export function Topbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-1">
+        {/* Q7 + limpieza F1: campana, toggle de tema y avatar retirados — no
+            hay notificaciones, modo claro ni cuentas de usuario detrás (la app
+            es pública sin auth). Un avatar "A" fijo solo simulaba una sesión
+            inexistente. El producto es solo-oscuro por identidad (terminal
+            financiera); Buscar es la única acción real del topbar. */}
         <button
           onClick={() => setSearchOpen(true)}
           className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors focus-visible:outline focus-visible:outline-emerald-500"
@@ -72,13 +77,6 @@ export function Topbar() {
         >
           <Search className="h-4 w-4" />
         </button>
-
-        {/* Q7: campana y toggle de tema retirados — no había sistema de
-            notificaciones ni modo claro detrás. El producto es solo-oscuro
-            por identidad (terminal financiera). */}
-        <div className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-400">
-          A
-        </div>
       </div>
 
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />

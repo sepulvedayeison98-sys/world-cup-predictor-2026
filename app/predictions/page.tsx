@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { PredictionsTable } from '@/components/predictions/PredictionsTable'
 import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
 
@@ -8,8 +8,11 @@ export const metadata: Metadata = {
 }
 
 
+// ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)
+export const revalidate = 120
+
 export default async function PredictionsPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   const { data: predictions } = await supabase
     .from('predictions')
     .select(`

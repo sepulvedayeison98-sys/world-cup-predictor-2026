@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { SimulationEngine } from '@/components/simulation/SimulationEngine'
 import { COMPETITION_ID } from '@/lib/constants'
 
@@ -8,8 +8,11 @@ export const metadata: Metadata = {
 }
 
 
+// ISR: cacheado y revalidado cada 300s (sin cookies → renderizado estático)
+export const revalidate = 300
+
 export default async function SimulationPage() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createStaticSupabaseClient()
   // Load scheduled matches with predictions (base scenarios)
   const { data: matches } = await supabase
     .from('matches')
