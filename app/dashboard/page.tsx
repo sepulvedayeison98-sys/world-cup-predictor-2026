@@ -54,7 +54,7 @@ export default async function HomePage() {
     { data: nextWcMatch },
     { data: finalRow },
   ] = await Promise.all([
-    // Hoy en juego: cualquier competición, próximas 48 h (o en vivo)
+    // Próximos partidos: cualquier competición, próximas 48 h (o en vivo)
     supabase
       .from('matches')
       .select(`
@@ -235,10 +235,10 @@ export default async function HomePage() {
       {/* ── MIS EQUIPOS (favoritos del navegador; oculto si no hay) ── */}
       <MyTeamsStrip />
 
-      {/* ── HOY EN JUEGO ─────────────────────────────────────── */}
-      <section aria-label="Hoy en juego">
+      {/* ── PRÓXIMOS PARTIDOS (ventana de 48 h; los chips saltan a un día) ── */}
+      <section aria-label="Próximos partidos">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">Hoy en juego</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">Próximos partidos</h2>
           <div className="flex items-center gap-1.5">
             <Link href={`/matches?date=${bogotaDay(0)}`} className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-zinc-300 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">
               Hoy

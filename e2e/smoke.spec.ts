@@ -9,7 +9,7 @@ test('la raíz redirige al inicio global y renderiza los bloques núcleo', async
   await page.goto('/')
   await expect(page).toHaveURL(/\/dashboard/)
   await expect(page.getByRole('heading', { name: 'Panel de Inteligencia' })).toBeVisible()
-  await expect(page.getByText('Hoy en juego')).toBeVisible()
+  await expect(page.getByText('Próximos partidos')).toBeVisible()
   await expect(page.getByText('Confianza del motor')).toBeVisible()
   await expect(page.getByText('El pick del día')).toBeVisible()
   await expect(page.getByText('Actividad del motor')).toBeVisible()
