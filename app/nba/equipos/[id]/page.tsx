@@ -8,6 +8,11 @@ import { fetchNbaSeasonMatches, fetchNbaTeams } from '@/services/nba.service'
 import { cn } from '@/lib/utils'
 
 export const revalidate = 300
+// generateStaticParams (vacío) habilita el caché ISR on-demand en Next 15:
+// sin él, un segmento [id] se sirve dinámico (no-store) en cada visita.
+export async function generateStaticParams() {
+  return []
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params

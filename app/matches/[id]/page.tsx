@@ -18,8 +18,16 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-// ISR: cacheado y revalidado cada 60s (sin cookies → renderizado estático)
+// ISR: cacheado y revalidado cada 60s (sin cookies → renderizado estático).
+// generateStaticParams (aunque vacío) es lo que habilita el modelo de caché
+// ISR on-demand en Next 15: sin él, un segmento [id] se sirve dinámico
+// (no-store) en cada visita. No se prerenderiza nada en build; cada id se
+// genera y cachea en la primera visita. La frescura en vivo la maneja
+// LiveMatchRefresh en el cliente.
 export const revalidate = 60
+export async function generateStaticParams() {
+  return []
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params

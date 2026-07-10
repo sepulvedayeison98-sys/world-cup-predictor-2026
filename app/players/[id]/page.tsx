@@ -7,8 +7,13 @@ import { PlayerRadarChart } from '@/components/charts/PlayerRadarChart'
 
 interface Props { params: Promise<{ id: string }> }
 
-// ISR: cacheado y revalidado cada 300s (sin cookies → renderizado estático)
+// ISR: cacheado y revalidado cada 300s (sin cookies → renderizado estático).
+// generateStaticParams (vacío) habilita el caché ISR on-demand en Next 15:
+// sin él, un segmento [id] se sirve dinámico (no-store) en cada visita.
 export const revalidate = 300
+export async function generateStaticParams() {
+  return []
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
