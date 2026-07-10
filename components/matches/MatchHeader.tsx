@@ -4,6 +4,7 @@ import { formatColTime, formatColLongDate, formatColFull } from '@/lib/datetime'
 import { MapPin, Clock, CloudSun, Users, ArrowLeft, Check, X } from 'lucide-react'
 import Link from 'next/link'
 import { Flag } from '@/components/ui/Flag'
+import { FavoriteStar } from '@/components/ui/FavoriteStar'
 import { PHASE_LABELS } from '@/lib/constants'
 
 interface Props {
@@ -115,7 +116,12 @@ export function MatchHeader({ match, competition, prediction }: Props) {
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
             <TeamBadge team={match.home_team} />
             <div className="text-center">
-              <p className="text-lg font-bold text-white">{match.home_team?.name}</p>
+              <p className="flex items-center justify-center gap-1 text-lg font-bold text-white">
+                {match.home_team?.name}
+                {match.home_team?.id && (
+                  <FavoriteStar team={{ id: match.home_team.id, name: match.home_team.name, code: match.home_team.code }} />
+                )}
+              </p>
               <TeamCredential team={match.home_team} />
             </div>
           </div>
@@ -152,7 +158,12 @@ export function MatchHeader({ match, competition, prediction }: Props) {
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
             <TeamBadge team={match.away_team} />
             <div className="text-center">
-              <p className="text-lg font-bold text-white">{match.away_team?.name}</p>
+              <p className="flex items-center justify-center gap-1 text-lg font-bold text-white">
+                {match.away_team?.name}
+                {match.away_team?.id && (
+                  <FavoriteStar team={{ id: match.away_team.id, name: match.away_team.name, code: match.away_team.code }} />
+                )}
+              </p>
               <TeamCredential team={match.away_team} />
             </div>
           </div>

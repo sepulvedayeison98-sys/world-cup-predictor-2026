@@ -24,6 +24,44 @@ verificaciones de migración contra la BD viva.
 
 ---
 
+## Actualización 2026-07-10 (2) · Quick Wins del playbook Sofascore
+
+Se creó **`SOFASCORE_PLAYBOOK.md`** (plan de producto prioritario: patrones
+de Sofascore adaptados sin copiar, con roadmap por fases) y se ejecutaron
+los 5 Quick Wins antes de la final del 19-jul:
+
+1. **SEO** — `app/sitemap.ts` dinámico (todas las rutas + ~3.300 partidos
+   vía `fetchAllRows` con lista blanca de competiciones), `app/robots.ts`,
+   `metadataBase` en el layout, títulos de intención en el detalle
+   ("Pronóstico X vs Y — probabilidades del modelo", con marcador y
+   veredicto en finalizados), descripción con probabilidades reales y
+   JSON-LD `SportsEvent` (solo campos reales).
+2. **Ranking ELO del Mundial** — `/mundial/rankings`: 48 selecciones por
+   ELO del modelo, contraste honesto vs ranking FIFA (Δ de posiciones
+   dentro del torneo), récord real PJ/G-E-P/GF:GC y fase alcanzada.
+   Módulo puro `lib/mundialRankings.ts` + 4 tests. Sin Δ de ELO histórico:
+   no se almacena la serie y no se estima (Data First).
+3. **Favoritos sin auth** — `lib/favorites.ts` (localStorage) + estrella
+   en la cabecera universal del partido + franja **"Mis equipos"** en el
+   dashboard (próximo partido con ProbBar del modelo o último resultado;
+   oculta si no hay favoritos). Etapa 1 del bucle de retención; Web Push
+   queda como estratégico.
+4. **Countdown a la final** — hero en dashboard: cuenta a la fecha oficial
+   (19-jul) mientras el sync no cree la fila del partido; cuando exista,
+   muestra finalistas + probabilidades del modelo; tras jugarse,
+   desaparece. + Chips de fecha (Hoy/Mañana → `/matches?date=`, zona
+   horaria Bogotá).
+5. **`ProbBar1X2`** — componente unificado de barra de probabilidades
+   (visualización firma; en `components/predictions/` para que la barrera
+   NBA lo bloquee). Adopción inicial: tarjetas del dashboard, franja Mis
+   equipos y hero de la final.
+
+Verificación: type-check limpio · lint 0 errores · build OK
+(`/mundial/rankings` ISR 2m · `sitemap.xml` 1h) · **72/72** unitarias ·
+**17/17** e2e (nuevos: ranking 48 filas, sitemap+robots).
+
+---
+
 ## Actualización 2026-07-10 · Optimización pre-final (Mundial)
 
 Ejecución autónoma de estabilización de cara al pico de tráfico de la final

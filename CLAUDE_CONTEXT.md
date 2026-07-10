@@ -1,7 +1,7 @@
 # 📋 CONTEXTO DEL PROYECTO — Veredicto · Inteligencia Deportiva
 
 > Documento maestro para continuar el desarrollo en Claude Code.
-> Actualizado: 2026-07-09 (post plan maestro de saneamiento).
+> Actualizado: 2026-07-10 (post Quick Wins del playbook Sofascore).
 
 ---
 
@@ -74,13 +74,17 @@ financiera oscura con esmeralda #10b981.
 ✅ Saneamiento completo (ver PROGRESS_REPORT.md): migraciones
    reconstruibles (032b), hardening BD (050), páginas de error, cero
    rutas muertas, cero huérfanos
-✅ Calidad: 68 tests unitarios · 15 e2e · lint 0 · verify_migrations 43/43
+✅ Quick Wins Sofascore (SOFASCORE_PLAYBOOK.md): sitemap+robots+JSON-LD,
+   ranking ELO Mundial, favoritos localStorage + "Mis equipos", countdown
+   a la final, ProbBar1X2 (visualización firma)
+✅ Calidad: 72 tests unitarios · 17 e2e · lint 0 · verify_migrations 43/43
 
-⏳ BACKLOG: temporada NBA 2025-26 (octubre, autollenado por cron) ·
-   stats de jugadores NBA y métricas de posesión (requiere fuente con
-   boxscores) · Smart Bets NBA (requiere cuotas de baloncesto) · upgrade
-   API-Football (~19 USD/mes, agosto) · deuda de fútbol congelada
-   (paginación Jugadores, Kelly/EV triplicado, ISR en páginas dinámicas)
+⏳ BACKLOG: ver SOFASCORE_PLAYBOOK.md (mejoras 6-12 y estratégicas 13-17) ·
+   temporada NBA 2025-26 (octubre, autollenado por cron) · stats de
+   jugadores NBA y métricas de posesión (requiere fuente con boxscores) ·
+   Smart Bets NBA (requiere cuotas de baloncesto) · upgrade API-Football
+   (~19 USD/mes, agosto) · cobertura de jugadores del Mundial (78 filas /
+   19 de 48 selecciones, decisión de producto pendiente)
 
 ---
 
@@ -99,7 +103,7 @@ financiera oscura con esmeralda #10b981.
 ```
 app/
 ├── dashboard/            # Inicio global (ISR 60s)
-├── mundial/              # Hub del torneo
+├── mundial/              # Hub del torneo + rankings (ELO vs FIFA)
 ├── ligas/ + ligas/[slug] # Las 5 grandes ligas
 ├── nba/                  # Hub + equipos/[id], rankings, estadisticas,
 │                         #   tendencias, predicciones (ISR 300s)
@@ -155,7 +159,7 @@ completas (~1.900 partidos) · NBA 30 equipos/1.314 partidos con cuartos.
 ```bash
 npm run dev          # desarrollo
 npm run build        # SIEMPRE antes de push
-npm test             # 68 unitarias
+npm test             # 72 unitarias
 npm run test:e2e     # Playwright (en sandbox: ver CLAUDE.md para proxy)
 npm run lint         # 0 errores esperado (incluye barrera NBA)
 npm run type-check

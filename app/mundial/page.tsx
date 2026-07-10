@@ -156,6 +156,7 @@ export default async function MundialHubPage() {
 
   const sections = [
     { href: '/bracket', label: 'Eliminatorias', desc: 'Cuadro del torneo con probabilidades por llave', icon: GitBranch },
+    { href: '/mundial/rankings', label: 'Ranking ELO', desc: 'Las 48 selecciones según el modelo vs ranking FIFA', icon: Trophy },
     { href: '/champion', label: 'Campeón', desc: 'Probabilidades de título por selección', icon: Trophy },
     { href: '/groups', label: 'Grupos', desc: 'Clasificación final de la fase de grupos', icon: Grid3X3 },
     { href: '/scorers', label: 'Goleadores', desc: 'Tabla y proyección de anotadores', icon: Crosshair },

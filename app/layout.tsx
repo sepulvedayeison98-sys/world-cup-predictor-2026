@@ -9,6 +9,7 @@ import { MobileNavProvider } from '@/components/layout/MobileNavContext'
 import { Toaster } from '@/components/ui/sonner'
 import { AutoRefresh } from '@/components/ui/AutoRefresh'
 import { SyncKeepalive } from '@/components/layout/SyncKeepalive'
+import { SITE_URL } from '@/lib/constants'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -23,6 +24,8 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
+  // SEO (playbook Sofascore, QW1): URLs canónicas y OG absolutas
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'World Cup Predictor 2026',
     template: '%s | WC Predictor',

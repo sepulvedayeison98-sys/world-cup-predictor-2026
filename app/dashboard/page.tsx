@@ -3,7 +3,10 @@ import Link from 'next/link'
 import { ArrowRight, Activity, AlertTriangle } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
-import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER } from '@/lib/constants'
+import { FinalCountdown } from '@/components/dashboard/FinalCountdown'
+import { MyTeamsStrip } from '@/components/dashboard/MyTeamsStrip'
+import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
+import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, WC_FINAL_DATE } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
 
 export const metadata: Metadata = {
@@ -49,6 +52,7 @@ export default async function HomePage() {
     { data: lastRecalib },
     { count: liveCount },
     { data: nextWcMatch },
+    { data: finalRow },
   ] = await Promise.all([
     // Hoy en juego: cualquier competición, próximas 48 h (o en vivo)
     supabase
@@ -125,6 +129,19 @@ export default async function HomePage() {
       .order('kickoff_time', { ascending: true })
       .limit(1)
       .maybeSingle(),
+    // La final del Mundial (la fila la crea el sync cuando se definen los
+    // finalistas — mientras tanto el hero cuenta a la fecha oficial)
+    supabase
+      .from('matches')
+      .select(`
+        id, kickoff_time, status,
+        home_team:teams!matches_home_team_id_fkey(name, code),
+        away_team:teams!matches_away_team_id_fkey(name, code),
+        predictions(home_win_probability, draw_probability, away_win_probability)
+      `)
+      .eq('competition_id', COMPETITION_ID)
+      .eq('phase', 'final')
+      .maybeSingle(),
   ])
 
   // ── Confianza del motor ────────────────────────────────────
@@ -174,6 +191,31 @@ export default async function HomePage() {
   // ── Smart Bet destacada ────────────────────────────────────
   const bet = (topBet?.[0] ?? null) as any
 
+  // ── Hero de la final ───────────────────────────────────────
+  const f = finalRow as any
+  const finalPred = f ? (Array.isArray(f.predictions) ? f.predictions[0] : f.predictions) : null
+  const finalMatch = f && f.status !== 'finished'
+    ? {
+        id: f.id as string,
+        kickoff_time: f.kickoff_time as string,
+        home_team: f.home_team ?? null,
+        away_team: f.away_team ?? null,
+        prediction: finalPred
+          ? {
+              home: Number(finalPred.home_win_probability),
+              draw: Number(finalPred.draw_probability),
+              away: Number(finalPred.away_win_probability),
+            }
+          : null,
+      }
+    : null
+  const finalPlayed = f?.status === 'finished'
+
+  // ── Chips de fecha (zona horaria del producto: Bogotá) ─────
+  const bogotaDay = (offsetDays: number) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .format(new Date(now + offsetDays * 86_400_000))
+
   // ── Actividad del motor ────────────────────────────────────
   const recalibAt = (lastRecalib?.[0] as any)?.updated_at
   const compName = (id: string) => COMPETITIONS_NAV.find((c) => c.id === id)?.name ?? 'Liga'
@@ -187,13 +229,27 @@ export default async function HomePage() {
         liveCount={liveCount ?? 0}
       />
 
+      {/* ── LA FINAL (hasta que se juegue) ───────────────────── */}
+      {!finalPlayed && <FinalCountdown match={finalMatch} fallbackDate={WC_FINAL_DATE} />}
+
+      {/* ── MIS EQUIPOS (favoritos del navegador; oculto si no hay) ── */}
+      <MyTeamsStrip />
+
       {/* ── HOY EN JUEGO ─────────────────────────────────────── */}
       <section aria-label="Hoy en juego">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">Hoy en juego</h2>
-          <Link href="/matches" className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-            ver agenda <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href={`/matches?date=${bogotaDay(0)}`} className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-zinc-300 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">
+              Hoy
+            </Link>
+            <Link href={`/matches?date=${bogotaDay(1)}`} className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-zinc-300 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">
+              Mañana
+            </Link>
+            <Link href="/matches" className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+              agenda <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
         {upcomingRows.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -212,16 +268,21 @@ export default async function HomePage() {
                     {m.home_team?.name} <span className="font-normal text-zinc-500">vs</span> {m.away_team?.name}
                   </p>
                   <div className="mt-2 flex items-center justify-between text-xs">
-                    {p ? (
-                      <span className="mono text-zinc-400">
-                        {Math.round(p.home_win_probability * 100)}·{Math.round(p.draw_probability * 100)}·{Math.round(p.away_win_probability * 100)}%
-                        <span className="ml-2 text-zinc-600">est. {p.predicted_home_score}-{p.predicted_away_score}</span>
-                      </span>
-                    ) : <span className="text-zinc-600">sin predicción aún</span>}
+                    <span className="text-zinc-600">
+                      {p ? `est. ${p.predicted_home_score}-${p.predicted_away_score}` : 'sin predicción aún'}
+                    </span>
                     <span className={m.status === 'live' ? 'font-bold text-emerald-400' : 'text-zinc-500'}>
                       {m.status === 'live' ? '● EN VIVO' : fmtDate(m.kickoff_time, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
+                  {p && (
+                    <ProbBar1X2
+                      className="mt-2"
+                      home={Number(p.home_win_probability)}
+                      draw={Number(p.draw_probability)}
+                      away={Number(p.away_win_probability)}
+                    />
+                  )}
                 </Link>
               )
             })}

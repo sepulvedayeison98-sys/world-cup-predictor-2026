@@ -11,6 +11,14 @@ export const MODEL_VERSION = '1.2.0'
 export const COMPETITION_ID =
   process.env.NEXT_PUBLIC_COMPETITION_ID ?? 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 
+// Fecha oficial FIFA de la final del Mundial 2026 (respaldo del countdown
+// del dashboard mientras el sync no cree la fila con los finalistas).
+export const WC_FINAL_DATE = '2026-07-19'
+
+// URL pública del sitio (SEO: sitemap, robots, metadata canónica).
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://world-cup-predictor-2026-flax.vercel.app'
+
 // Etiquetas en español de cada fase del torneo.
 export const PHASE_LABELS: Record<string, string> = {
   group:         'Fase de Grupos',

@@ -34,13 +34,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createStaticSupabaseClient()
   const { data: match } = await supabase
     .from('matches')
-    .select('*, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)')
+    .select(`
+      status, home_score, away_score,
+      home_team:teams!matches_home_team_id_fkey(name),
+      away_team:teams!matches_away_team_id_fkey(name),
+      predictions(home_win_probability, draw_probability, away_win_probability)
+    `)
     .eq('id', id)
     .single()
 
-  if (!match) return { title: 'Partido | WC Predictor' }
+  if (!match) return { title: 'Partido | Veredicto' }
+  const m = match as any
+  const home = m.home_team?.name ?? 'Local'
+  const away = m.away_team?.name ?? 'Visitante'
+  const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+
+  // Títulos de intención de búsqueda (playbook Sofascore, QW1):
+  // "pronóstico X vs Y" es la keyword natural del producto.
+  if (m.status === 'finished' && m.home_score != null) {
+    return {
+      title: `${home} ${m.home_score}-${m.away_score} ${away} — resultado y veredicto del modelo | Veredicto`,
+      description: `Resultado ${home} vs ${away}: ${m.home_score}-${m.away_score}. Qué predijo el modelo y cómo le fue, con análisis verificable.`,
+    }
+  }
+  const desc = p
+    ? `El modelo da ${Math.round(p.home_win_probability * 100)}% a ${home}, ${Math.round(p.draw_probability * 100)}% al empate y ${Math.round(p.away_win_probability * 100)}% a ${away}. Probabilidades verificables, marcador estimado y análisis.`
+    : `Análisis y predicción de ${home} vs ${away} con probabilidades verificables del modelo.`
   return {
-    title: `${(match as any).home_team?.name} vs ${(match as any).away_team?.name} | WC Predictor`,
+    title: `Pronóstico ${home} vs ${away} — probabilidades del modelo | Veredicto`,
+    description: desc,
   }
 }
 
@@ -239,8 +261,34 @@ export default async function MatchDetailPage({ params }: Props) {
     if (comp) competitionCtx = { name: (comp as any).name, href: '/matches' }
   }
 
+  // JSON-LD SportsEvent (playbook Sofascore, QW1): datos estructurados con
+  // SOLO campos reales del partido — los buscadores indexan el evento.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SportsEvent',
+    name: `${m.home_team?.name ?? 'Local'} vs ${m.away_team?.name ?? 'Visitante'}`,
+    startDate: m.kickoff_time,
+    sport: isFootball ? 'Soccer' : 'Basketball',
+    eventStatus: m.status === 'postponed'
+      ? 'https://schema.org/EventPostponed'
+      : 'https://schema.org/EventScheduled',
+    ...(m.venue ? {
+      location: {
+        '@type': 'Place',
+        name: m.venue,
+        ...(m.city ? { address: m.city } : {}),
+      },
+    } : {}),
+    homeTeam: { '@type': 'SportsTeam', name: m.home_team?.name ?? 'Local' },
+    awayTeam: { '@type': 'SportsTeam', name: m.away_team?.name ?? 'Visitante' },
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <LiveMatchRefresh status={m.status} kickoffTime={m.kickoff_time} />
       <MatchHeader match={m} competition={competitionCtx} prediction={savedPrediction} />
 

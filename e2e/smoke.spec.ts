@@ -208,3 +208,25 @@ test('ligas: detalle con calendario por jornada y modelo', async ({ page }) => {
   await select.selectOption('20')
   await expect(page.locator('li').filter({ hasText: '-' }).first()).toBeVisible()
 })
+
+test('mundial: ranking ELO con las 48 selecciones y contraste FIFA', async ({ page }) => {
+  await page.goto('/mundial/rankings')
+  await expect(page.getByRole('heading', { name: 'Ranking ELO' })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(48)
+  // Contraste con FIFA y fase alcanzada presentes en la cabecera
+  await expect(page.locator('th', { hasText: 'FIFA' })).toBeVisible()
+  await expect(page.locator('th', { hasText: 'Fase' })).toBeVisible()
+})
+
+test('seo: sitemap dinámico con partidos y robots.txt', async ({ request }) => {
+  const sitemap = await request.get('/sitemap.xml')
+  expect(sitemap.status()).toBe(200)
+  const xml = await sitemap.text()
+  expect(xml).toContain('<urlset')
+  expect(xml).toContain('/matches/')
+  expect(xml).toContain('/mundial/rankings')
+
+  const robots = await request.get('/robots.txt')
+  expect(robots.status()).toBe(200)
+  expect(await robots.text()).toContain('sitemap.xml')
+})
