@@ -24,6 +24,34 @@ verificaciones de migración contra la BD viva.
 
 ---
 
+## Actualización 2026-07-10 (3) · Mejoras 1-2 semanas del playbook
+
+Cuatro mejoras del roadmap de mejoras importantes (SOFASCORE_PLAYBOOK.md):
+
+- **Bottom nav móvil** (mejora 6) — `components/layout/BottomNav.tsx`: barra
+  inferior fija <lg con 5 destinos (Inicio/Partidos/Predice/Smart Bets/Más);
+  "Más" abre el drawer del sidebar. Navegación raíz sigue congelada (atajos a
+  rutas existentes). `<main>` con `pb-16 lg:pb-0`.
+- **H2H** (mejora 10) — `lib/h2h.ts` (puro, 3 tests) + `HeadToHead.tsx` en el
+  detalle de partido. Enfrentamientos previos en la MISMA competición (regla
+  de oro), balance + últimos cruces clicables. Se auto-oculta sin historia.
+- **Balance/Informe del Mundial** (mejora 12) — `lib/mundialReport.ts` (puro,
+  5 tests) + `/mundial/balance`: precisión vs azar, precisión por fase,
+  mejores aciertos / fallos más sonados, tabla de calibración. Es "balance en
+  curso" hasta que la final se juega, cuando pasa a "informe final".
+- **Movimiento del mercado** (mejora 7) — `lib/marketMovement.ts` (puro, 4
+  tests) + writer en `services/sync/odds.ts` (lee cuotas Pinnacle previas
+  antes del swap, registra before→after en `market_movements`, best-effort no
+  bloqueante) + `MarketMovementPanel.tsx` en el detalle (pre-partido). Los
+  datos se acumulan con cada corrida del cron; el panel se auto-oculta hasta
+  entonces (Data First).
+
+Verificación: type-check limpio · lint 0 errores · build OK
+(`/mundial/balance` ISR 5m · `/matches/[id]` ● SSG/ISR) · **84/84** unitarias
+(12 nuevas) · **19/19** e2e (nuevos: bottom nav móvil, balance del modelo).
+
+---
+
 ## Actualización 2026-07-10 (2) · Quick Wins del playbook Sofascore
 
 Se creó **`SOFASCORE_PLAYBOOK.md`** (plan de producto prioritario: patrones

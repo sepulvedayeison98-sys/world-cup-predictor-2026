@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveTeamCode } from '@/lib/teamMapping'
 import { buildValueBet, isStrongValueBet, type OddsMarket } from '@/lib/valueBets'
+import { computeMovements } from '@/lib/marketMovement'
 import { COMPETITION_ID } from '@/lib/constants'
 
 
@@ -213,6 +214,44 @@ export async function syncOdds(): Promise<{
   // queda vacío, y el siguiente sync sanea cualquier resto. Nunca borra el lote
   // recién escrito porque el filtro es estrictamente `< now`.
   const matchIdList = Array.from(affectedMatchIds)
+
+  // ── Movimiento del mercado (playbook Sofascore, mejora 7) ────────────────────
+  // Antes de reemplazar, lee las cuotas Pinnacle previas y registra en
+  // market_movements cómo se movió cada mercado (before→after). Append-only,
+  // best-effort: si falla, no rompe el sync de cuotas.
+  if (matchIdList.length) {
+    try {
+      const { data: prevOdds } = await supabase.from('odds')
+        .select('match_id, market, odds_value')
+        .eq('bookmaker', 'Pinnacle')
+        .in('match_id', matchIdList)
+        .lt('recorded_at', now)
+
+      const oldByMatch = new Map<string, Map<string, number>>()
+      for (const o of (prevOdds ?? []) as any[]) {
+        if (!oldByMatch.has(o.match_id)) oldByMatch.set(o.match_id, new Map())
+        oldByMatch.get(o.match_id)!.set(o.market, Number(o.odds_value))
+      }
+
+      const newByMatch = new Map<string, Map<string, number>>()
+      for (const r of oddsRows) {
+        if (r.bookmaker !== 'Pinnacle') continue
+        if (!newByMatch.has(r.match_id)) newByMatch.set(r.match_id, new Map())
+        newByMatch.get(r.match_id)!.set(r.market, Number(r.odds_value))
+      }
+
+      const movements = []
+      for (const [mid, newMap] of newByMatch) {
+        const oldMap = oldByMatch.get(mid)
+        if (!oldMap) continue
+        movements.push(...computeMovements(mid, 'Pinnacle', oldMap, newMap)
+          .map((m) => ({ ...m, detected_at: now })))
+      }
+      if (movements.length) await supabase.from('market_movements').insert(movements)
+    } catch (e) {
+      console.error('market_movements sync (no bloqueante):', e)
+    }
+  }
 
   if (oddsRows.length) {
     const { error } = await supabase.from('odds').insert(oddsRows)

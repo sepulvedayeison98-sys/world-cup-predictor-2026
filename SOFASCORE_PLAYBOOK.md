@@ -95,11 +95,18 @@ que los agregadores no pueden copiar sin romper su modelo.
 
 ## 4. Estado de ejecución
 
-| Quick Win | Estado |
+| Entregable | Estado |
 |-----------|--------|
-| 1 · SEO (sitemap/robots/JSON-LD/títulos) | ✅ 2026-07-10 |
-| 2 · Ranking ELO Mundial | ✅ 2026-07-10 |
-| 3 · Favoritos + Mis equipos | ✅ 2026-07-10 |
-| 4 · Countdown final + chips fecha | ✅ 2026-07-10 |
-| 5 · ProbBar1X2 unificada | ✅ 2026-07-10 (adopción inicial: dashboard, franja, countdown) |
-| 6-17 | Pendientes — ver secciones arriba |
+| QW1 · SEO (sitemap/robots/JSON-LD/títulos) | ✅ 2026-07-10 |
+| QW2 · Ranking ELO Mundial | ✅ 2026-07-10 |
+| QW3 · Favoritos + Mis equipos | ✅ 2026-07-10 |
+| QW4 · Countdown final + chips fecha | ✅ 2026-07-10 |
+| QW5 · ProbBar1X2 unificada | ✅ 2026-07-10 |
+| 6 · Bottom nav móvil | ✅ 2026-07-10 |
+| 7 · Movimiento del mercado (Smart Bets) | ✅ 2026-07-10 (writer en sync + panel; datos se acumulan por cron) |
+| 8 · El público vs el modelo | ⏸ requiere decisión: primera tabla con INSERT anónimo |
+| 9 · Overlay modelo vs mercado | Pendiente |
+| 10 · H2H en detalle | ✅ 2026-07-10 |
+| 11 · Dieta de bundle + prefetch | Pendiente |
+| 12 · Informe/Balance del Mundial | ✅ 2026-07-10 (/mundial/balance) |
+| 13-17 · Estratégicos | Pendientes — ver sección 3 |

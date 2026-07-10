@@ -230,3 +230,20 @@ test('seo: sitemap dinámico con partidos y robots.txt', async ({ request }) => 
   expect(robots.status()).toBe(200)
   expect(await robots.text()).toContain('sitemap.xml')
 })
+
+test('móvil: bottom nav con destinos principales', async ({ page }) => {
+  await page.goto('/dashboard')
+  const nav = page.getByRole('navigation', { name: 'Navegación inferior' })
+  await expect(nav).toBeVisible()
+  for (const label of ['Inicio', 'Partidos', 'Smart Bets', 'Más']) {
+    await expect(nav.getByText(label, { exact: true })).toBeVisible()
+  }
+})
+
+test('mundial: balance del modelo con precisión y calibración', async ({ page }) => {
+  await page.goto('/mundial/balance')
+  await expect(page.getByRole('heading', { name: 'Cómo le fue al modelo' })).toBeVisible()
+  // Con partidos resueltos del torneo, deben verse KPIs y calibración
+  await expect(page.getByText('Precisión 1X2')).toBeVisible()
+  await expect(page.getByText('Precisión por fase')).toBeVisible()
+})

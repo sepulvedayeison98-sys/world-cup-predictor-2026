@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
+import { BottomNav } from '@/components/layout/BottomNav'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { QueryProvider } from '@/components/layout/QueryProvider'
 import { MobileNavProvider } from '@/components/layout/MobileNavContext'
@@ -72,13 +73,14 @@ export default function RootLayout({
                 <Sidebar />
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <Topbar />
-                  <main className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950">
+                  <main className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-16 lg:pb-0">
                     <AutoRefresh />
                     <SyncKeepalive />
                     {children}
                   </main>
                 </div>
               </div>
+              <BottomNav />
             </MobileNavProvider>
             <Toaster />
           </QueryProvider>

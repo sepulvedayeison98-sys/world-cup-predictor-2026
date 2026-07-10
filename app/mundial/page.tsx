@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Trophy, GitBranch, Users, Crosshair, FlaskConical, Calendar, Grid3X3 } from 'lucide-react'
+import { Trophy, GitBranch, Users, Crosshair, FlaskConical, Calendar, Grid3X3, Activity } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, PHASE_LABELS } from '@/lib/constants'
 import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
@@ -157,6 +157,7 @@ export default async function MundialHubPage() {
   const sections = [
     { href: '/bracket', label: 'Eliminatorias', desc: 'Cuadro del torneo con probabilidades por llave', icon: GitBranch },
     { href: '/mundial/rankings', label: 'Ranking ELO', desc: 'Las 48 selecciones según el modelo vs ranking FIFA', icon: Trophy },
+    { href: '/mundial/balance', label: 'Balance del modelo', desc: 'Cómo le fue al motor: precisión, calibración, aciertos y fallos', icon: Activity },
     { href: '/champion', label: 'Campeón', desc: 'Probabilidades de título por selección', icon: Trophy },
     { href: '/groups', label: 'Grupos', desc: 'Clasificación final de la fase de grupos', icon: Grid3X3 },
     { href: '/scorers', label: 'Goleadores', desc: 'Tabla y proyección de anotadores', icon: Crosshair },

@@ -13,6 +13,9 @@ import { COMPETITIONS_NAV } from '@/lib/sports'
 import { VerdictPanel } from '@/components/matches/VerdictPanel'
 import { MatchTimeline } from '@/components/matches/MatchTimeline'
 import { QuarterBreakdown } from '@/components/nba/QuarterBreakdown'
+import { HeadToHead } from '@/components/matches/HeadToHead'
+import { computeH2H, type H2HMatch } from '@/lib/h2h'
+import { MarketMovementPanel, type MovementItem } from '@/components/matches/MarketMovementPanel'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -261,6 +264,38 @@ export default async function MatchDetailPage({ params }: Props) {
     if (comp) competitionCtx = { name: (comp as any).name, href: '/matches' }
   }
 
+  // Head-to-head (playbook Sofascore, mejora 10): enfrentamientos previos
+  // entre los dos equipos en la MISMA competición (regla de oro). Excluye
+  // el partido actual. Vacío → el componente no se renderiza.
+  const { data: h2hRaw } = await supabase
+    .from('matches')
+    .select('id, home_team_id, away_team_id, home_score, away_score, kickoff_time, status')
+    .eq('competition_id', m.competition_id)
+    .eq('status', 'finished')
+    .or(
+      `and(home_team_id.eq.${m.home_team_id},away_team_id.eq.${m.away_team_id}),` +
+      `and(home_team_id.eq.${m.away_team_id},away_team_id.eq.${m.home_team_id})`,
+    )
+    .neq('id', m.id)
+    .order('kickoff_time', { ascending: false })
+    .limit(20)
+  const h2h = computeH2H((h2hRaw ?? []) as H2HMatch[], m.home_team_id, m.away_team_id)
+
+  // Movimiento del mercado (playbook Sofascore, mejora 7): solo pre-partido,
+  // Pinnacle. Vacío mientras el sync no haya acumulado historia → el panel
+  // se auto-oculta.
+  let movements: MovementItem[] = []
+  if (isFootball && (m.status === 'scheduled' || m.status === 'live')) {
+    const { data: mv } = await supabase
+      .from('market_movements')
+      .select('market, odds_before, odds_after, prob_shift_pct, detected_at')
+      .eq('match_id', m.id)
+      .eq('bookmaker', 'Pinnacle')
+      .order('detected_at', { ascending: false })
+      .limit(30)
+    movements = (mv ?? []) as MovementItem[]
+  }
+
   // JSON-LD SportsEvent (playbook Sofascore, QW1): datos estructurados con
   // SOLO campos reales del partido — los buscadores indexan el evento.
   const jsonLd = {
@@ -313,6 +348,21 @@ export default async function MatchDetailPage({ params }: Props) {
           awayCode={m.away_team?.code ?? 'VIS'}
         />
       )}
+
+      {/* Movimiento del mercado (pre-partido; se auto-oculta sin datos) */}
+      <MarketMovementPanel
+        movements={movements}
+        homeName={m.home_team?.short_name ?? m.home_team?.name ?? 'Local'}
+        awayName={m.away_team?.short_name ?? m.away_team?.name ?? 'Visita'}
+      />
+
+      {/* Historial de enfrentamientos (se auto-oculta si no hay ninguno) */}
+      <HeadToHead
+        h2h={h2h}
+        homeName={m.home_team?.short_name ?? m.home_team?.name ?? 'Local'}
+        awayName={m.away_team?.short_name ?? m.away_team?.name ?? 'Visita'}
+        homeIsA={true}
+      />
 
       <MatchAnalysisTabs
         match={m}
