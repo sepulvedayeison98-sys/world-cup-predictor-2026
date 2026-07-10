@@ -261,3 +261,15 @@ test('ligas: equipo clicable → perfil con récord y forma', async ({ page }) =
   await expect(page.getByText('Local / visitante')).toBeVisible()
   await expect(page.getByText('Últimos partidos')).toBeVisible()
 })
+
+test('predicciones: panel con filtros y tarjetas (móvil)', async ({ page }) => {
+  await page.goto('/predictions')
+  // Filtros presentes y clicables (scroll propio, no se cortan)
+  await expect(page.getByRole('button', { name: /Todas/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Correctas/ })).toBeVisible()
+  // En viewport móvil se ven las tarjetas (lista), no la tabla
+  const firstCard = page.locator('ul.md\\:hidden li a[href^="/matches/"]').first()
+  await expect(firstCard).toBeVisible()
+  // La barra de probabilidad unificada está en la tarjeta
+  await expect(firstCard.getByRole('img', { name: /Probabilidades del modelo/ })).toBeVisible()
+})
