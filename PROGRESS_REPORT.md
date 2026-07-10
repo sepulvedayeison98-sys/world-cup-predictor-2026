@@ -96,19 +96,34 @@ volatilidad del dato:
 | `champion`, `scorers`, `players`, `simulation` | 300s | ƒ Dynamic → ○ Static ISR |
 | `matches/[id]`, `players/[id]` | 60s / 300s | ƒ (sin caché) → ƒ con caché por-id en runtime |
 
-Las dos de detalle siguen etiquetadas `ƒ` (segmento dinámico sin
-`generateStaticParams`) pero al quitar `cookies()` ahora se cachean por-id
-con su `revalidate` — mismo patrón ya aceptado en `nba/equipos/[id]`. Bajo
-carga (1.000 visitas simultáneas a `/matches` → antes 1.000 queries, ahora
-~1-2 por ventana de revalidación). `app/api/predictions/route.ts` conserva
-el cliente de cookies: es un route handler (ya dinámico, sin beneficio ISR).
+**Corrección tras verificar en producción:** quitar `cookies()` NO bastó
+para cachear los segmentos `[id]`. En Next 15, un `[id]` sin
+`generateStaticParams` se sirve dinámico (`cache-control: no-store`) en
+cada visita aunque tenga `revalidate` — verificado en vivo: `/matches/[id]`
+devolvía `x-vercel-cache: MISS` + `no-store`. Se añadió
+`generateStaticParams` vacío a `matches/[id]`, `players/[id]` y
+`nba/equipos/[id]`: no prerenderiza nada en build pero habilita el caché
+ISR on-demand (cada id se genera y cachea en la primera visita). Build:
+pasan de `ƒ Dynamic` a `● SSG/ISR`. Reverificado en producción:
+`/matches/[id]` ahora da `MISS` en el primer hit y `HIT` en el segundo;
+`nba/equipos/[id]` da `HIT`. La frescura en vivo del detalle la maneja
+`LiveMatchRefresh` en el cliente. Bajo carga (1.000 visitas simultáneas a
+`/matches` → antes 1.000 queries, ahora ~1-2 por ventana de revalidación).
+`app/api/predictions/route.ts` conserva el cliente de cookies: es un route
+handler (ya dinámico, sin beneficio ISR).
 
 ### Verificación
 
 type-check limpio · lint 0 errores (solo warnings heredados) · build de
-producción OK (las 9 páginas de lista ahora `○ Static` con su revalidate) ·
-**68/68** unitarias · **15/15** e2e (incluye buscador desde el topbar tras
-quitar el avatar). Nada del motor de fútbol fue tocado.
+producción OK · **68/68** unitarias · **15/15** e2e (incluye buscador desde
+el topbar tras quitar el avatar). Nada del motor de fútbol fue tocado.
+
+**Desplegado a producción** (`e9564fa`, Vercel `READY`) y verificado en
+vivo: las 9 páginas de lista dan `x-vercel-cache: HIT`; las 3 de detalle
+`[id]` cachean tras el primer hit; `/value-bets` y el detalle de partido
+renderizan. Los previews de rama figuran en `ERROR` — esperado: el entorno
+preview de Vercel no tiene las claves de Supabase/API (están scopeadas a
+producción); solo el deploy `production` importa.
 
 ---
 
