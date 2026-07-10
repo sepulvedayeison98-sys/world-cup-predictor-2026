@@ -195,35 +195,49 @@ export async function syncOdds(): Promise<{
             ...vb,
             is_active: true,
             result: 'pending',
+            updated_at: now,  // sella el lote vigente para el swap (ver más abajo)
           })
         }
       }
     }
   }
 
-  // ── Limpiar cuotas anteriores y reemplazar ───────────────────────────────────
+  // ── Reemplazo por swap: insertar primero, borrar lo viejo después ────────────
+  // Antes se borraba y luego se insertaba: si el proceso moría entre ambos pasos
+  // (timeout, corte de red, reinicio de deploy en plena jornada) la tabla quedaba
+  // VACÍA para esos partidos y las páginas de cuotas / value bets se veían en
+  // blanco. Ahora se escribe el lote nuevo (recorded_at = now) y SOLO después se
+  // elimina lo previo (recorded_at < now). Garantías: si el insert falla se corta
+  // antes del delete y no se pierde nada; en el peor caso conviven un instante las
+  // cuotas nuevas y las viejas —el lector siempre toma la más reciente— pero nunca
+  // queda vacío, y el siguiente sync sanea cualquier resto. Nunca borra el lote
+  // recién escrito porque el filtro es estrictamente `< now`.
   const matchIdList = Array.from(affectedMatchIds)
-  if (matchIdList.length) {
-    await supabase.from('odds').delete()
-      .in('match_id', matchIdList)
-      .in('bookmaker', ['Pinnacle', ...CO_BOOKMAKERS])
-  }
 
   if (oddsRows.length) {
     const { error } = await supabase.from('odds').insert(oddsRows)
     if (error) throw error
   }
-
-  // Regenerar value bets
   if (matchIdList.length) {
-    await supabase.from('value_bets').delete()
+    await supabase.from('odds').delete()
       .in('match_id', matchIdList)
-      .in('bookmaker', ['Pinnacle'])
+      .in('bookmaker', ['Pinnacle', ...CO_BOOKMAKERS])
+      .lt('recorded_at', now)
   }
+
+  // Value bets: mismo swap. El upsert estampa updated_at = now en el lote vigente
+  // (nuevas e in-place); luego se retiran las value bets Pinnacle que ya no
+  // califican (updated_at < now) sin dejar hueco intermedio.
   if (valueBetRows.length) {
     const { error } = await supabase.from('value_bets')
       .upsert(valueBetRows, { onConflict: 'match_id,market,bookmaker', ignoreDuplicates: false })
     if (error) throw error
+  }
+  if (matchIdList.length) {
+    await supabase.from('value_bets').delete()
+      .in('match_id', matchIdList)
+      .in('bookmaker', ['Pinnacle'])
+      .lt('updated_at', now)
   }
 
   // Autolimpieza: las cuotas de partidos ya finalizados no sirven a nadie
