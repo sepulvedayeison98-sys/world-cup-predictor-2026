@@ -176,3 +176,11 @@ npm run type-check
 - **NBA sin fabricar**: métricas de posesión (Pace/ORtg/eFG%) y stats de
   jugadores NO se calculan — la fuente free no da boxscores. La UI lo
   declara. No "estimar" jamás estos valores.
+- **Smart Bets sin edge falso**: The Odds API/Pinnacle solo entrega 1X2 y
+  goles. Las cuotas de corners/tarjetas/disparos en la BD son referencia
+  estática (seed de la migración 029, no se refrescan). El motor
+  (`lib/smartBetsEngine.ts`, `STATIC_ODDS_FAMILIES`) omite el "edge vs
+  mercado" para esas familias y lo aclara en la justificación: la
+  probabilidad del modelo (forma real) es honesta, la ventaja de mercado
+  no existiría. Si algún día hay fuente de cuotas en vivo para esos
+  mercados, quitar la familia del set y sincronizarlas como 1X2/goles.

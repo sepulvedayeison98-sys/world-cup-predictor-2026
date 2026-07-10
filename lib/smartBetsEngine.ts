@@ -199,6 +199,16 @@ function calcEdge(modelProb: number, oddsMap: Map<string, number>, market: strin
   return Math.round((modelProb - implied) * 1000) / 10
 }
 
+/**
+ * Familias cuya "cuota" en la BD es un valor de referencia estático (sembrado
+ * una sola vez por la migración 029), NO un precio de mercado en vivo: The Odds
+ * API / Pinnacle solo entrega 1X2 y goles. Calcular un "edge vs mercado" contra
+ * esas cuotas fijas presentaría un valor que no existe (Data First), así que se
+ * omite el edge para estas categorías. La probabilidad del modelo (de forma
+ * reciente real) y la confianza se mantienen: son honestas.
+ */
+const STATIC_ODDS_FAMILIES = new Set(['corners', 'cards', 'shots_ot'])
+
 // ─── Deduplicación por familia ────────────────────────────────────────────────
 
 function family(id: string): string {
@@ -925,7 +935,15 @@ export function computeSmartBets(
     if (isContradiction(c.id, c.confidence, top5)) continue
     seen.add(fam)
 
-    const edgeVal = calcEdge(c.confidence / 100, oddsMap, marketOddsId[c.id] ?? c.id)
+    // Corners/tarjetas/disparos no tienen cuota de mercado en vivo (solo
+    // referencia estática): se omite el edge y se aclara en la justificación.
+    const isStaticOdds = STATIC_ODDS_FAMILIES.has(fam)
+    const edgeVal = isStaticOdds
+      ? null
+      : calcEdge(c.confidence / 100, oddsMap, marketOddsId[c.id] ?? c.id)
+    const justification = isStaticOdds
+      ? `${c.justification} Sin cuota de mercado en vivo para esta categoría (la fuente solo cubre 1X2 y goles): no se calcula ventaja vs mercado.`
+      : c.justification
 
     top5.push({
       id:             c.id,
@@ -939,7 +957,7 @@ export function computeSmartBets(
       consensusScore: consensusScoreVal,
       volatility,
       mcEvidence:     mce,
-      justification:  c.justification,
+      justification,
       factors:        c.factors,
     })
   }
