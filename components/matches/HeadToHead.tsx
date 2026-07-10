@@ -17,7 +17,19 @@ interface Props {
  * presentarlo siempre como Local vs Visitante del partido en pantalla.
  */
 export function HeadToHead({ h2h, homeName, awayName, homeIsA }: Props) {
-  if (h2h.total === 0) return null
+  // Sin enfrentamientos previos (típico en el Mundial: las selecciones se
+  // cruzan por primera vez): en vez de desaparecer, se dice explícitamente
+  // para que no parezca un error.
+  if (h2h.total === 0) {
+    return (
+      <section aria-label="Historial de enfrentamientos" className="card px-4 py-3">
+        <h3 className="text-sm font-bold text-white">Historial de enfrentamientos</h3>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          {homeName} y {awayName} no se han enfrentado antes en nuestros datos — primer duelo registrado.
+        </p>
+      </section>
+    )
+  }
 
   // Orientar el balance al local del partido actual
   const homeWins = homeIsA ? h2h.aWins : h2h.bWins

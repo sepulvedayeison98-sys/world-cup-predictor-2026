@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Flag } from '@/components/ui/Flag'
 
@@ -81,15 +82,15 @@ export function GroupCard({ group }: Props) {
                     </span>
                   </td>
                   <td className="sticky left-10 z-10 bg-zinc-900 px-3 py-2">
-                    <div className="flex items-center gap-1.5">
+                    <Link href={`/equipos/${s.team?.id}`} className="flex items-center gap-1.5 group">
                       <Flag code={s.team?.code} />
-                      <span className="text-xs font-semibold text-zinc-200">
+                      <span className="text-xs font-semibold text-zinc-200 group-hover:text-emerald-400 transition-colors">
                         {s.team?.code}
                       </span>
                       <span className="hidden sm:inline text-[10px] text-zinc-500 truncate max-w-[80px]">
                         {s.team?.short_name}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-2 py-2 text-center text-xs mono text-zinc-400">{s.played}</td>
                   <td className="px-2 py-2 text-center text-xs mono text-zinc-400">{s.won}</td>

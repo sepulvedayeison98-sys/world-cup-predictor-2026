@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { LeagueStandingRow } from '@/lib/leagueStandings'
 
@@ -52,13 +53,13 @@ export function StandingsTable({ standings }: { standings: LeagueStandingRow[] }
               >
                 <td className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-zinc-400 tabular-nums">{row.position}</td>
                 <td className="sticky left-10 z-10 bg-zinc-900 px-3 py-2">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <Link href={`/equipos/${row.team.id}`} className="flex items-center gap-2 min-w-0 group">
                     {row.team.logo_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={row.team.logo_url} alt="" className="h-5 w-5 shrink-0 object-contain" loading="lazy" />
                     )}
-                    <span className="truncate font-medium text-zinc-200">{row.team.name}</span>
-                  </div>
+                    <span className="truncate font-medium text-zinc-200 group-hover:text-emerald-400 transition-colors">{row.team.name}</span>
+                  </Link>
                 </td>
                 <td className="px-2 py-2 text-center text-zinc-400 tabular-nums">{row.played}</td>
                 <td className="px-2 py-2 text-center text-zinc-400 tabular-nums">{row.won}</td>

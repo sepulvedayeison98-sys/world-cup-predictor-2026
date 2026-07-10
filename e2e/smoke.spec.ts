@@ -247,3 +247,17 @@ test('mundial: balance del modelo con precisión y calibración', async ({ page 
   await expect(page.getByText('Precisión 1X2')).toBeVisible()
   await expect(page.getByText('Precisión por fase')).toBeVisible()
 })
+
+test('ligas: equipo clicable → perfil con récord y forma', async ({ page }) => {
+  await page.goto('/ligas/premier-league')
+  await expect(page.getByText('Tabla de posiciones')).toBeVisible()
+  // Primer equipo de la tabla enlaza a su perfil de fútbol
+  const teamLink = page.locator('tbody a[href^="/equipos/"]').first()
+  const href = await teamLink.getAttribute('href')
+  expect(href).toMatch(/^\/equipos\/[0-9a-f-]{36}$/)
+  await page.goto(href!)
+  await expect(page.getByText('Récord (G-E-P)')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Forma' })).toBeVisible()
+  await expect(page.getByText('Local / visitante')).toBeVisible()
+  await expect(page.getByText('Últimos partidos')).toBeVisible()
+})

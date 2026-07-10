@@ -24,6 +24,28 @@ verificaciones de migración contra la BD viva.
 
 ---
 
+## Actualización 2026-07-10 (4) · Fixes reportados (perfil de equipo + H2H)
+
+Dos reportes del usuario tras el despliegue:
+
+- **Equipos de fútbol no clicables** (bug real): NBA tenía perfil de equipo
+  y standings enlazados, fútbol no. Se creó `/equipos/[id]` — perfil
+  universal de equipo de fútbol (selecciones y clubes): récord G-E-P, PPG,
+  goles a favor/contra por partido, diferencia, ELO, splits local/visitante,
+  forma (últimos 5/10 + racha) y últimos partidos clicables. Módulo puro
+  `lib/footballTeamStats.ts` (4 tests). Se enlazaron los nombres en la
+  `StandingsTable` de ligas y en `GroupCard` (grupos del Mundial). Un equipo
+  juega en una sola competición → todo filtra por ella (regla de oro).
+- **H2H "no funciona en fútbol"** (percepción, no bug): el H2H sí funciona
+  en ligas; en el Mundial sale vacío porque las selecciones se cruzan por
+  primera vez. Antes se auto-ocultaba y parecía roto; ahora muestra una nota
+  explícita ("no se han enfrentado antes — primer duelo registrado").
+
+Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
+**88/88** unitarias (4 nuevas) · **20/20** e2e (nuevo: liga → equipo → perfil).
+
+---
+
 ## Actualización 2026-07-10 (3) · Mejoras 1-2 semanas del playbook
 
 Cuatro mejoras del roadmap de mejoras importantes (SOFASCORE_PLAYBOOK.md):
