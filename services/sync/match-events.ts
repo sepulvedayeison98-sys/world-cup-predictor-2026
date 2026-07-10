@@ -63,7 +63,18 @@ export async function ensureMatchEvents(matchId: string): Promise<{
     .eq('match_id', matchId)
     .order('minute', { ascending: true })
     .order('minute_extra', { ascending: true })
-  if (cached?.length) return { events: cached as MatchEventRow[], source: 'cache' }
+  if (cached?.length) {
+    // Dedupe defensivo: aunque el índice único (051) impide duplicados nuevos,
+    // se colapsa cualquier remanente para que la línea de tiempo nunca repita.
+    const seen = new Set<string>()
+    const unique = (cached as MatchEventRow[]).filter((e) => {
+      const k = `${e.minute}|${e.minute_extra}|${e.type}|${e.player_name}|${e.team_id}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+    return { events: unique, source: 'cache' }
+  }
 
   // 2. ¿El partido tiene fuente y estado ingestable?
   const { data: match } = await supabase
@@ -128,8 +139,14 @@ export async function ensureMatchEvents(matchId: string): Promise<{
     .filter(Boolean)
 
   if (rows.length > 0) {
-    const { error } = await (supabase.from('match_events') as any).insert(rows)
-    if (error) console.error('[match-events] insert:', error.message)
+    // Idempotente: dos requests concurrentes (polling en vivo) reinsertaban
+    // los mismos eventos → duplicados. El índice único uq_match_events_dedupe
+    // (migración 051) + ignoreDuplicates convierten el re-insert en no-op.
+    const { error } = await (supabase.from('match_events') as any).upsert(rows, {
+      onConflict: 'match_id,minute,minute_extra,type,player_name,team_id',
+      ignoreDuplicates: true,
+    })
+    if (error) console.error('[match-events] upsert:', error.message)
   }
 
   // Registro de la corrida (alimenta el throttle)

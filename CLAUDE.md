@@ -26,7 +26,7 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 - **Antes de cualquier push:** correr `npm run build` y confirmar que pasa limpio.
 - **Variables de entorno:** nunca commitear `.env.local`. Las claves van en Vercel/Supabase.
 - **Base de datos:** cambios de schema van en `supabase/migrations/` con número incremental
-  (siguiente: 051). Actualizar también `supabase/verify_migrations.sql`.
+  (siguiente: 052). Actualizar también `supabase/verify_migrations.sql`.
 - **RLS:** acceso libre = el rol `anon` lee. Cualquier tabla nueva necesita RLS activo + su
   política de lectura pública.
 - **Estilo:** tema oscuro tipo TradingView/Bloomberg. Verde esmeralda (#10b981) es el acento principal.
