@@ -8,7 +8,7 @@ import { Flag } from '@/components/ui/Flag'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Ranking ELO del Mundial 2026 — las 48 selecciones según el modelo | Veredicto',
+  title: 'Ranking ELO del Mundial 2026 — las 48 selecciones según el modelo',
   description:
     'Las 48 selecciones del Mundial 2026 ordenadas por ELO del modelo, contrastadas con el ranking FIFA y su récord real del torneo.',
 }

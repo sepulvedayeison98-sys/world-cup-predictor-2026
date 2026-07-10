@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('id', id)
     .single()
 
-  if (!match) return { title: 'Partido | Veredicto' }
+  if (!match) return { title: 'Partido' }
   const m = match as any
   const home = m.home_team?.name ?? 'Local'
   const away = m.away_team?.name ?? 'Visitante'
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // "pronóstico X vs Y" es la keyword natural del producto.
   if (m.status === 'finished' && m.home_score != null) {
     return {
-      title: `${home} ${m.home_score}-${m.away_score} ${away} — resultado y veredicto del modelo | Veredicto`,
+      title: `${home} ${m.home_score}-${m.away_score} ${away} — resultado y veredicto del modelo`,
       description: `Resultado ${home} vs ${away}: ${m.home_score}-${m.away_score}. Qué predijo el modelo y cómo le fue, con análisis verificable.`,
     }
   }
@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? `El modelo da ${Math.round(p.home_win_probability * 100)}% a ${home}, ${Math.round(p.draw_probability * 100)}% al empate y ${Math.round(p.away_win_probability * 100)}% a ${away}. Probabilidades verificables, marcador estimado y análisis.`
     : `Análisis y predicción de ${home} vs ${away} con probabilidades verificables del modelo.`
   return {
-    title: `Pronóstico ${home} vs ${away} — probabilidades del modelo | Veredicto`,
+    title: `Pronóstico ${home} vs ${away} — probabilidades del modelo`,
     description: desc,
   }
 }
