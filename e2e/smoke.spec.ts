@@ -164,11 +164,14 @@ test('buscador global: abre desde la topbar y lista competiciones', async ({ pag
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
-test('la página de partidos carga con filtros y tabla', async ({ page }) => {
+test('la página de partidos carga con tarjetas en móvil', async ({ page }) => {
   await page.goto('/matches')
   await expect(page.getByRole('heading', { name: 'Partidos' })).toBeVisible()
-  // La tabla responde aunque no haya partidos hoy (mensaje contextual o filas)
-  await expect(page.locator('table')).toBeVisible({ timeout: 15_000 })
+  // En móvil se renderiza la lista de tarjetas (skeleton/tarjetas/vacío) y la
+  // tabla queda oculta (hidden md:block). Estructural: no depende de que el
+  // fetch client-side a Supabase resuelva dentro del navegador del e2e.
+  await expect(page.locator('ul.md\\:hidden')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('table')).toBeHidden()
 })
 
 test('value bets muestra el aviso de responsabilidad', async ({ page }) => {

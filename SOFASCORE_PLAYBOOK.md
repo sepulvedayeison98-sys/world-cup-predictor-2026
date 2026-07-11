@@ -42,7 +42,7 @@ que los agregadores no pueden copiar sin romper su modelo.
 | Rankings | Rankings navegables/compartibles | Ranking ELO Mundial (48) con contraste vs ranking FIFA + récord del torneo; espejo del patrón NBA | Alta | Baja | Alto (compartible + SEO) |
 | Seguimiento | Favoritos + push | Etapa 1: localStorage + franja dashboard (sin backend). Etapa 2: Web Push (tabla de suscripciones, decisión de escritura anónima) | Alta / Media | Baja / Alta | El más alto en retención |
 | Probabilidades | Win probability en vivo | Barra 1X2 unificada + overlay "modelo vs mercado" donde hay cuota real; vacío honesto donde no | Alta | Baja-media | Alto (visualización firma) |
-| Móvil | Bottom tab bar, sticky, swipe | Bottom nav 5 destinos (Inicio·Partidos·Predicciones·Smart Bets·Más); sticky columns ya hecho | Alta | Media | Alto (~mayoría del tráfico) |
+| Móvil | Bottom tab bar, sticky, swipe | Bottom nav 5 destinos; sticky columns; tarjetas móviles en /predictions y /matches (tabla solo desktop) | Alta | Media | Alto (~mayoría del tráfico) |
 | Rendimiento | Caché agresivo, dato crítico primero | ISR ya desplegado (jul-2026). Siguiente: dieta bundle `players/[id]` (Recharts 108kB), prefetch tarjetas | Media | Baja-media | Medio |
 | SEO | Cada partido = URL indexable con datos estructurados | sitemap dinámico + JSON-LD SportsEvent + títulos de intención ("Pronóstico X vs Y") + OG images | Alta | Baja (OG: media) | Alto y compuesto |
 

@@ -22,6 +22,7 @@ import {
 import { cn, formatProbability } from '@/lib/utils'
 import { matchesService } from '@/services/matches.service'
 import { Flag } from '@/components/ui/Flag'
+import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import type { Match } from '@/types'
 
 // ─── Column helper ────────────────────────────────────────────
@@ -93,6 +94,57 @@ function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: st
       {effectiveStatus === 'live' && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />}
       {cfg.label}
     </span>
+  )
+}
+
+/** Tarjeta de partido para móvil (playbook Sofascore, mejora 1). Toda la
+ *  tarjeta es un enlace al detalle; sin scroll horizontal. */
+function MatchCard({ m }: { m: MatchRow }) {
+  const p = m.prediction
+  const showScore = m.status === 'finished' || m.status === 'live'
+  return (
+    <li className={cn(m.status === 'live' && 'bg-red-500/5')}>
+      <Link href={`/matches/${m.id}`} className="block px-4 py-3 active:bg-zinc-800/40 transition-colors">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] text-zinc-500 mono">
+            {formatColDate(m.kickoff_time)} · {formatColTime(m.kickoff_time)}
+          </span>
+          <StatusBadge status={m.status} kickoffTime={m.kickoff_time} />
+        </div>
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
+            <Flag code={m.home_team?.code} /> {m.home_team?.short_name ?? m.home_team?.code}
+          </span>
+          {showScore ? (
+            <span className="mono text-base font-black text-white">{m.home_score ?? '—'}<span className="mx-1 text-zinc-600">–</span>{m.away_score ?? '—'}</span>
+          ) : (
+            <span className="text-xs font-bold text-zinc-600">VS</span>
+          )}
+          <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
+            {m.away_team?.short_name ?? m.away_team?.code} <Flag code={m.away_team?.code} />
+          </span>
+        </div>
+
+        {p ? (
+          <>
+            <ProbBar1X2 className="mt-2.5" home={p.home_win_probability} draw={p.draw_probability} away={p.away_win_probability}
+              variant="full" homeLabel={m.home_team?.code} awayLabel={m.away_team?.code} />
+            <div className="mt-2 flex items-center justify-between text-[11px]">
+              <span className="text-zinc-500">est. <span className="mono font-bold text-zinc-300">{p.predicted_home_score}–{p.predicted_away_score}</span></span>
+              <span className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span key={i} className={i < p.confidence_level ? 'text-amber-400' : 'text-zinc-700'} style={{ fontSize: 11 }}>★</span>
+                ))}
+                <span className="mono text-zinc-500">{p.confidence_score.toFixed(0)}%</span>
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-[11px] text-zinc-600">Sin análisis del modelo aún</p>
+        )}
+      </Link>
+    </li>
   )
 }
 
@@ -341,8 +393,21 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
         </p>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* ── MÓVIL: tarjetas (sin scroll horizontal) ── */}
+      <ul className="divide-y divide-zinc-800/60 md:hidden">
+        {isLoading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="px-4 py-3"><div className="h-16 animate-pulse rounded bg-zinc-800" /></li>
+          ))
+        ) : (data?.data ?? []).length === 0 ? (
+          <li className="px-4 py-12 text-center"><p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p></li>
+        ) : (
+          (data?.data ?? []).map((m) => <MatchCard key={(m as MatchRow).id} m={m as MatchRow} />)
+        )}
+      </ul>
+
+      {/* ── DESKTOP: tabla ── */}
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full data-table">
           <thead>
             {table.getHeaderGroups().map((hg) => (
