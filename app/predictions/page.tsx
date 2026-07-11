@@ -30,11 +30,12 @@ export default async function PredictionsPage() {
 
   // Orden cronológico por fecha y hora del partido (el `.order` de PostgREST no
   // ordena el nivel superior por una columna de la tabla embebida, así que se
-  // ordena aquí). Ascendente = del más antiguo al más reciente.
+  // ordena aquí). Descendente = del más reciente al más antiguo; los partidos
+  // sin fecha caen al final.
   const ordered = (predictions ?? []).slice().sort((a: any, b: any) => {
-    const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
-    const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MAX_SAFE_INTEGER
-    return ta - tb
+    const ta = a.match?.kickoff_time ? new Date(a.match.kickoff_time).getTime() : Number.MIN_SAFE_INTEGER
+    const tb = b.match?.kickoff_time ? new Date(b.match.kickoff_time).getTime() : Number.MIN_SAFE_INTEGER
+    return tb - ta
   })
 
   // Stats
