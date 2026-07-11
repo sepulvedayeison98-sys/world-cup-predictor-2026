@@ -105,7 +105,7 @@ que los agregadores no pueden copiar sin romper su modelo.
 | 6 · Bottom nav móvil | ✅ 2026-07-10 |
 | 7 · Movimiento del mercado (Smart Bets) | ✅ 2026-07-10 (writer en sync + panel; datos se acumulan por cron) |
 | 8 · El público vs el modelo | ⏸ requiere decisión: primera tabla con INSERT anónimo |
-| 9 · Overlay modelo vs mercado | Pendiente |
+| 9 · Overlay modelo vs mercado | ✅ 2026-07-10 (ProbBar1X2 con market + sección en detalle) |
 | 10 · H2H en detalle | ✅ 2026-07-10 |
 | 11 · Dieta de bundle + prefetch | Pendiente |
 | 12 · Informe/Balance del Mundial | ✅ 2026-07-10 (/mundial/balance) |

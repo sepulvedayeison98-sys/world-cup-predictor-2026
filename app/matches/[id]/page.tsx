@@ -16,6 +16,9 @@ import { QuarterBreakdown } from '@/components/nba/QuarterBreakdown'
 import { HeadToHead } from '@/components/matches/HeadToHead'
 import { computeH2H, type H2HMatch } from '@/lib/h2h'
 import { MarketMovementPanel, type MovementItem } from '@/components/matches/MarketMovementPanel'
+import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
+import { marketImpliedFromOdds } from '@/lib/marketImplied'
+import { cn } from '@/lib/utils'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -246,6 +249,22 @@ export default async function MatchDetailPage({ params }: Props) {
   }
   const odds = Array.from(oddsMap.values())
 
+  // Modelo vs mercado (mejora 9): implícita justa 1X2 de Pinnacle (devig).
+  // null si no hay cuotas → el overlay no se dibuja (vacío honesto).
+  const marketImplied = marketImpliedFromOdds(odds as any)
+  const mvm = marketImplied && prediction ? (() => {
+    const mh = Number(prediction.home_win_probability)
+    const md = Number(prediction.draw_probability)
+    const ma = Number(prediction.away_win_probability)
+    const max = Math.max(mh, md, ma)
+    const key: 'home' | 'draw' | 'away' = max === mh ? 'home' : max === ma ? 'away' : 'draw'
+    const pickLabel = key === 'home'
+      ? `${m.home_team?.short_name ?? m.home_team?.name} gana`
+      : key === 'away' ? `${m.away_team?.short_name ?? m.away_team?.name} gana` : 'Empate'
+    const edge = Math.round((max - marketImplied[key]) * 1000) / 10 // pp de ventaja vs mercado
+    return { mh, md, ma, pickLabel, edge }
+  })() : null
+
   // Contexto de competición para el regreso y la etiqueta (universal):
   // primero el registro (Mundial + ligas); si no está (p. ej. amistosos),
   // el nombre viene de la BD y el regreso cae en /matches.
@@ -347,6 +366,36 @@ export default async function MatchDetailPage({ params }: Props) {
           homeCode={m.home_team?.code ?? 'LOC'}
           awayCode={m.away_team?.code ?? 'VIS'}
         />
+      )}
+
+      {/* Modelo vs Mercado (mejora 9): la barra 1X2 del modelo con los
+          marcadores de la probabilidad justa de Pinnacle. Solo fútbol con
+          cuotas 1X2; se auto-oculta si no hay mercado. */}
+      {isFootball && mvm && marketImplied && (
+        <section aria-label="Modelo vs mercado" className="card p-4">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-white">Modelo vs Mercado</h3>
+            <span className={cn(
+              'rounded px-2 py-0.5 text-[11px] font-bold',
+              mvm.edge > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+              : mvm.edge < 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+              : 'bg-zinc-800 text-zinc-400',
+            )}>
+              {mvm.pickLabel}: {mvm.edge > 0 ? '+' : ''}{mvm.edge}pp vs mercado
+            </span>
+          </div>
+          <ProbBar1X2
+            variant="full"
+            home={mvm.mh} draw={mvm.md} away={mvm.ma}
+            market={marketImplied}
+            homeLabel={m.home_team?.code} awayLabel={m.away_team?.code}
+          />
+          <p className="mt-2 text-[11px] text-zinc-600">
+            Barra: probabilidad del modelo. Marcadores blancos: dónde traza el
+            mercado (Pinnacle, sin margen) sus límites. Un edge positivo = el
+            modelo ve más probable ese resultado que el mercado.
+          </p>
+        </section>
       )}
 
       {/* Movimiento del mercado (pre-partido; se auto-oculta sin datos) */}
