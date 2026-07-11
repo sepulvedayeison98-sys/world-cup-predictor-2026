@@ -92,5 +92,7 @@ Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
 - `CLAUDE.md` / `CLAUDE_CONTEXT.md` — guía de trabajo y contexto maestro
 - `SOFASCORE_PLAYBOOK.md` — **plan de producto prioritario** (patrones de
   retención/SEO/móvil adaptados de Sofascore, roadmap por fases)
+- `docs/WEIGHT_TUNING_DESIGN.md` — diseño del ajuste automático de pesos del
+  modelo por calibración (fases F0-F5, aún sin implementar)
 - `PROGRESS_REPORT.md` — último plan ejecutado y su estado
 - `AUDIT_REPORT.md` — auditoría técnica histórica (jun-2026)
