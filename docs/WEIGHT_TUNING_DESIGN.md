@@ -123,7 +123,7 @@ no pueden copiar.
 
 | Fase | Entregable | Esfuerzo | Toca predicciones en vivo |
 |---|---|---|---|
-| **F0** | Feature store: snapshot de `ModelInput` por predicción (habilitador) | 1-2 d | No (solo escribe features) |
+| **F0** ✅ | Feature store: snapshot de `ModelInput` por predicción (habilitador) — migración 052 + writer en recalibrate | hecho | No (solo escribe features) |
 | **F1** | Métricas puras: Brier/log-loss/ECE por competición + tests + publicar en /inteligencia | 1 d | No |
 | **F2** | Tuner offline (modo *propone*): coordinate search con guardarraíles → candidato a `model_registry` | 2-3 d | No (no activa nada) |
 | **F3** | Activación: `activeWeights()` leído por el motor + cron semanal + aprobación manual | 1-2 d | Sí (con fallback + aprobación) |

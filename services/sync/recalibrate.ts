@@ -82,7 +82,10 @@ export async function recalibratePredictions(): Promise<{
     const homeInjuryImpact = injuryByTeam.get(m.home_team_id) ?? 0
     const awayInjuryImpact = injuryByTeam.get(m.away_team_id) ?? 0
 
-    const final = computeModelPrediction({
+    // ModelInput extraído a una variable para (1) predecir y (2) snapshotear
+    // los features (F0, docs/WEIGHT_TUNING_DESIGN.md). Es EXACTAMENTE el mismo
+    // objeto que antes iba inline — la predicción no cambia en nada.
+    const modelInput = {
       homeElo: m.home_team?.elo_rating ?? 1500, awayElo: m.away_team?.elo_rating ?? 1500,
       homeForm: hStats?.form ?? [], awayForm: aStats?.form ?? [],
       homeXg: hStats?.avg_xg ?? 1.1, awayXg: aStats?.avg_xg ?? 1.1,
@@ -92,7 +95,9 @@ export async function recalibratePredictions(): Promise<{
       homeInjuryImpact, awayInjuryImpact,
       marketProbabilities,
       isKnockout: KNOCKOUT_PHASES.has(m.phase),
-    })
+    }
+
+    const final = computeModelPrediction(modelInput)
 
     const predictionData = {
       home_win_probability: final.home,
@@ -119,6 +124,27 @@ export async function recalibratePredictions(): Promise<{
       if (iErr) throw iErr
       predId = created.id
       inserted++
+    }
+
+    // F0 · Feature store: snapshot del ModelInput SOLO mientras el partido está
+    // por jugarse. Al finalizar dejamos de tocarlo, congelando los features en
+    // el último estado pre-partido → par de entrenamiento fiel (features
+    // pre-partido, resultado real). Best-effort: nunca bloquea la predicción.
+    if (isUpcoming) {
+      try {
+        // Cast del cliente a any: prediction_features es nueva y aún no está en
+        // los tipos generados de Supabase (el nombre de tabla no está en la
+        // unión de `.from`). Se regenerarán los tipos en una pasada aparte.
+        await (supabase as any).from('prediction_features').upsert({
+          match_id: m.id,
+          competition_id: COMPETITION_ID,
+          inputs: modelInput,
+          model_version: MODEL_VERSION,
+          captured_at: new Date().toISOString(),
+        }, { onConflict: 'match_id' })
+      } catch (e) {
+        console.error('[recalibrate] prediction_features (no bloqueante):', e)
+      }
     }
 
     // Regenerar marcadores exactos

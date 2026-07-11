@@ -56,6 +56,7 @@ UNION ALL SELECT '032b enum round_of_32 versionado', 'round_of_32' IN (SELECT un
 UNION ALL SELECT '049 marcadores por cuarto', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='period_scores') AND (SELECT count(*)>=1300 FROM matches WHERE period_scores IS NOT NULL AND competition_id='12000000-0000-4000-8000-000000000012')
 UNION ALL SELECT '050 hardening seguridad', NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef AND p.proconfig IS NULL) AND (SELECT bool_and(rowsecurity) FROM pg_tables WHERE tablename IN ('model_registry','prediction_audit_log','market_movements','tournament_predictions','event_simulations','data_quality_snapshots'))
 UNION ALL SELECT '051 índice único match_events (anti-duplicado)', EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='uq_match_events_dedupe') AND NOT EXISTS(SELECT 1 FROM (SELECT match_id,minute,minute_extra,type,player_name,team_id,count(*) n FROM match_events GROUP BY 1,2,3,4,5,6) g WHERE n>1)
+UNION ALL SELECT '052 feature store (prediction_features)', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='prediction_features') AND (SELECT rowsecurity FROM pg_tables WHERE tablename='prediction_features') AND EXISTS(SELECT 1 FROM pg_policies WHERE tablename='prediction_features')
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):
