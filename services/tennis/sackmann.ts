@@ -180,6 +180,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
     const { data: page } = await supabase.from('tennis_matches')
       .select('id, external_id, tournament_id')
       .in('tournament_id', [...tMap.values()])
+      .order('id') // orden estable: sin él la paginación puede omitir filas
       .range(from, from + 999)
     mRows.push(...(page ?? []))
     if (!page || page.length < 1000) break
