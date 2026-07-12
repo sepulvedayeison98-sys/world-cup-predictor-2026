@@ -94,5 +94,7 @@ Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
   retención/SEO/móvil adaptados de Sofascore, roadmap por fases)
 - `docs/WEIGHT_TUNING_DESIGN.md` — diseño del ajuste automático de pesos del
   modelo por calibración (fases F0-F5, aún sin implementar)
+- `docs/CACHE_STRATEGY.md` — estrategia de caché (ISR por tiers + revalidación
+  por evento + cliente); capa 5 de frescura sin castigar rendimiento
 - `PROGRESS_REPORT.md` — último plan ejecutado y su estado
 - `AUDIT_REPORT.md` — auditoría técnica histórica (jun-2026)
