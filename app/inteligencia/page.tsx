@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, LEAGUE_DISPLAY_ORDER, LEAGUE_SLUGS, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
+import { brierScore, logLoss, calibrationBuckets, BRIER_CHANCE_1X2, type CalibPrediction } from '@/lib/calibration'
+import { CalibrationCurve } from '@/components/intelligence/CalibrationCurve'
+import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
   title: 'Inteligencia | Veredicto',
@@ -19,14 +22,26 @@ export const revalidate = 300
 export default async function InteligenciaPage() {
   const supabase = createStaticSupabaseClient()
 
-  // Rendimiento del Mundial (resueltas)
+  // Rendimiento del Mundial (resueltas) — con probabilidades y resultado real
+  // para calcular calibración (Brier, log-loss, curva). Solo datos reales.
   const { data: wcPreds } = await supabase
     .from('predictions')
-    .select('was_correct, match:matches!inner(competition_id)')
+    .select('was_correct, home_win_probability, draw_probability, away_win_probability, actual_outcome, match:matches!inner(competition_id)')
     .eq('match.competition_id', COMPETITION_ID)
     .not('was_correct', 'is', null)
   const wcResolved = wcPreds ?? []
   const wcCorrect = wcResolved.filter((p: any) => p.was_correct === true).length
+
+  // Métricas de calibración del Mundial (vitrina de confianza)
+  const wcCalib: CalibPrediction[] = wcResolved.map((p: any) => ({
+    home: Number(p.home_win_probability),
+    draw: Number(p.draw_probability),
+    away: Number(p.away_win_probability),
+    outcome: p.actual_outcome ?? null,
+  }))
+  const wcBrier = brierScore(wcCalib)
+  const wcLogLoss = logLoss(wcCalib)
+  const wcBuckets = calibrationBuckets(wcCalib)
 
   // Rendimiento NBA (backtest nba-1.0, moneyline — línea base 50%)
   const { data: nbaPreds } = await supabase
@@ -150,6 +165,74 @@ export default async function InteligenciaPage() {
           el real (fútbol: 1X2 a 90&apos;; NBA: ganador). Líneas base: azar 33% y
           siempre-local ≈44% en fútbol; azar 50% en baloncesto.
         </p>
+      </div>
+
+      {/* Calibración del modelo (Mundial) — ¿el 60% es de verdad 60%? */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="border-b border-zinc-800 px-4 py-3">
+          <h2 className="text-sm font-bold text-white">Calibración del modelo · Mundial 2026</h2>
+          <p className="text-[11px] text-zinc-500">
+            No basta con acertar: cuando el modelo dice 60%, ¿ocurre el 60% de las
+            veces? Sobre {wcCalib.filter((p) => p.outcome).length} predicciones resueltas.
+          </p>
+        </div>
+
+        {/* KPIs de calibración */}
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+          <div className="kpi-card">
+            <p className="text-[11px] text-zinc-500">Brier score</p>
+            <p className={cn('text-2xl font-bold mono', wcBrier != null && wcBrier < BRIER_CHANCE_1X2 ? 'text-emerald-400' : 'text-zinc-300')}>
+              {wcBrier != null ? wcBrier.toFixed(3) : '—'}
+            </p>
+            <p className="text-[10px] text-zinc-600">azar 1X2 = {BRIER_CHANCE_1X2.toFixed(3)} · menor es mejor</p>
+          </div>
+          <div className="kpi-card">
+            <p className="text-[11px] text-zinc-500">Ventaja vs azar</p>
+            <p className="text-2xl font-bold mono text-emerald-400">
+              {wcBrier != null ? `${(((BRIER_CHANCE_1X2 - wcBrier) / BRIER_CHANCE_1X2) * 100).toFixed(0)}%` : '—'}
+            </p>
+            <p className="text-[10px] text-zinc-600">mejora del Brier sobre el azar</p>
+          </div>
+          <div className="kpi-card">
+            <p className="text-[11px] text-zinc-500">Log-loss</p>
+            <p className="text-2xl font-bold mono text-zinc-300">{wcLogLoss != null ? wcLogLoss.toFixed(3) : '—'}</p>
+            <p className="text-[10px] text-zinc-600">penaliza la sobreconfianza</p>
+          </div>
+        </div>
+
+        {/* Curva + tabla por tramo */}
+        <div className="grid grid-cols-1 gap-4 border-t border-zinc-800 p-4 lg:grid-cols-2">
+          <CalibrationCurve buckets={wcBuckets} />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-500">
+                  <th className="px-2 py-2 text-left">Tramo (favorito)</th>
+                  <th className="px-2 py-2 text-center">Picks</th>
+                  <th className="px-2 py-2 text-center">Prometido</th>
+                  <th className="px-2 py-2 text-center">Real</th>
+                  <th className="px-2 py-2 text-right">Desv.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wcBuckets.filter((b) => b.total > 0).map((b) => {
+                  const dev = b.observed - b.midpoint
+                  return (
+                    <tr key={b.label} className="border-b border-zinc-800/60">
+                      <td className="px-2 py-2 text-zinc-300">{b.label}</td>
+                      <td className="px-2 py-2 text-center mono text-zinc-400">{b.total}</td>
+                      <td className="px-2 py-2 text-center mono text-zinc-500">{Math.round(b.midpoint * 100)}%</td>
+                      <td className="px-2 py-2 text-center mono text-zinc-200">{Math.round(b.observed * 100)}%</td>
+                      <td className={cn('px-2 py-2 text-right mono', Math.abs(dev) <= 0.05 ? 'text-emerald-400' : 'text-amber-400')}>
+                        {dev >= 0 ? '+' : ''}{(dev * 100).toFixed(0)}pts
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Metodología */}
