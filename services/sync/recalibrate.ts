@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeModelPrediction, computeConfidenceLevel, type Probabilities } from '@/lib/predictionEngine'
 import { COMPETITION_ID, MODEL_VERSION } from '@/lib/constants'
+import { revalidatePredictionPaths } from '@/lib/revalidate'
 
 const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
 
@@ -163,6 +164,10 @@ export async function recalibratePredictions(): Promise<{
     records_processed: withMarket + modelOnly, records_failed: 0,
     metadata: { withMarket, modelOnly, inserted, model_version: MODEL_VERSION }, duration_ms: Date.now() - started,
   })
+
+  // Revalidación por evento (capa 3): las páginas con probabilidades reflejan
+  // la recalibración de inmediato.
+  revalidatePredictionPaths()
 
   return { ok: true, matches: withMarket + modelOnly, withMarket, modelOnly, inserted }
 }

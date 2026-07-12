@@ -28,7 +28,7 @@ Regla de oro de caché:
 |---|------|-----------|---------|
 | 1 | **Edge / CDN (Vercel)** | Output ISR/estático servido desde el edge | Automático |
 | 2 | **ISR (servidor, por página)** | HTML de cada página, regenerado por ventana | `export const revalidate` |
-| 3 | **On-demand revalidation** ⭐ | Purga puntual cuando cambian los datos | `revalidatePath()` en el sync |
+| 3 | **On-demand revalidation** ✅ | Purga puntual cuando cambian los datos | `revalidatePath()` en el sync (lib/revalidate.ts) |
 | 4 | **API route cache-control** | Respuestas JSON de `/api/*` | `Cache-Control: s-maxage` |
 | 5 | **Cliente (React Query)** | Fetches de componentes cliente | `staleTime` + refetch en foco |
 
@@ -126,9 +126,9 @@ cacheado y la frescura en vivo la aporta el cliente**. No se toca.
 
 ## 7. Qué implementar (orden)
 
-1. **On-demand revalidation** (capa 3) — la que resuelve el desfase reportado.
-   `revalidatePath` en `runPostResultChain` + `recalibrate` + endpoint
-   `/api/revalidate`. Bajo riesgo, aditivo. **Prioridad alta.**
+1. ✅ **On-demand revalidation** (capa 3, hecho) — `revalidateAfterResults()`
+   en `runPostResultChain` + `revalidatePredictionPaths()` en `recalibrate` +
+   endpoint `POST /api/revalidate` (CRON_SECRET) para purga manual.
 2. `refetchOnWindowFocus` en queries de vivo. Quick win.
 3. (Opcional) bajar `champion` a 120s.
 

@@ -1,6 +1,7 @@
 import { advanceBracket } from '@/lib/bracket'
 import { recalibratePredictions } from './recalibrate'
 import { syncSmartBetTracking } from '@/services/smartBetTracking'
+import { revalidateAfterResults } from '@/lib/revalidate'
 
 export interface PostResultChainResult {
   match_stats: number | null
@@ -42,6 +43,10 @@ export async function runPostResultChain(
   const bracket = await advanceBracket(supabase)
   const recal = await recalibratePredictions()
   await syncSmartBetTracking()
+
+  // Revalidación por evento (capa 3): purga el caché ISR para que el resultado
+  // aparezca al instante, sin esperar la ventana de revalidate.
+  revalidateAfterResults()
 
   return {
     match_stats: matchStats ?? null,
