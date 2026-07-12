@@ -134,7 +134,9 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
 
   // 4) Partidos + stats. p1 = menor external_id numérico (orden neutro que no
   //    filtra al ganador por posición); winner_id apunta al ganador real.
-  const matches: any[] = []
+  // Map por external_id: la fuente puede traer filas duplicadas (re-scrapes)
+  // y un upsert no puede afectar la misma fila dos veces en un batch.
+  const matchesByExt = new Map<string, any>()
   const statsByExt = new Map<string, { w: any; l: any; wid: string; lid: string }>()
   // Rankings OBSERVADOS: cada fila trae el ranking real del jugador a la
   // fecha del torneo (winner_rank/loser_rank). Serie temporal honesta,
@@ -150,7 +152,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
     const score = g(r, 'score') || null
     const status = score?.includes('RET') ? 'retired' : score?.includes('W/O') ? 'walkover' : 'finished'
     const [p1, p2] = wExt <= lExt ? [wId, lId] : [lId, wId] // ids alfanuméricos: orden lexicográfico neutro
-    matches.push({
+    matchesByExt.set(ext, {
       tournament_id: tid, external_id: ext, round: g(r, 'round') || null,
       best_of: toInt(g(r, 'best_of')), surface: (g(r, 'surface') || '').toLowerCase() || null,
       p1_id: p1, p2_id: p2, winner_id: wId, score, status,
@@ -167,6 +169,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
       l: { aces: toInt(g(r, 'l_ace')), double_faults: toInt(g(r, 'l_df')), serve_points: toInt(g(r, 'l_svpt')), first_serve_in: toInt(g(r, 'l_1stIn')), first_serve_won: toInt(g(r, 'l_1stWon')), second_serve_won: toInt(g(r, 'l_2ndWon')), service_games: toInt(g(r, 'l_SvGms')), break_points_saved: toInt(g(r, 'l_bpSaved')), break_points_faced: toInt(g(r, 'l_bpFaced')) },
     })
   }
+  const matches = [...matchesByExt.values()]
   await upsertBatches('tennis_matches', matches, 'tournament_id,external_id')
   await upsertBatches('tennis_rankings', [...rankingObs.values()], 'player_id,ranking_date')
 
