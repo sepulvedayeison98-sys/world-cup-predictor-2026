@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAuthorizedCron } from '@/lib/cronAuth'
-import { syncMatchesYear, syncRankings, syncBios, validateIntegrity } from '@/services/tennis/sackmann'
+import { syncMatchesYear, validateIntegrity } from '@/services/tennis/sackmann'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,10 +10,10 @@ export const maxDuration = 60
  * GET /api/tennis/sync — ingesta del dominio Tennis (Fase 4), por pasos
  * para respetar el límite de ejecución de Vercel. Protegida con CRON_SECRET.
  *
- *   ?step=matches&tour=ATP&year=2025   → torneos+jugadores+partidos+stats
- *   ?step=rankings&tour=WTA            → snapshot más reciente del ranking
- *   ?step=bios&tour=ATP                → dob/mano/altura de jugadores importados
+ *   ?step=matches&tour=ATP&year=2025   → torneos + jugadores + partidos +
+ *       stats + rankings observados (rank real a la fecha del torneo)
  *   ?step=validate                     → invariantes de integridad
+ * Fuente: TML-Database (solo ATP; WTA declarada pendiente de fuente).
  *
  * Vive bajo /api/tennis/ (dominio aislado; la barrera ESLint aplica aquí).
  */
@@ -35,10 +35,8 @@ export async function GET(req: NextRequest) {
       }
       return NextResponse.json(await syncMatchesYear(tour, year))
     }
-    if (step === 'rankings') return NextResponse.json(await syncRankings(tour))
-    if (step === 'bios') return NextResponse.json(await syncBios(tour))
     if (step === 'validate') return NextResponse.json(await validateIntegrity())
-    return NextResponse.json({ error: 'step requerido: matches|rankings|bios|validate' }, { status: 400 })
+    return NextResponse.json({ error: 'step requerido: matches|validate' }, { status: 400 })
   } catch (err: any) {
     console.error('[tennis/sync]', step, tour, err?.message)
     return NextResponse.json({ error: err?.message ?? 'sync failed' }, { status: 500 })

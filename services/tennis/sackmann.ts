@@ -20,13 +20,14 @@ import type { TennisSyncResult, IntegrityReport } from './contracts'
  */
 
 export const SACKMANN_ATTRIBUTION =
-  'Datos históricos de tenis: Jeff Sackmann / Tennis Abstract (CC BY-NC-SA 4.0)'
+  'Datos de tenis: TML-Database (Tennismylife), derivada del trabajo de Jeff Sackmann (CC BY-NC-SA 4.0)'
 
-const REPO: Record<Tour, string> = {
-  ATP: 'https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master',
-  WTA: 'https://raw.githubusercontent.com/JeffSackmann/tennis_wta/master',
-}
-const PREFIX: Record<Tour, string> = { ATP: 'atp', WTA: 'wta' }
+// Fuente activa: TML-Database — esquema Sackmann, actualizada a diario,
+// un CSV por temporada (1968.csv … 2026.csv). Verificada en vivo el
+// 2026-07-12 (los repos originales de Sackmann devuelven 404 en este
+// entorno). SOLO cubre ATP: la ingesta WTA queda declarada como pendiente
+// de fuente — no se fabrica nada.
+const TML_BASE = 'https://raw.githubusercontent.com/Tennismylife/TML-Database/master'
 
 // ── CSV ─────────────────────────────────────────────────────────────────
 /** Parser CSV mínimo con soporte de comillas (los CSV de Sackmann son simples). */
@@ -82,9 +83,12 @@ async function logSync(entity: string, tour: Tour, processed: number, failed: nu
 
 // ── Partidos de una temporada (deriva torneos + jugadores + stats) ───────
 export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisSyncResult> {
+  if (tour === 'WTA') {
+    throw new Error('Fuente WTA pendiente: TML-Database solo cubre ATP. No se importa nada (Data First).')
+  }
   const started = Date.now()
   const supabase = createAdminClient() as any
-  const rows = await fetchCsv(`${REPO[tour]}/${PREFIX[tour]}_matches_${year}.csv`)
+  const rows = await fetchCsv(`${TML_BASE}/${year}.csv`)
   const [header, ...data] = rows
   const col = Object.fromEntries(header.map((h, i) => [h, i])) as Record<string, number>
   const g = (r: string[], k: string) => r[col[k]]
@@ -114,7 +118,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
         plays_hand: hand(g(r, `${side}_hand`)),
         country_code: ioc(g(r, `${side}_ioc`)),
         height_cm: toInt(g(r, `${side}_ht`)),
-        birthdate: null, // no está en el archivo de partidos; se enriquece en syncBios
+        birthdate: null, // la fuente no publica DOB (edad decimal ≠ fecha exacta): queda nulo, no se deriva
       })
     }
   }
@@ -132,6 +136,10 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
   //    filtra al ganador por posición); winner_id apunta al ganador real.
   const matches: any[] = []
   const statsByExt = new Map<string, { w: any; l: any; wid: string; lid: string }>()
+  // Rankings OBSERVADOS: cada fila trae el ranking real del jugador a la
+  // fecha del torneo (winner_rank/loser_rank). Serie temporal honesta,
+  // deduplicada por (player, fecha) — TML no publica archivo de rankings.
+  const rankingObs = new Map<string, any>()
   let failed = 0
   for (const r of data) {
     const tid = tMap.get(g(r, 'tourney_id'))
@@ -141,13 +149,18 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
     const ext = `${g(r, 'tourney_id')}-${g(r, 'match_num')}`
     const score = g(r, 'score') || null
     const status = score?.includes('RET') ? 'retired' : score?.includes('W/O') ? 'walkover' : 'finished'
-    const [p1, p2] = Number(wExt) <= Number(lExt) ? [wId, lId] : [lId, wId]
+    const [p1, p2] = wExt <= lExt ? [wId, lId] : [lId, wId] // ids alfanuméricos: orden lexicográfico neutro
     matches.push({
       tournament_id: tid, external_id: ext, round: g(r, 'round') || null,
       best_of: toInt(g(r, 'best_of')), surface: (g(r, 'surface') || '').toLowerCase() || null,
       p1_id: p1, p2_id: p2, winner_id: wId, score, status,
       scheduled_at: yyyymmdd(g(r, 'tourney_date')),
     })
+    for (const [side, pid] of [['winner', wId], ['loser', lId]] as const) {
+      const rk = toInt(g(r, `${side}_rank`)); const pts = toInt(g(r, `${side}_rank_points`))
+      const rd = yyyymmdd(g(r, 'tourney_date'))
+      if (rk && rd) rankingObs.set(`${pid}|${rd}`, { player_id: pid, ranking_date: rd, position: rk, points: pts })
+    }
     statsByExt.set(ext, {
       wid: wId, lid: lId,
       w: { aces: toInt(g(r, 'w_ace')), double_faults: toInt(g(r, 'w_df')), serve_points: toInt(g(r, 'w_svpt')), first_serve_in: toInt(g(r, 'w_1stIn')), first_serve_won: toInt(g(r, 'w_1stWon')), second_serve_won: toInt(g(r, 'w_2ndWon')), service_games: toInt(g(r, 'w_SvGms')), break_points_saved: toInt(g(r, 'w_bpSaved')), break_points_faced: toInt(g(r, 'w_bpFaced')) },
@@ -155,6 +168,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
     })
   }
   await upsertBatches('tennis_matches', matches, 'tournament_id,external_id')
+  await upsertBatches('tennis_rankings', [...rankingObs.values()], 'player_id,ranking_date')
 
   // 5) Stats por (match uuid, player uuid)
   const { data: mRows } = await supabase.from('tennis_matches')
@@ -171,78 +185,7 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
     processed: data.length, inserted: matches.length, updated: 0, failed,
     duration_ms: Date.now() - started,
   }
-  await logSync('matches', tour, data.length, failed, result.duration_ms, { year, tournaments: tournaments.size, players: players.size, stats: stats.length })
-  return result
-}
-
-// ── Rankings oficiales (snapshot más reciente del archivo current) ──────
-export async function syncRankings(tour: Tour): Promise<TennisSyncResult> {
-  const started = Date.now()
-  const supabase = createAdminClient() as any
-  const rows = await fetchCsv(`${REPO[tour]}/${PREFIX[tour]}_rankings_current.csv`)
-  const [header, ...data] = rows
-  const col = Object.fromEntries(header.map((h, i) => [h, i])) as Record<string, number>
-  // Última fecha de ranking publicada en el archivo
-  const lastDate = data.reduce((m, r) => (r[col.ranking_date] > m ? r[col.ranking_date] : m), '')
-  const latest = data.filter((r) => r[col.ranking_date] === lastDate)
-
-  const { data: pRows } = await supabase.from('tennis_players')
-    .select('id, external_id').eq('tour', tour)
-  const pMap = new Map<string, string>((pRows ?? []).map((p: any) => [p.external_id, p.id]))
-
-  let skipped = 0
-  const rankings: any[] = []
-  for (const r of latest) {
-    const pid = pMap.get(r[col.player])
-    if (!pid) { skipped++; continue } // jugador sin partidos 2024+ importados: se reporta, no se inventa
-    rankings.push({
-      player_id: pid, ranking_date: yyyymmdd(r[col.ranking_date]),
-      position: toInt(r[col.rank]), points: toInt(r[col.points]),
-    })
-  }
-  await upsertBatches('tennis_rankings', rankings, 'player_id,ranking_date')
-
-  const result: TennisSyncResult = {
-    ok: true, source: 'sackmann_github', entity: 'rankings', tour,
-    processed: latest.length, inserted: rankings.length, updated: 0, failed: skipped,
-    duration_ms: Date.now() - started,
-  }
-  await logSync('rankings', tour, latest.length, skipped, result.duration_ms, { ranking_date: lastDate })
-  return result
-}
-
-// ── Enriquecer biografías (dob/mano/altura) SOLO de jugadores ya importados ─
-export async function syncBios(tour: Tour): Promise<TennisSyncResult> {
-  const started = Date.now()
-  const supabase = createAdminClient() as any
-  const rows = await fetchCsv(`${REPO[tour]}/${PREFIX[tour]}_players.csv`)
-  const [header, ...data] = rows
-  const col = Object.fromEntries(header.map((h, i) => [h, i])) as Record<string, number>
-
-  const { data: pRows } = await supabase.from('tennis_players')
-    .select('id, external_id').eq('tour', tour)
-  const ours = new Map<string, string>((pRows ?? []).map((p: any) => [p.external_id, p.id]))
-
-  let updated = 0
-  for (const r of data) {
-    const id = ours.get(r[col.player_id])
-    if (!id) continue
-    const patch: any = {}
-    const dob = yyyymmdd(r[col.dob]); if (dob) patch.birthdate = dob
-    const h = hand(r[col.hand]); if (h) patch.plays_hand = h
-    const ht = toInt(r[col.height]); if (ht) patch.height_cm = ht
-    if (Object.keys(patch).length) {
-      const { error } = await supabase.from('tennis_players').update(patch).eq('id', id)
-      if (!error) updated++
-    }
-  }
-
-  const result: TennisSyncResult = {
-    ok: true, source: 'sackmann_github', entity: 'players', tour,
-    processed: data.length, inserted: 0, updated, failed: 0,
-    duration_ms: Date.now() - started,
-  }
-  await logSync('players_bios', tour, data.length, 0, result.duration_ms, { updated })
+  await logSync('matches', tour, data.length, failed, result.duration_ms, { year, tournaments: tournaments.size, players: players.size, stats: stats.length, rankings: rankingObs.size })
   return result
 }
 
