@@ -46,6 +46,34 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-12 (3) · Tennis Fase 4 — datos reales ATP ingestados
+
+Ingesta ejecutada contra producción, vigilada corrida a corrida (tres
+defectos reales detectados por los números y corregidos: filas duplicadas
+en el CSV de la fuente → dedupe por clave natural; tope de 1.000 filas de
+PostgREST en el mapeo de stats → paginación; paginación sin `order` →
+orden estable). Resultado final verificado en BD:
+
+- **Fuente:** TML-Database (esquema Sackmann, diaria, CC BY-NC-SA con
+  atribución). Los repos Sackmann originales devolvían 404 desde
+  producción — cambio documentado. **WTA pendiente de fuente** (la
+  ingesta la rechaza explícitamente; cero fabricado).
+- **Datos ATP 2024-2026:** 581 jugadores (mano/país/altura reales) ·
+  362 torneos · **5.676 partidos** · **11.352 stats** (exactamente 2 por
+  partido) · 6.508 observaciones de ranking (rank real a fecha de torneo).
+- **Integridad:** 0 huérfanos en rankings/partidos, 0 duplicados,
+  0 finished sin ganador — `ok: true`.
+- **Idempotencia probada:** re-corridas de las 3 temporadas → no-op.
+- Fila de muestra cotejada contra la fuente (United Cup 2026, Báez d.
+  Munar 6-4 6-4) — coincide exacto.
+- `/api/tennis/sync` (CRON_SECRET) queda como sync repetible; 1 fila de
+  2026 descartada por datos incompletos en la fuente (registrada).
+
+Siguiente: Fase 5 (perfiles de jugador con Win%/Hold%/Break% derivados de
+estos partidos) y Fase 7 (motor tennis-1.0 + ELO por superficie).
+
+---
+
 ## Actualización 2026-07-12 (2) · Tennis — fase inicial del tercer dominio
 
 Base arquitectónica del dominio Tennis, con el aislamiento implementado

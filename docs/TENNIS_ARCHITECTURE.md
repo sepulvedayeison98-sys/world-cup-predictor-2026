@@ -75,10 +75,17 @@ mientras el estado sea `proximamente`, tenis NO entra en ninguna lista blanca
 
 ## 5. Fuente de datos (decisión honesta — bloqueo declarado)
 
-- **Base histórica** (jugadores, rankings, torneos, resultados 1968-hoy):
-  datasets públicos de **Jeff Sackmann** (`github.com/JeffSackmann/tennis_atp`
-  y `tennis_wta`), CSV reales, verificables y gratuitos. Suficiente para
-  Fases 4-7 y el backtesting (Fase 10).
+- **Base histórica ATP** (jugadores, torneos, resultados, rankings
+  observados): **TML-Database** (`github.com/Tennismylife/TML-Database`) —
+  esquema Sackmann, actualizada a diario, linaje CC BY-NC-SA (atribución en
+  el servicio). Los repos originales de Sackmann devolvían 404 desde
+  producción al momento de la ingesta (verificado por 3 vías) — cambio de
+  fuente documentado. **WTA: pendiente de fuente** — la ingesta la rechaza
+  con error explícito; no se fabrica nada.
+- **Rankings**: la fuente no publica archivo de rankings; cada fila de
+  partido trae el ranking real del jugador a la fecha del torneo → la serie
+  se construye de esas OBSERVACIONES (etiquetado así). DOB no se publica
+  (solo edad decimal) → `birthdate` queda NULL declarado.
 - **Calendario en vivo + cuotas**: api-sports (nuestro proveedor actual) NO
   cubre tenis. Requiere decisión de compra del dueño (candidatas: API-Tennis,
   Sportradar, Tennis-Data). **Sin esa clave no habrá partidos en vivo ni
@@ -101,7 +108,7 @@ existente: Brier/log-loss/curva sirven para cualquier deporte de 2 clases).
 
 | Fase | Entregable | Bloqueo | Estimación |
 |---|---|---|---|
-| 4 · Datos base | Parsers Sackmann CSV → upsert players/rankings/tournaments/matches + validación de integridad + sync_logs | Ninguno (fuente gratuita) | 2-3 d |
+| 4 · Datos base ✅ | HECHO (2026-07-12): ATP 2024-2026 desde TML — **581 jugadores · 362 torneos · 5.676 partidos · 11.352 stats · 6.508 rankings observados**, integridad 0/0/0/0, ingesta idempotente re-corrible (`/api/tennis/sync`). WTA bloqueada por fuente | WTA: fuente pendiente | hecho |
 | 5 · Jugadores | `/tennis/jugadores/[id]`: perfil + Win%, Hold%, Break%, aces, DF, ELO — todo derivado de partidos reales importados | Fase 4 | 1-2 d |
 | 6 · Partidos | `/tennis/partidos`: calendario/resultados/H2H/superficie | Fase 4 | 1-2 d |
 | 7 · Motor 1.0 | `lib/tennis/engine.ts` + ELO walk-forward por superficie + backtest sobre histórico real | Fase 4 | 2-3 d |
