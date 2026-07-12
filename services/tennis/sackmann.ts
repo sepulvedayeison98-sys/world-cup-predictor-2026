@@ -174,10 +174,18 @@ export async function syncMatchesYear(tour: Tour, year: number): Promise<TennisS
   await upsertBatches('tennis_rankings', [...rankingObs.values()], 'player_id,ranking_date')
 
   // 5) Stats por (match uuid, player uuid)
-  const { data: mRows } = await supabase.from('tennis_matches')
-    .select('id, external_id, tournament_id').in('tournament_id', [...tMap.values()])
+  // Paginado: >1000 filas superan el tope de PostgREST (regla de oro)
+  const mRows: any[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data: page } = await supabase.from('tennis_matches')
+      .select('id, external_id, tournament_id')
+      .in('tournament_id', [...tMap.values()])
+      .range(from, from + 999)
+    mRows.push(...(page ?? []))
+    if (!page || page.length < 1000) break
+  }
   const stats: any[] = []
-  for (const m of mRows ?? []) {
+  for (const m of mRows) {
     const s = statsByExt.get(m.external_id); if (!s) continue
     stats.push({ match_id: m.id, player_id: s.wid, ...s.w }, { match_id: m.id, player_id: s.lid, ...s.l })
   }
