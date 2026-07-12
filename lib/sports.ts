@@ -8,6 +8,7 @@
  */
 import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
+import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '@/lib/tennis/constants'
 
 export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
 export type CompetitionStatus = 'activa' | 'proximamente'
@@ -65,10 +66,14 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     status: 'activa',
     note: 'Temporada 2024-25',
   },
+  // Tenis: tercer dominio (migración 053). Ids reales de BD ya registrados;
+  // pasa a 'activa' cuando exista el hub /tennis (Fase 8 del plan Tennis) —
+  // hasta entonces se muestra como promesa, sin enlaces rotos.
+  { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Integración en curso' },
+  { id: WTA_COMPETITION_ID, slug: 'wta', name: 'WTA Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Integración en curso' },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },
   { id: null, slug: 'copa-libertadores', name: 'Copa Libertadores', sport: 'futbol', href: '#', status: 'proximamente' },
-  { id: null, slug: 'atp-wta', name: 'Tenis ATP/WTA', sport: 'tenis', href: '#', status: 'proximamente' },
 ]
 
 export const ACTIVE_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'activa')

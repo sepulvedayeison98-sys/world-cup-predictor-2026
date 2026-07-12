@@ -42,6 +42,10 @@ financiera oscura con esmeralda #10b981.
   `components/nba/`, `app/nba/`, `services/nba.service.ts`. Una regla
   ESLint (`no-restricted-imports` en `.eslintrc.json`) impide importar
   motores/componentes de fútbol desde el dominio NBA.
+- **Dominio Tennis** (en integración) — `lib/tennis/`, `services/tennis/`,
+  tablas exclusivas `tennis_*` (053), ATP/WTA registradas en el registro
+  (proximamente hasta que exista `/tennis`). Barreras ESLint en las 4
+  direcciones. Ver `docs/TENNIS_ARCHITECTURE.md`.
 - **Regla de oro**: toda query a `matches`/`teams`/`team_statistics`/
   `predictions` filtra por competición (directo o `matches!inner`).
 - **Detalle universal** (`app/matches/[id]`): sport-aware — timeline de

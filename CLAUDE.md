@@ -26,7 +26,7 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 - **Antes de cualquier push:** correr `npm run build` y confirmar que pasa limpio.
 - **Variables de entorno:** nunca commitear `.env.local`. Las claves van en Vercel/Supabase.
 - **Base de datos:** cambios de schema van en `supabase/migrations/` con número incremental
-  (siguiente: 053). Actualizar también `supabase/verify_migrations.sql`.
+  (siguiente: 054). Actualizar también `supabase/verify_migrations.sql`.
 - **RLS:** acceso libre = el rol `anon` lee. Cualquier tabla nueva necesita RLS activo + su
   política de lectura pública.
 - **Estilo:** tema oscuro tipo TradingView/Bloomberg. Verde esmeralda (#10b981) es el acento principal.
@@ -46,6 +46,9 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 - **Dominio NBA**: `lib/nba/` + `components/nba/` + `app/nba/`. PROHIBIDO importar motores o
   componentes de fútbol desde el dominio NBA — hay regla ESLint (`no-restricted-imports` en
   `.eslintrc.json`) que lo bloquea. Utilidades compartidas van a módulos neutros o se duplican.
+- **Dominio Tennis**: `lib/tennis/` + `components/tennis/` + `app/tennis/` + `services/tennis/`
+  + tablas exclusivas `tennis_*` (migración 053). Barreras ESLint en las CUATRO direcciones
+  (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Ver `docs/TENNIS_ARCHITECTURE.md`.
 
 ## Identificadores clave
 

@@ -96,5 +96,7 @@ Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
   modelo por calibración (fases F0-F5, aún sin implementar)
 - `docs/CACHE_STRATEGY.md` — estrategia de caché (ISR por tiers + revalidación
   por evento + cliente); capa 5 de frescura sin castigar rendimiento
+- `docs/TENNIS_ARCHITECTURE.md` — dominio Tennis: modelo de datos aislado,
+  barreras y plan de fases
 - `PROGRESS_REPORT.md` — último plan ejecutado y su estado
 - `AUDIT_REPORT.md` — auditoría técnica histórica (jun-2026)

@@ -14,9 +14,61 @@
                 "@/lib/models/*", "@/lib/agents/*", "@/lib/intelligence/*",
                 "@/components/matches/*", "@/components/predictions/*",
                 "@/components/leagues/*", "@/components/groups/*",
-                "@/components/champion/*", "@/components/bracket/*"
+                "@/components/champion/*", "@/components/bracket/*",
+                "@/lib/tennis/*", "@/components/tennis/*", "@/services/tennis/*",
+                "**/tennisEngine"
               ],
-              "message": "Barrera anti-contaminación: el dominio NBA no importa módulos de fútbol. Si necesitas una utilidad compartida, muévela a un módulo neutro (lib/utils, lib/sports) o duplícala en lib/nba/."
+              "message": "Barrera anti-contaminación: el dominio NBA no importa módulos de fútbol ni de tenis. Si necesitas una utilidad compartida, muévela a un módulo neutro (lib/utils, lib/sports) o duplícala en lib/nba/."
+            }
+          ]
+        }]
+      }
+    },
+    {
+      "files": ["lib/tennis/**/*.ts", "components/tennis/**/*.tsx", "app/tennis/**/*.tsx", "services/tennis/**/*.ts", "app/api/tennis/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": [
+                "**/predictionEngine", "**/leagueEngine", "**/simulationEngine",
+                "**/scenarioEngine", "**/smartBetsEngine", "**/smartBetGrading",
+                "**/valueBets", "**/bracket", "**/leagueStandings",
+                "@/lib/models/*", "@/lib/agents/*", "@/lib/intelligence/*",
+                "@/components/matches/*", "@/components/predictions/*",
+                "@/components/leagues/*", "@/components/groups/*",
+                "@/components/champion/*", "@/components/bracket/*",
+                "@/lib/nba/*", "@/components/nba/*", "@/services/nba.service",
+                "**/nba/engine", "**/nba/verdict", "**/nba/stats"
+              ],
+              "message": "Barrera anti-contaminación: el dominio TENIS no importa módulos de fútbol ni de NBA. Utilidades compartidas van a módulos neutros (lib/utils, lib/sports, lib/calibration) o se duplican en lib/tennis/."
+            }
+          ]
+        }]
+      }
+    },
+    {
+      "files": [
+        "lib/predictionEngine.ts", "lib/leagueEngine.ts", "lib/simulationEngine.ts",
+        "lib/scenarioEngine.ts", "lib/smartBetsEngine.ts", "lib/smartBetGrading.ts",
+        "lib/valueBets.ts", "lib/bracket.ts", "lib/leagueStandings.ts",
+        "lib/verdictEngine.ts", "lib/teamForm.ts", "lib/matchContext.ts",
+        "components/matches/**/*.tsx", "components/predictions/**/*.tsx",
+        "components/leagues/**/*.tsx", "components/groups/**/*.tsx",
+        "components/champion/**/*.tsx", "components/bracket/**/*.tsx",
+        "services/sync/odds.ts", "services/sync/recalibrate.ts",
+        "services/sync/espn-*.ts", "services/sync/post-result.ts",
+        "services/smartBetTracking.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": [
+                "@/lib/tennis/*", "@/components/tennis/*", "@/services/tennis/*",
+                "**/tennisEngine"
+              ],
+              "message": "Barrera anti-contaminación: el dominio FÚTBOL no importa módulos de tenis. (El detalle universal sport-aware puede componer vistas NBA por diseño; tenis tendrá las suyas.) El punto de integración neutral es lib/sports.ts."
             }
           ]
         }]

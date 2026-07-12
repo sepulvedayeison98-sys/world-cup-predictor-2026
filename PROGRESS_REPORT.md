@@ -46,6 +46,45 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-12 (2) · Tennis — fase inicial del tercer dominio
+
+Base arquitectónica del dominio Tennis, con el aislamiento implementado
+ANTES que la lógica (a propósito):
+
+- **Modelo de datos (migración 053, aplicada a BD viva):** 9 tablas
+  exclusivas `tennis_*` (players, rankings, tournaments, matches,
+  match_stats, predictions con feature-store nativo, smart_bets,
+  backtests, model_metrics) — cero reutilización de tablas de
+  fútbol/NBA — todas con RLS + lectura anon. Competiciones ATP
+  (`20000000-…-0020`) y WTA (`21000000-…-0021`) registradas (sport_id=3).
+- **Estructura (patrón NBA, decisión arquitectónica registrada):**
+  `lib/tennis/{constants,types}.ts` (pesos tennis-1.0: 35% ranking+ELO,
+  25% forma, 20% superficie, 10% H2H, 10% mercado), `services/tennis/`
+  (contratos de sync ATP/WTA + invariantes de integridad),
+  `components/tennis/`, `app/tennis/`, `app/api/tennis/`.
+- **Registro:** ATP/WTA en `lib/sports.ts` con ids reales de BD, estado
+  `proximamente` (flip a `activa` en Fase 8, cuando exista el hub — sin
+  enlaces rotos ni placeholders). Mientras tanto NO entran en ninguna
+  lista blanca transversal.
+- **Barreras (Fase 11, hecha primero):** ESLint en las CUATRO direcciones
+  (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis ampliada), verificadas
+  con tests negativos reales — las 4 fallan compilación como se exige.
+  Nota: el detalle universal sport-aware conserva su composición NBA por
+  diseño documentado.
+- **Fuente de datos (decisión honesta):** base histórica = datasets
+  públicos de Jeff Sackmann (CSV reales, gratis) para Fases 4-7 y
+  backtesting; calendario en vivo + cuotas requieren API de pago
+  (api-sports NO cubre tenis) — decisión de compra pendiente, declarada
+  como bloqueo de las Fases 4(vivo) y 9. Cero datos fabricados: las
+  tablas nacen vacías.
+- **Documentación:** `docs/TENNIS_ARCHITECTURE.md` (decisiones + plan
+  detallado de Fases 4-10 con bloqueos y estimaciones).
+
+Verificación: type-check · lint 0 (con barreras nuevas) · build OK ·
+unitarias verdes · verify_migrations 053.
+
+---
+
 ## Actualización 2026-07-12 · Métricas de calibración + dieta de bundle
 
 Dos tareas ejecutadas de forma autónoma (probando cada cambio):
