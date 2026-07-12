@@ -46,6 +46,36 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-12 · Métricas de calibración + dieta de bundle
+
+Dos tareas ejecutadas de forma autónoma (probando cada cambio):
+
+### Tarea 1 · Métricas de calibración en /inteligencia (vitrina de confianza)
+- **`lib/calibration.ts`** (puro, 6 tests): Brier multiclase 1X2, log-loss,
+  accuracy, `calibrationBuckets` (curva por probabilidad del favorito).
+- **`components/intelligence/CalibrationCurve.tsx`**: curva SVG (prometido vs
+  observado) con diagonal de calibración perfecta; puntos ∝ tamaño de muestra.
+- **`/inteligencia`**: sección "Calibración del modelo · Mundial" con KPIs
+  (Brier, ventaja vs azar, log-loss) + curva + tabla por tramo.
+- Datos 100% reales: 87 predicciones resueltas del Mundial. **Brier = 0.314**
+  vs azar 1X2 = 0.667 → el modelo mejora ~53% sobre el azar (verificado por
+  SQL de contraste, coincide con el módulo).
+
+### Tarea 2 · Dieta de bundle
+- **Lazy-load de Recharts en `/players/[id]`**: `PlayerRadarChartLazy`
+  (dynamic + ssr:false). La ruta bajó de **221 kB → 118 kB** de First Load JS
+  (chunk propio 108 kB → 5.37 kB). Los charts del detalle de partido ya eran
+  dynamic.
+- **Dependencia muerta eliminada**: `sonner` (^1.7.1) — el `Toaster` local es
+  un placeholder propio que no importa el paquete. Cero imports en el código.
+- Auditoría de huérfanos: **0 componentes sin usar** (71 revisados). Sin
+  imports muertos nuevos.
+
+Verificación: type-check · lint 0 · build OK · **98/98** unitarias (6 nuevas) ·
+e2e de /inteligencia y perfiles verde. No se abrieron nuevas líneas de trabajo.
+
+---
+
 ## Actualización 2026-07-10 (3) · Mejoras 1-2 semanas del playbook
 
 Cuatro mejoras del roadmap de mejoras importantes (SOFASCORE_PLAYBOOK.md):

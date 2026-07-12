@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { PlayerProfileHeader } from '@/components/players/PlayerProfileHeader'
 import { PlayerStatsPanel } from '@/components/players/PlayerStatsPanel'
-import { PlayerRadarChart } from '@/components/charts/PlayerRadarChart'
+import { PlayerRadarChartLazy as PlayerRadarChart } from '@/components/charts/PlayerRadarChartLazy'
 
 interface Props { params: Promise<{ id: string }> }
 
