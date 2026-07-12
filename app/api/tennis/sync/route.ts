@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { isAuthorizedCron } from '@/lib/cronAuth'
+import { syncMatchesYear, syncRankings, syncBios, validateIntegrity } from '@/services/tennis/sackmann'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+/**
+ * GET /api/tennis/sync — ingesta del dominio Tennis (Fase 4), por pasos
+ * para respetar el límite de ejecución de Vercel. Protegida con CRON_SECRET.
+ *
+ *   ?step=matches&tour=ATP&year=2025   → torneos+jugadores+partidos+stats
+ *   ?step=rankings&tour=WTA            → snapshot más reciente del ranking
+ *   ?step=bios&tour=ATP                → dob/mano/altura de jugadores importados
+ *   ?step=validate                     → invariantes de integridad
+ *
+ * Vive bajo /api/tennis/ (dominio aislado; la barrera ESLint aplica aquí).
+ */
+export async function GET(req: NextRequest) {
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const sp = req.nextUrl.searchParams
+  const step = sp.get('step')
+  const tour = (sp.get('tour') ?? 'ATP').toUpperCase() as 'ATP' | 'WTA'
+  if (tour !== 'ATP' && tour !== 'WTA') {
+    return NextResponse.json({ error: 'tour inválido' }, { status: 400 })
+  }
+  try {
+    if (step === 'matches') {
+      const year = parseInt(sp.get('year') ?? '', 10)
+      if (!Number.isFinite(year) || year < 1968 || year > 2100) {
+        return NextResponse.json({ error: 'year inválido' }, { status: 400 })
+      }
+      return NextResponse.json(await syncMatchesYear(tour, year))
+    }
+    if (step === 'rankings') return NextResponse.json(await syncRankings(tour))
+    if (step === 'bios') return NextResponse.json(await syncBios(tour))
+    if (step === 'validate') return NextResponse.json(await validateIntegrity())
+    return NextResponse.json({ error: 'step requerido: matches|rankings|bios|validate' }, { status: 400 })
+  } catch (err: any) {
+    console.error('[tennis/sync]', step, tour, err?.message)
+    return NextResponse.json({ error: err?.message ?? 'sync failed' }, { status: 500 })
+  }
+}
