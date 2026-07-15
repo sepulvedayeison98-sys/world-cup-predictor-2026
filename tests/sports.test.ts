@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { competitionIdsOfSport, sportOfCompetition, ACTIVE_COMPETITIONS } from '../lib/sports'
 import { COMPETITION_ID, LEAGUE_SLUGS } from '../lib/constants'
 import { NBA_COMPETITION_ID } from '../lib/nba/constants'
+import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '../lib/tennis/constants'
 
 test('aislamiento: la lista de fútbol incluye Mundial y las 5 ligas, nunca la NBA', () => {
   const futbol = competitionIdsOfSport('futbol')
@@ -24,8 +25,12 @@ test('aislamiento: la lista de baloncesto es exactamente la NBA', () => {
   assert.deepEqual(competitionIdsOfSport('baloncesto'), [NBA_COMPETITION_ID])
 })
 
-test('aislamiento: tenis aún no tiene competiciones activas (solo roadmap)', () => {
-  assert.deepEqual(competitionIdsOfSport('tenis'), [])
+test('aislamiento: tenis activa exactamente ATP (WTA sigue pendiente de fuente)', () => {
+  assert.deepEqual(competitionIdsOfSport('tenis'), [ATP_COMPETITION_ID])
+  assert.ok(!competitionIdsOfSport('tenis').includes(WTA_COMPETITION_ID), 'WTA no activa aún')
+  // y jamás cruza con los otros deportes
+  assert.ok(!competitionIdsOfSport('futbol').includes(ATP_COMPETITION_ID))
+  assert.ok(!competitionIdsOfSport('baloncesto').includes(ATP_COMPETITION_ID))
 })
 
 test('sportOfCompetition clasifica NBA como baloncesto y Mundial como fútbol', () => {

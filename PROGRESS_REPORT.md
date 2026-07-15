@@ -46,6 +46,37 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-15 (2) · Tennis Fase 8 — el dominio sale a la superficie
+
+Hasta ahora el tenis pensaba pero no se veía (Fases 4/5/7 eran datos, motor y
+métricas, sin UI). Esta fase lo hace **visible y navegable** con datos reales.
+
+- **Registro:** ATP pasa de `proximamente` a **`activa`** en `lib/sports.ts`;
+  aparece "ATP Tour" como enlace real en el sidebar (icono propio `CircleDot`,
+  acento lima). WTA sigue como promesa honesta ("Pendiente de fuente") — cero
+  enlaces rotos, cero datos inventados.
+- **Páginas nuevas** (Server Components, ISR con cliente anon):
+  - `/tennis` — hub: KPIs medidos (precisión del backtest, partidos, jugadores,
+    torneos), Top 15 ATP, resultados recientes, accesos a secciones.
+  - `/tennis/ranking` — clasificación ATP completa a la última fecha real.
+  - `/tennis/jugadores/[id]` — perfil: Win% global y por superficie (barras),
+    Hold%/Break%, aces/DF, forma reciente y últimos resultados. Los 50 mejores
+    se prerenderizan; el resto on-demand. Si la fuente no trae saque/resto, se
+    declara "—" (Data First), no se estima.
+  - `/tennis/inteligencia` — métricas del motor tennis-1.0: precisión, Brier,
+    log-loss, y la **comparación honesta vs. ranking puro** con el aviso de que
+    aún no lo supera en precisión cruda (tennis-1.1).
+- **Capa de datos:** `services/tennis/queries.ts` (lectura acotada al tour,
+  paginada). `components/tennis/*` (RankingTable, ResultsList, átomos ui).
+  Barreras de dominio intactas (lint 0 errores).
+- Gates: type-check ✔, lint ✔, **121/121 pruebas** (actualizado el test de
+  aislamiento: tenis ahora activa exactamente ATP), build ✔ (41 páginas,
+  incluidos los perfiles prerenderizados).
+
+Siguiente: Fase 6 (calendario/H2H dedicado) y el tuning tennis-1.1.
+
+---
+
 ## Actualización 2026-07-15 · Tennis Fases 5+7 (núcleo) — motor tennis-1.0 medido
 
 Núcleo predictivo del dominio Tennis, con métricas **medidas sobre el

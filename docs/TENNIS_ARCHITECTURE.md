@@ -140,10 +140,10 @@ maquillada.
 | Fase | Entregable | Bloqueo | Estimación |
 |---|---|---|---|
 | 4 · Datos base ✅ | HECHO (2026-07-12): ATP 2024-2026 desde TML — **581 jugadores · 362 torneos · 5.676 partidos · 11.352 stats · 6.508 rankings observados**, integridad 0/0/0/0, ingesta idempotente re-corrible (`/api/tennis/sync`). WTA bloqueada por fuente | WTA: fuente pendiente | hecho |
-| 5 · Jugadores (núcleo) ✅ | `lib/tennis/stats.ts`: perfil desde partidos reales (Win%, superficie, forma, Hold%/Break%, aces/DF) — módulo puro + 6 pruebas. **Falta la página** `/tennis/jugadores/[id]` (UI, Fase 8) | Fase 4 | núcleo hecho |
-| 6 · Partidos | `/tennis/partidos`: calendario/resultados/H2H/superficie | Fase 4 | 1-2 d |
+| 5 · Jugadores ✅ | `lib/tennis/stats.ts` (núcleo) + página `/tennis/jugadores/[id]` (Fase 8): Win% global/superficie, forma, Hold%/Break%, aces/DF — todo real | Fase 4 | hecho |
+| 6 · Partidos | `/tennis/partidos`: calendario/resultados/H2H/superficie (resultados recientes ya en hub/perfil) | Fase 4 | 1-2 d |
 | 7 · Motor 1.0 ✅ | `lib/tennis/engine.ts` (ELO walk-forward global+superficie) + `services/tennis/backtest.ts` medido sobre 5.636 partidos ATP: **precisión 63,75 %, Brier 0,442, log-loss 0,632**; aún −0,3 pp vs. ranking puro (línea de trabajo 1.1). 19 pruebas | Fase 4 | hecho |
-| 8 · Dashboard | Hub `/tennis` + 6 páginas; **flip a `activa` en el registro** | Fases 5-7 | 2 d |
+| 8 · Dashboard ✅ | Hub `/tennis` + `/tennis/ranking` + `/tennis/jugadores/[id]` + `/tennis/inteligencia`; **registro ATP → `activa`** (WTA sigue promesa). `services/tennis/queries.ts` (lectura anon/ISR), `components/tennis/*`. Icono propio en el sidebar | Fases 5-7 | hecho (v1) |
 | 9 · Smart Bets | Motor de mercados propio; requiere fuente de cuotas de tenis | **Decisión de compra** | 2-3 d tras la clave |
 | 10 · Inteligencia | `/inteligencia` sección tenis (accuracy, Brier, log-loss, ROI, yield, calibración) con `lib/calibration` | Fase 7 | 1 d |
 | 11 · Barreras | ✅ HECHO en esta fase inicial (antes que la lógica, a propósito) | — | — |

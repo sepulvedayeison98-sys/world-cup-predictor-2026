@@ -1,0 +1,287 @@
+/**
+ * DOMINIO TENNIS — capa de lectura para las páginas públicas (Fase 8).
+ *
+ * Server-side, cliente anon (ISR). Todas las consultas se acotan al tour
+ * (hoy solo ATP con datos; WTA declarada pendiente de fuente). Las tablas
+ * tennis_* son exclusivas del dominio, así que la "regla de oro
+ * multi-competición" del fútbol/NBA no aplica aquí — el aislamiento es por
+ * tabla, no por filtro de competición.
+ *
+ * El tipo Database aún no conoce las tablas tennis_*, así que el borde con
+ * Supabase se castea a any (mismo patrón que services/tennis/backtest.ts);
+ * las funciones devuelven modelos de dominio tipados para que las páginas
+ * trabajen con tipos.
+ */
+import { createStaticSupabaseClient } from '@/lib/supabase/static'
+import { fetchAllRows } from '@/lib/fetchAll'
+import { computeTennisPlayerStats, type TennisPlayerSeasonStats } from '@/lib/tennis/stats'
+import { TENNIS_MODEL_VERSION, type Tour } from '@/lib/tennis/constants'
+
+const client = () => createStaticSupabaseClient() as any
+const COUNTABLE = ['finished', 'retired']
+
+// ── Vistas de dominio para la UI ─────────────────────────────────────────
+export interface TennisRankingRow {
+  position: number
+  points: number | null
+  player_id: string
+  name: string
+  country_code: string | null
+  plays_hand: 'R' | 'L' | null
+}
+
+export interface TennisResultRow {
+  id: string
+  scheduled_at: string | null
+  round: string | null
+  surface: string | null
+  status: string
+  score: string | null
+  winner_id: string | null
+  p1: { id: string; name: string } | null
+  p2: { id: string; name: string } | null
+  tournament: string | null
+}
+
+export interface TennisBacktestView {
+  model_version: string
+  sample_size: number
+  accuracy: number | null
+  brier_score: number | null
+  log_loss: number | null
+  date_from: string | null
+  date_to: string | null
+  metadata: Record<string, any> | null
+}
+
+export interface TennisHubData {
+  ready: boolean
+  playersCount: number
+  tournamentsCount: number
+  matchesPlayed: number
+  lastRankingDate: string | null
+  topRanking: TennisRankingRow[]
+  recentResults: TennisResultRow[]
+  backtest: TennisBacktestView | null
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Fecha del ranking más reciente disponible (o null si no hay datos). */
+async function latestRankingDate(sb: any): Promise<string | null> {
+  const { data } = await sb
+    .from('tennis_rankings')
+    .select('ranking_date')
+    .order('ranking_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.ranking_date ?? null
+}
+
+/** Ranking (con datos de jugador) a una fecha, ordenado por posición. */
+async function rankingAt(sb: any, date: string, tour: Tour, limit?: number): Promise<TennisRankingRow[]> {
+  let q = sb
+    .from('tennis_rankings')
+    .select('position, points, player:tennis_players!inner(id, name, country_code, plays_hand, tour)')
+    .eq('ranking_date', date)
+    .eq('player.tour', tour)
+    .order('position', { ascending: true })
+  if (limit) q = q.limit(limit)
+  const { data } = await q
+  return ((data ?? []) as any[]).map((r) => ({
+    position: r.position,
+    points: r.points,
+    player_id: r.player.id,
+    name: r.player.name,
+    country_code: r.player.country_code,
+    plays_hand: r.player.plays_hand,
+  }))
+}
+
+/** Empareja partidos con nombres de jugador resolviendo los ids en una query. */
+async function attachPlayers(sb: any, matches: any[]): Promise<Map<string, { id: string; name: string }>> {
+  const ids = new Set<string>()
+  for (const m of matches) {
+    if (m.p1_id) ids.add(m.p1_id)
+    if (m.p2_id) ids.add(m.p2_id)
+  }
+  if (ids.size === 0) return new Map()
+  const { data } = await sb.from('tennis_players').select('id, name').in('id', [...ids])
+  return new Map(((data ?? []) as any[]).map((p) => [p.id, { id: p.id, name: p.name }]))
+}
+
+// ── Consultas públicas ───────────────────────────────────────────────────
+
+/** Datos del hub /tennis. Todo real; si no hay datos, ready=false. */
+export async function fetchTennisHub(tour: Tour = 'ATP'): Promise<TennisHubData> {
+  const sb = client()
+
+  const [players, tournaments, matchesPlayed, lastDate, backtest] = await Promise.all([
+    sb.from('tennis_players').select('id', { count: 'exact', head: true }).eq('tour', tour),
+    sb.from('tennis_tournaments').select('id', { count: 'exact', head: true }).eq('tour', tour),
+    sb.from('tennis_matches').select('id, tennis_tournaments!inner(tour)', { count: 'exact', head: true })
+      .in('status', COUNTABLE).eq('tennis_tournaments.tour', tour),
+    latestRankingDate(sb),
+    fetchLatestBacktest(tour),
+  ])
+
+  const topRanking = lastDate ? await rankingAt(sb, lastDate, tour, 15) : []
+
+  // Últimos resultados jugados
+  const { data: rawResults } = await sb
+    .from('tennis_matches')
+    .select('id, scheduled_at, round, surface, status, score, winner_id, p1_id, p2_id, tennis_tournaments!inner(name, tour)')
+    .eq('tennis_tournaments.tour', tour)
+    .in('status', COUNTABLE)
+    .order('scheduled_at', { ascending: false })
+    .limit(12)
+  const players2 = await attachPlayers(sb, rawResults ?? [])
+  const recentResults: TennisResultRow[] = ((rawResults ?? []) as any[]).map((m) => ({
+    id: m.id,
+    scheduled_at: m.scheduled_at,
+    round: m.round,
+    surface: m.surface,
+    status: m.status,
+    score: m.score,
+    winner_id: m.winner_id,
+    p1: m.p1_id ? players2.get(m.p1_id) ?? null : null,
+    p2: m.p2_id ? players2.get(m.p2_id) ?? null : null,
+    tournament: m.tennis_tournaments?.name ?? null,
+  }))
+
+  const playersCount = players.count ?? 0
+  const tournamentsCount = tournaments.count ?? 0
+  const matchesCount = matchesPlayed.count ?? 0
+
+  return {
+    ready: playersCount > 0 && matchesCount > 0,
+    playersCount,
+    tournamentsCount,
+    matchesPlayed: matchesCount,
+    lastRankingDate: lastDate,
+    topRanking,
+    recentResults,
+    backtest,
+  }
+}
+
+/** Ranking ATP completo a la fecha más reciente. */
+export async function fetchTennisRanking(tour: Tour = 'ATP'): Promise<{ date: string | null; rows: TennisRankingRow[] }> {
+  const sb = client()
+  const date = await latestRankingDate(sb)
+  const rows = date ? await rankingAt(sb, date, tour) : []
+  return { date, rows }
+}
+
+/** Última corrida de backtest medida para el tour. */
+export async function fetchLatestBacktest(tour: Tour = 'ATP'): Promise<TennisBacktestView | null> {
+  const sb = client()
+  const { data } = await sb
+    .from('tennis_backtests')
+    .select('model_version, sample_size, accuracy, brier_score, log_loss, date_from, date_to, metadata')
+    .eq('tour', tour)
+    .eq('model_version', TENNIS_MODEL_VERSION)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data as TennisBacktestView) ?? null
+}
+
+export interface TennisPlayerProfile {
+  player: {
+    id: string
+    name: string
+    country_code: string | null
+    plays_hand: 'R' | 'L' | null
+    height_cm: number | null
+    tour: Tour
+  }
+  rankPosition: number | null
+  rankPoints: number | null
+  stats: TennisPlayerSeasonStats
+  recent: TennisResultRow[]
+}
+
+/** Perfil de jugador: datos + stats derivadas de partidos reales + últimos. */
+export async function fetchTennisPlayer(id: string): Promise<TennisPlayerProfile | null> {
+  const sb = client()
+  const { data: player } = await sb
+    .from('tennis_players')
+    .select('id, name, country_code, plays_hand, height_cm, tour')
+    .eq('id', id)
+    .maybeSingle()
+  if (!player) return null
+
+  // Todos sus partidos (paginado; un top player puede superar 100/temporada)
+  const matches = await fetchAllRows((from, to) => sb
+    .from('tennis_matches')
+    .select('id, p1_id, p2_id, winner_id, surface, status, scheduled_at, external_id, score, round, tennis_tournaments!inner(name)')
+    .or(`p1_id.eq.${id},p2_id.eq.${id}`)
+    .order('id')
+    .range(from, to))
+
+  // Stats por partido del jugador y de sus rivales (para Hold%/Break%)
+  const matchIds = matches.map((m: any) => m.id)
+  const statsRows: any[] = []
+  for (let i = 0; i < matchIds.length; i += 200) {
+    const chunk = matchIds.slice(i, i + 200)
+    const { data } = await sb
+      .from('tennis_match_stats')
+      .select('match_id, player_id, aces, double_faults, serve_points, first_serve_in, first_serve_won, second_serve_won, service_games, break_points_saved, break_points_faced, return_games_won')
+      .in('match_id', chunk)
+    statsRows.push(...(data ?? []))
+  }
+
+  const stats = computeTennisPlayerStats(matches as any, statsRows as any, id)
+
+  // Ranking actual
+  const date = await latestRankingDate(sb)
+  let rankPosition: number | null = null
+  let rankPoints: number | null = null
+  if (date) {
+    const { data: r } = await sb
+      .from('tennis_rankings')
+      .select('position, points')
+      .eq('player_id', id)
+      .eq('ranking_date', date)
+      .maybeSingle()
+    rankPosition = r?.position ?? null
+    rankPoints = r?.points ?? null
+  }
+
+  // Últimos 10 resultados (más reciente primero) con nombres de rival
+  const played = (matches as any[])
+    .filter((m) => COUNTABLE.includes(m.status) && m.winner_id)
+    .sort((a, b) => (b.scheduled_at ?? '').localeCompare(a.scheduled_at ?? ''))
+    .slice(0, 10)
+  const namesMap = await attachPlayers(sb, played)
+  const recent: TennisResultRow[] = played.map((m) => ({
+    id: m.id,
+    scheduled_at: m.scheduled_at,
+    round: m.round,
+    surface: m.surface,
+    status: m.status,
+    score: m.score,
+    winner_id: m.winner_id,
+    p1: m.p1_id ? namesMap.get(m.p1_id) ?? null : null,
+    p2: m.p2_id ? namesMap.get(m.p2_id) ?? null : null,
+    tournament: m.tennis_tournaments?.name ?? null,
+  }))
+
+  return {
+    player: player as any,
+    rankPosition,
+    rankPoints,
+    stats,
+    recent,
+  }
+}
+
+/** Ids de jugadores con ranking reciente — para prerenderizar sus perfiles. */
+export async function fetchRankedPlayerIds(tour: Tour = 'ATP', limit = 50): Promise<string[]> {
+  const sb = client()
+  const date = await latestRankingDate(sb)
+  if (!date) return []
+  const rows = await rankingAt(sb, date, tour, limit)
+  return rows.map((r) => r.player_id)
+}

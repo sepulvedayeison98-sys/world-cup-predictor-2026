@@ -35,7 +35,7 @@ export interface SportEntry {
 export const SPORTS: SportEntry[] = [
   { slug: 'futbol', name: 'Fútbol', status: 'activa' },
   { slug: 'baloncesto', name: 'Baloncesto', status: 'activa' },
-  { slug: 'tenis', name: 'Tenis', status: 'proximamente' },
+  { slug: 'tenis', name: 'Tenis', status: 'activa' },
 ]
 
 export const COMPETITIONS_NAV: CompetitionEntry[] = [
@@ -66,11 +66,11 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     status: 'activa',
     note: 'Temporada 2024-25',
   },
-  // Tenis: tercer dominio (migración 053). Ids reales de BD ya registrados;
-  // pasa a 'activa' cuando exista el hub /tennis (Fase 8 del plan Tennis) —
-  // hasta entonces se muestra como promesa, sin enlaces rotos.
-  { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Integración en curso' },
-  { id: WTA_COMPETITION_ID, slug: 'wta', name: 'WTA Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Integración en curso' },
+  // Tenis: tercer dominio (migración 053). ATP activa desde la Fase 8 (hub
+  // /tennis con ranking, perfiles y motor tennis-1.0 medido). WTA sigue como
+  // promesa honesta hasta que exista una fuente de datos verificable.
+  { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'activa', note: 'Motor tennis-1.0' },
+  { id: WTA_COMPETITION_ID, slug: 'wta', name: 'WTA Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Pendiente de fuente' },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },
   { id: null, slug: 'copa-libertadores', name: 'Copa Libertadores', sport: 'futbol', href: '#', status: 'proximamente' },
