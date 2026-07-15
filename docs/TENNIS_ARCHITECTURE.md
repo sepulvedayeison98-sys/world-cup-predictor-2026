@@ -95,23 +95,54 @@ Contratos de sync tipados en `services/tennis/contracts.ts` (SyncPlayers,
 SyncRankings, SyncTournaments, SyncMatches, ValidateIntegrity con invariantes
 de integridad post-ingesta).
 
-## 6. Motor tennis-1.0 (Fase 7 — especificado, no implementado)
+## 6. Motor tennis-1.0 (Fase 7 — implementado y medido)
 
-`lib/tennis/engine.ts` (futuro). Pesos aprobados (en `constants.ts`):
-**35%** ranking+ELO · **25%** forma · **20%** superficie · **10%** H2H ·
-**10%** mercado. Salidas: probabilidad de victoria p1, favorito, confianza.
-Feature store nativo (`tennis_predictions.features`) para el tuning fiel
-desde el primer día. Calibración con `lib/calibration.ts` (módulo NEUTRO ya
-existente: Brier/log-loss/curva sirven para cualquier deporte de 2 clases).
+`lib/tennis/engine.ts` + `lib/tennis/stats.ts` (Fase 5). Pesos aprobados
+(en `constants.ts`): **35%** ranking+ELO · **25%** forma · **20%**
+superficie · **10%** H2H · **10%** mercado. Salidas: probabilidad de
+victoria p1, favorito, confianza. Regla de honestidad: todo factor ausente
+(sin historial, sin H2H, sin cuota) **renormaliza** los pesos presentes en
+vez de estimar; si no hay ningún factor, no hay veredicto. Feature store
+nativo (`tennis_predictions.features`) desde el día 1. Calibración con
+`lib/calibration.ts` (módulo NEUTRO: Brier/log-loss para 2 clases).
+
+**ELO walk-forward**: rating global + rating por superficie, K=32, inicial
+1500, solo `finished`/`retired` (walkover no mueve nada). Orden cronológico:
+fecha del torneo → ronda → match_num. Predecir-luego-incorporar garantiza
+cero fuga de resultado.
+
+### Backtest medido sobre histórico real (ATP, 2024-01-01 → 2026-01-17)
+
+`GET /api/tennis/sync?step=backtest&tour=ATP` recorre los 5.636 partidos
+jugados y persiste en `tennis_backtests` + `tennis_model_metrics`
+(`window_label='backtest'`). Números **medidos, no prometidos**:
+
+| Métrica | tennis-1.0 | Referencia |
+|---|---|---|
+| Partidos con veredicto | 5.556 | 80 sin veredicto (debutantes) → no se rellenan |
+| Precisión | **63,75 %** | azar 50 % |
+| Brier (2 clases) | **0,442** | azar 0,50 |
+| Log-loss | **0,632** | azar 0,693 (ln 2) |
+| Precisión (jugadores maduros ≥5) | 63,54 % | muestra 4.270 |
+
+**Hallazgo honesto:** sobre el mismo subconjunto donde ambos jugadores
+tienen ranking oficial (5.518 partidos), la línea base "gana el mejor
+clasificado" acierta **64,19 %** y el motor **63,88 %** — el modelo todavía
+NO supera al ranking puro en precisión cruda (−0,3 pp). Sí bate al azar en
+las tres métricas probabilísticas (Brier y log-loss), que es lo que importa
+para valor esperado en mercados. La brecha vs. ranking es la línea de trabajo
+del tuning tennis-1.1 (arranque en frío del ELO con solo 2 temporadas,
+peso del factor forma, calibración por superficie). Queda declarada, no
+maquillada.
 
 ## 7. Plan de fases restantes
 
 | Fase | Entregable | Bloqueo | Estimación |
 |---|---|---|---|
 | 4 · Datos base ✅ | HECHO (2026-07-12): ATP 2024-2026 desde TML — **581 jugadores · 362 torneos · 5.676 partidos · 11.352 stats · 6.508 rankings observados**, integridad 0/0/0/0, ingesta idempotente re-corrible (`/api/tennis/sync`). WTA bloqueada por fuente | WTA: fuente pendiente | hecho |
-| 5 · Jugadores | `/tennis/jugadores/[id]`: perfil + Win%, Hold%, Break%, aces, DF, ELO — todo derivado de partidos reales importados | Fase 4 | 1-2 d |
+| 5 · Jugadores (núcleo) ✅ | `lib/tennis/stats.ts`: perfil desde partidos reales (Win%, superficie, forma, Hold%/Break%, aces/DF) — módulo puro + 6 pruebas. **Falta la página** `/tennis/jugadores/[id]` (UI, Fase 8) | Fase 4 | núcleo hecho |
 | 6 · Partidos | `/tennis/partidos`: calendario/resultados/H2H/superficie | Fase 4 | 1-2 d |
-| 7 · Motor 1.0 | `lib/tennis/engine.ts` + ELO walk-forward por superficie + backtest sobre histórico real | Fase 4 | 2-3 d |
+| 7 · Motor 1.0 ✅ | `lib/tennis/engine.ts` (ELO walk-forward global+superficie) + `services/tennis/backtest.ts` medido sobre 5.636 partidos ATP: **precisión 63,75 %, Brier 0,442, log-loss 0,632**; aún −0,3 pp vs. ranking puro (línea de trabajo 1.1). 19 pruebas | Fase 4 | hecho |
 | 8 · Dashboard | Hub `/tennis` + 6 páginas; **flip a `activa` en el registro** | Fases 5-7 | 2 d |
 | 9 · Smart Bets | Motor de mercados propio; requiere fuente de cuotas de tenis | **Decisión de compra** | 2-3 d tras la clave |
 | 10 · Inteligencia | `/inteligencia` sección tenis (accuracy, Brier, log-loss, ROI, yield, calibración) con `lib/calibration` | Fase 7 | 1 d |

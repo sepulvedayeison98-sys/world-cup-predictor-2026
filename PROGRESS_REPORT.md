@@ -46,6 +46,43 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-15 · Tennis Fases 5+7 (núcleo) — motor tennis-1.0 medido
+
+Núcleo predictivo del dominio Tennis, con métricas **medidas sobre el
+histórico real, no prometidas** (vigilancia estrecha del motor, según lo
+pedido).
+
+- **Fase 5 (núcleo):** `lib/tennis/stats.ts` — perfil de jugador derivado
+  de partidos reales: Win% global y por superficie, forma reciente,
+  **Hold% / Break%**, aces y dobles faltas por partido. Métricas propias del
+  tenis (jamás xG/posesión). Si la fuente no trae saque/resto, quedan `null`
+  (Data First). Módulo puro + 6 pruebas. *Falta solo la página UI (Fase 8).*
+- **Fase 7 (motor):** `lib/tennis/engine.ts` — ELO walk-forward global y por
+  superficie (K=32, inicial 1500, solo `finished`/`retired`), combinación de
+  factores por los pesos aprobados (35/25/20/10/10) con **renormalización
+  honesta** cuando un factor falta. 13 pruebas. Total dominio: 19/19.
+- **Backtest walk-forward** (`services/tennis/backtest.ts`,
+  `?step=backtest`): ejecutado en producción sobre **5.636 partidos ATP**
+  (2024-01-01 → 2026-01-17), predecir-luego-incorporar (sin fuga).
+  Persistido en `tennis_backtests` + `tennis_model_metrics`:
+  - Precisión **63,75 %** · Brier **0,442** (azar 0,50) · log-loss **0,632**
+    (azar 0,693). Bate al azar en las tres.
+  - **Hallazgo honesto:** vs. la línea base "gana el mejor clasificado"
+    (64,19 % en el mismo subconjunto), el motor rinde 63,88 % — aún **−0,3 pp
+    por debajo del ranking puro** en precisión cruda. Declarado, no
+    maquillado; es la línea de trabajo de tennis-1.1 (arranque en frío del
+    ELO con 2 temporadas, peso de forma, calibración por superficie).
+  - Sin cuotas de tenis todavía (Fase 9 bloqueada): ROI/yield quedan `null`,
+    no se inventan.
+- Gates: type-check ✔, lint 0 errores (barreras de dominio intactas),
+  build ✔ (con proxy para el SSG a Supabase), migración 054 registrada en
+  `verify_migrations.sql`.
+
+Siguiente: Fase 6 (calendario/H2H) y Fase 8 (páginas UI + flip del registro
+a `activa`); tuning tennis-1.1 para cerrar la brecha con el ranking.
+
+---
+
 ## Actualización 2026-07-12 (3) · Tennis Fase 4 — datos reales ATP ingestados
 
 Ingesta ejecutada contra producción, vigilada corrida a corrida (tres
