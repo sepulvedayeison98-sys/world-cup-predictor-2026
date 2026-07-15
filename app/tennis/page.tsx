@@ -80,7 +80,7 @@ export default async function TennisHubPage() {
               </div>
               <RankingTable rows={hub.topRanking} compact />
               {hub.lastRankingDate && (
-                <p className="text-[11px] text-zinc-600">Ranking a {shortDate(hub.lastRankingDate)}.</p>
+                <p className="text-[11px] text-zinc-600">Última posición conocida por jugador · datos hasta {shortDate(hub.lastRankingDate)}.</p>
               )}
             </section>
 

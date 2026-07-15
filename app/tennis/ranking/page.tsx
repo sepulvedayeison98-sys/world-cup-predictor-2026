@@ -20,10 +20,12 @@ export default async function TennisRankingPage() {
         <Link href="/tennis" className="text-xs font-semibold uppercase tracking-widest text-lime-500 hover:text-lime-400">← Tenis</Link>
         <h1 className="mt-1 text-2xl font-bold text-white">Ranking ATP</h1>
         <p className="text-sm text-zinc-400">
-          Clasificación oficial observada a la última fecha disponible
-          {date ? <> (<span className="text-zinc-300">{shortDate(date)}</span>)</> : ''}.
-          Es una observación real de la fuente, no un orden del modelo. Toca a
-          cualquier jugador para ver su perfil con métricas medidas.
+          Última posición oficial conocida de cada jugador
+          {date ? <> (datos hasta <span className="text-zinc-300">{shortDate(date)}</span>)</> : ''}.
+          La fuente registra el ranking por partido, no como foto semanal, así
+          que esta tabla toma la observación más reciente de cada jugador —
+          verdad real de la fuente, no un orden del modelo. Toca a cualquiera
+          para ver su perfil.
         </p>
       </div>
 

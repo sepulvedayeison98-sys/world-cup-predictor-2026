@@ -78,24 +78,57 @@ async function latestRankingDate(sb: any): Promise<string | null> {
   return data?.ranking_date ?? null
 }
 
-/** Ranking (con datos de jugador) a una fecha, ordenado por posición. */
-async function rankingAt(sb: any, date: string, tour: Tour, limit?: number): Promise<TennisRankingRow[]> {
-  let q = sb
+/**
+ * Ranking = ÚLTIMA posición conocida por jugador.
+ *
+ * OJO (honestidad): tennis_rankings NO es una foto semanal oficial, son
+ * observaciones por partido (el rank de cada jugador a la fecha en que jugó).
+ * Por eso "la última fecha" sola tiene solo a quienes jugaron ese día. El
+ * ranking honesto se arma tomando, por jugador, su observación más reciente
+ * y ordenando por posición. Puede haber posiciones repetidas (vienen de
+ * fechas distintas): es la mejor verdad disponible de la fuente, declarada.
+ */
+async function buildLatestRanking(sb: any, tour: Tour, limit?: number): Promise<TennisRankingRow[]> {
+  const [obs, players] = await Promise.all([
+    fetchAllRows((from, to) => sb
+      .from('tennis_rankings')
+      .select('player_id, ranking_date, position, points')
+      .order('id').range(from, to)),
+    fetchAllRows((from, to) => sb
+      .from('tennis_players')
+      .select('id, name, country_code, plays_hand, tour')
+      .eq('tour', tour)
+      .order('id').range(from, to)),
+  ])
+  const latest = new Map<string, any>()
+  for (const r of obs as any[]) {
+    const cur = latest.get(r.player_id)
+    if (!cur || r.ranking_date > cur.ranking_date) latest.set(r.player_id, r)
+  }
+  const pmap = new Map((players as any[]).map((p) => [p.id, p]))
+  const rows: TennisRankingRow[] = []
+  for (const [pid, o] of latest) {
+    const p = pmap.get(pid)
+    if (!p) continue // jugador de otro tour u observación huérfana
+    rows.push({
+      position: o.position, points: o.points, player_id: pid,
+      name: p.name, country_code: p.country_code, plays_hand: p.plays_hand,
+    })
+  }
+  rows.sort((a, b) => a.position - b.position)
+  return limit ? rows.slice(0, limit) : rows
+}
+
+/** Última posición conocida de UN jugador (su observación más reciente). */
+async function latestRankOfPlayer(sb: any, id: string): Promise<{ position: number; points: number | null } | null> {
+  const { data } = await sb
     .from('tennis_rankings')
-    .select('position, points, player:tennis_players!inner(id, name, country_code, plays_hand, tour)')
-    .eq('ranking_date', date)
-    .eq('player.tour', tour)
-    .order('position', { ascending: true })
-  if (limit) q = q.limit(limit)
-  const { data } = await q
-  return ((data ?? []) as any[]).map((r) => ({
-    position: r.position,
-    points: r.points,
-    player_id: r.player.id,
-    name: r.player.name,
-    country_code: r.player.country_code,
-    plays_hand: r.player.plays_hand,
-  }))
+    .select('position, points')
+    .eq('player_id', id)
+    .order('ranking_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data ?? null
 }
 
 /** Empareja partidos con nombres de jugador resolviendo los ids en una query. */
@@ -125,7 +158,7 @@ export async function fetchTennisHub(tour: Tour = 'ATP'): Promise<TennisHubData>
     fetchLatestBacktest(tour),
   ])
 
-  const topRanking = lastDate ? await rankingAt(sb, lastDate, tour, 15) : []
+  const topRanking = await buildLatestRanking(sb, tour, 15)
 
   // Últimos resultados jugados
   const { data: rawResults } = await sb
@@ -168,8 +201,10 @@ export async function fetchTennisHub(tour: Tour = 'ATP'): Promise<TennisHubData>
 /** Ranking ATP completo a la fecha más reciente. */
 export async function fetchTennisRanking(tour: Tour = 'ATP'): Promise<{ date: string | null; rows: TennisRankingRow[] }> {
   const sb = client()
-  const date = await latestRankingDate(sb)
-  const rows = date ? await rankingAt(sb, date, tour) : []
+  const [date, rows] = await Promise.all([
+    latestRankingDate(sb),      // fecha del dato más reciente (para el "hasta")
+    buildLatestRanking(sb, tour),
+  ])
   return { date, rows }
 }
 
@@ -234,20 +269,10 @@ export async function fetchTennisPlayer(id: string): Promise<TennisPlayerProfile
 
   const stats = computeTennisPlayerStats(matches as any, statsRows as any, id)
 
-  // Ranking actual
-  const date = await latestRankingDate(sb)
-  let rankPosition: number | null = null
-  let rankPoints: number | null = null
-  if (date) {
-    const { data: r } = await sb
-      .from('tennis_rankings')
-      .select('position, points')
-      .eq('player_id', id)
-      .eq('ranking_date', date)
-      .maybeSingle()
-    rankPosition = r?.position ?? null
-    rankPoints = r?.points ?? null
-  }
+  // Ranking actual = última posición conocida del propio jugador
+  const r = await latestRankOfPlayer(sb, id)
+  const rankPosition: number | null = r?.position ?? null
+  const rankPoints: number | null = r?.points ?? null
 
   // Últimos 10 resultados (más reciente primero) con nombres de rival
   const played = (matches as any[])
@@ -280,9 +305,7 @@ export async function fetchTennisPlayer(id: string): Promise<TennisPlayerProfile
 /** Ids de jugadores con ranking reciente — para prerenderizar sus perfiles. */
 export async function fetchRankedPlayerIds(tour: Tour = 'ATP', limit = 50): Promise<string[]> {
   const sb = client()
-  const date = await latestRankingDate(sb)
-  if (!date) return []
-  const rows = await rankingAt(sb, date, tour, limit)
+  const rows = await buildLatestRanking(sb, tour, limit)
   return rows.map((r) => r.player_id)
 }
 
