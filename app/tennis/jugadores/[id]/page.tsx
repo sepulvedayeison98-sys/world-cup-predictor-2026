@@ -51,6 +51,9 @@ export default async function TennisPlayerPage({ params }: { params: Promise<{ i
               ATP #{rankPosition}{rankPoints != null ? ` · ${rankPoints.toLocaleString('es-ES')} pts` : ''}
             </span>
           )}
+          <Link href={`/tennis/h2h?p1=${player.id}`} className="rounded-md border border-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300 hover:border-lime-500/40 hover:text-lime-300">
+            Cara a cara →
+          </Link>
         </div>
         <p className="mt-1 text-sm text-zinc-400">
           {[player.country_code, handLabel(player.plays_hand), player.height_cm ? `${player.height_cm} cm` : null]

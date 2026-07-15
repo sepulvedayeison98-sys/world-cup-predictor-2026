@@ -285,3 +285,98 @@ export async function fetchRankedPlayerIds(tour: Tour = 'ATP', limit = 50): Prom
   const rows = await rankingAt(sb, date, tour, limit)
   return rows.map((r) => r.player_id)
 }
+
+const SURFACES = new Set(['hard', 'clay', 'grass', 'carpet'])
+
+/** Navegador de resultados: filtro opcional por superficie, paginado. */
+export async function fetchTennisResults(
+  { tour = 'ATP', surface = null, limit = 40, offset = 0 }:
+  { tour?: Tour; surface?: string | null; limit?: number; offset?: number },
+): Promise<{ rows: TennisResultRow[]; hasMore: boolean }> {
+  const sb = client()
+  let q = sb
+    .from('tennis_matches')
+    .select('id, scheduled_at, round, surface, status, score, winner_id, p1_id, p2_id, tennis_tournaments!inner(name, tour)')
+    .eq('tennis_tournaments.tour', tour)
+    .in('status', COUNTABLE)
+  if (surface && SURFACES.has(surface)) q = q.eq('surface', surface)
+  q = q.order('scheduled_at', { ascending: false }).range(offset, offset + limit) // +1 para saber si hay más
+  const { data } = await q
+  const raw = (data ?? []) as any[]
+  const hasMore = raw.length > limit
+  const page = raw.slice(0, limit)
+  const names = await attachPlayers(sb, page)
+  const rows: TennisResultRow[] = page.map((m) => ({
+    id: m.id, scheduled_at: m.scheduled_at, round: m.round, surface: m.surface,
+    status: m.status, score: m.score, winner_id: m.winner_id,
+    p1: m.p1_id ? names.get(m.p1_id) ?? null : null,
+    p2: m.p2_id ? names.get(m.p2_id) ?? null : null,
+    tournament: m.tennis_tournaments?.name ?? null,
+  }))
+  return { rows, hasMore }
+}
+
+/** Jugadores para el selector del H2H (id + nombre, orden alfabético). */
+export async function fetchPlayersForPicker(tour: Tour = 'ATP'): Promise<{ id: string; name: string }[]> {
+  const sb = client()
+  const rows = await fetchAllRows((from, to) => sb
+    .from('tennis_players')
+    .select('id, name')
+    .eq('tour', tour)
+    .order('name', { ascending: true })
+    .range(from, to))
+  return (rows as any[]).map((p) => ({ id: p.id, name: p.name }))
+}
+
+export interface TennisH2H {
+  p1: { id: string; name: string; country_code: string | null }
+  p2: { id: string; name: string; country_code: string | null }
+  p1Wins: number
+  p2Wins: number
+  bySurface: Record<string, { p1: number; p2: number }>
+  matches: TennisResultRow[]
+}
+
+/** Cara a cara entre dos jugadores — historial real completo. */
+export async function fetchTennisH2H(id1: string, id2: string): Promise<TennisH2H | null> {
+  if (!id1 || !id2 || id1 === id2) return null
+  const sb = client()
+  const { data: players } = await sb
+    .from('tennis_players')
+    .select('id, name, country_code')
+    .in('id', [id1, id2])
+  const map = new Map(((players ?? []) as any[]).map((p) => [p.id, p]))
+  const p1 = map.get(id1), p2 = map.get(id2)
+  if (!p1 || !p2) return null
+
+  const { data } = await sb
+    .from('tennis_matches')
+    .select('id, scheduled_at, round, surface, status, score, winner_id, p1_id, p2_id, tennis_tournaments!inner(name, tour)')
+    .in('status', COUNTABLE)
+    .or(`and(p1_id.eq.${id1},p2_id.eq.${id2}),and(p1_id.eq.${id2},p2_id.eq.${id1})`)
+    .order('scheduled_at', { ascending: false })
+  const raw = (data ?? []) as any[]
+
+  let p1Wins = 0, p2Wins = 0
+  const bySurface: Record<string, { p1: number; p2: number }> = {}
+  for (const m of raw) {
+    if (m.winner_id === id1) p1Wins++
+    else if (m.winner_id === id2) p2Wins++
+    const s = (m.surface ?? '').toLowerCase()
+    if (s) {
+      const e = bySurface[s] ?? { p1: 0, p2: 0 }
+      if (m.winner_id === id1) e.p1++; else if (m.winner_id === id2) e.p2++
+      bySurface[s] = e
+    }
+  }
+  const names = new Map([[id1, { id: id1, name: p1.name }], [id2, { id: id2, name: p2.name }]])
+  const matches: TennisResultRow[] = raw.map((m) => ({
+    id: m.id, scheduled_at: m.scheduled_at, round: m.round, surface: m.surface,
+    status: m.status, score: m.score, winner_id: m.winner_id,
+    p1: m.p1_id ? names.get(m.p1_id) ?? null : null,
+    p2: m.p2_id ? names.get(m.p2_id) ?? null : null,
+    tournament: m.tennis_tournaments?.name ?? null,
+  }))
+
+  return { p1, p2, p1Wins, p2Wins, bySurface, matches }
+}

@@ -46,6 +46,26 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-15 (4) · Tennis Fase 6 — resultados y cara a cara
+
+- **`/tennis/partidos`** — navegador de resultados reales, filtrable por
+  superficie (chips) y paginado. Sin sección de "próximos partidos": la
+  fuente es histórica, así que un calendario de fixtures estaría vacío y no
+  se fabrica (Data First).
+- **`/tennis/h2h`** — cara a cara entre dos jugadores: marcador global,
+  balance por superficie e historial de enfrentamientos, todo real. Selector
+  con `<datalist>` nativo (autocompletado por nombre, sin dependencias). Acceso
+  directo desde cada perfil de jugador ("Cara a cara →").
+- Capa de lectura ampliada (`fetchTennisResults`, `fetchTennisH2H`,
+  `fetchPlayersForPicker`). Hub con 5 secciones. 125/125 pruebas, build 43
+  páginas. Barreras de dominio intactas.
+
+Con esto el dominio Tenis cubre Fases 4-8 (datos, stats, motor 1.1, hub,
+ranking, perfiles, resultados, H2H, inteligencia). Pendientes: Fase 9 (Smart
+Bets, bloqueada por fuente de cuotas) y el tuning tennis-1.2.
+
+---
+
 ## Actualización 2026-07-15 (3) · Tennis — motor tennis-1.1 (cold-start) a producción
 
 Experimento del motor con una **única hipótesis** (para no hacer overfitting):

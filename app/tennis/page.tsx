@@ -55,11 +55,13 @@ export default async function TennisHubPage() {
           </div>
 
           {/* Secciones del dominio */}
-          <section aria-label="Secciones Tenis" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <section aria-label="Secciones Tenis" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
               { href: '/tennis/ranking', title: 'Ranking ATP', desc: 'Clasificación oficial a la última fecha' },
+              { href: '/tennis/partidos', title: 'Resultados', desc: 'Partidos reales, filtrables por superficie' },
+              { href: '/tennis/h2h', title: 'Cara a cara', desc: 'Historial H2H entre dos jugadores' },
               { href: '/tennis/inteligencia', title: 'Inteligencia', desc: 'Precisión, Brier y log-loss del backtest' },
-              { href: hub.topRanking[0] ? `/tennis/jugadores/${hub.topRanking[0].player_id}` : '/tennis/ranking', title: 'Jugadores', desc: 'Perfil con Win%, Hold%, Break%, ELO' },
+              { href: hub.topRanking[0] ? `/tennis/jugadores/${hub.topRanking[0].player_id}` : '/tennis/ranking', title: 'Jugadores', desc: 'Perfil con Win%, Hold%, Break%' },
             ].map((s) => (
               <Link key={s.href} href={s.href}
                 className="group rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 transition-colors hover:border-zinc-700">
