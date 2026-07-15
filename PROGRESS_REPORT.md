@@ -46,6 +46,31 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-15 (3) · Tennis — motor tennis-1.1 (cold-start) a producción
+
+Experimento del motor con una **única hipótesis** (para no hacer overfitting):
+el ELO arrancaba a todos en 1500 y con solo 2 temporadas no "calentaba" a
+tiempo, por eso 1.0 quedaba −0,3 pp bajo el ranking puro. tennis-1.1 = 1.0 +
+sembrar el ELO de cada debutante desde su ranking de entrada (priores fijados
+a priori, no ajustados a los datos de prueba).
+
+Backtest comparativo pareado en producción (misma ventana, walk-forward):
+
+| Métrica | 1.0 | **1.1** | Δ |
+|---|---|---|---|
+| Precisión | 63,75 % | **63,95 %** | +0,20 pp |
+| Brier | 0,4420 | **0,4400** | −0,0020 |
+| Log-loss | 0,6316 | **0,6293** | −0,0023 |
+| vs. ranking (subset) | 63,88 % | **64,21 %** | iguala la base (64,19 %) |
+
+Mejora en **las tres métricas**. La precisión sube poco (ruido de ~1 partido);
+el avance sólido es probabilístico (Brier/log-loss), lo que importa para valor
+esperado. **Promovido a producción**; 1.0 se conserva para comparación
+(`?step=backtest&variant=tennis-1.0`). La página `/tennis/inteligencia` refleja
+los números de 1.1 automáticamente. 125/125 pruebas (4 nuevas de siembra).
+
+---
+
 ## Actualización 2026-07-15 (2) · Tennis Fase 8 — el dominio sale a la superficie
 
 Hasta ahora el tenis pensaba pero no se veía (Fases 4/5/7 eran datos, motor y

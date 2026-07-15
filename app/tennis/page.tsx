@@ -4,10 +4,11 @@ import { fetchTennisHub } from '@/services/tennis/queries'
 import { RankingTable } from '@/components/tennis/RankingTable'
 import { ResultsList } from '@/components/tennis/ResultsList'
 import { StatCard, shortDate } from '@/components/tennis/ui'
+import { TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export const metadata: Metadata = {
   title: 'Tenis ATP | Veredicto',
-  description: 'Ranking ATP, resultados reales y motor de predicción tennis-1.0 con métricas medidas por backtest walk-forward.',
+  description: 'Ranking ATP, resultados reales y motor de predicción con métricas medidas por backtest walk-forward.',
 }
 
 export const revalidate = 600
@@ -24,7 +25,7 @@ export default async function TennisHubPage() {
         </span>
         <h1 className="mt-1 text-2xl font-bold text-white">ATP Tour</h1>
         <p className="text-sm text-zinc-400">
-          Ranking, resultados y predicciones del motor <span className="mono text-zinc-300">tennis-1.0</span>
+          Ranking, resultados y predicciones del motor <span className="mono text-zinc-300">{TENNIS_MODEL_VERSION}</span>
           {' '}— ELO walk-forward por superficie, calibrado con backtest honesto sobre
           partidos reales. WTA llegará cuando haya fuente de datos verificable.
         </p>
@@ -91,9 +92,10 @@ export default async function TennisHubPage() {
       )}
 
       <p className="text-[11px] text-zinc-600">
-        Fuente: TML-Database (esquema Sackmann, CC BY-NC-SA). Motor tennis-1.0:
-        ELO walk-forward global + por superficie, factores combinados con
-        renormalización honesta cuando falta un dato. Cero datos fabricados.
+        Fuente: TML-Database (esquema Sackmann, CC BY-NC-SA). Motor {TENNIS_MODEL_VERSION}:
+        ELO walk-forward global + por superficie (con siembra por ranking),
+        factores combinados con renormalización honesta cuando falta un dato.
+        Cero datos fabricados.
       </p>
     </div>
   )

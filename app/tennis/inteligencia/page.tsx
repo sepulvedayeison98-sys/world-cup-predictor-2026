@@ -5,7 +5,7 @@ import { StatCard, shortDate } from '@/components/tennis/ui'
 
 export const metadata: Metadata = {
   title: 'Inteligencia Tenis | Veredicto',
-  description: 'Métricas medidas del motor tennis-1.0: precisión, Brier y log-loss del backtest walk-forward, comparadas con la línea base de ranking.',
+  description: 'Métricas medidas del motor tennis: precisión, Brier y log-loss del backtest walk-forward, comparadas con la línea base de ranking.',
 }
 
 export const revalidate = 600
@@ -26,7 +26,7 @@ export default async function TennisIntelligencePage() {
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div>
         <Link href="/tennis" className="text-xs font-semibold uppercase tracking-widest text-lime-500 hover:text-lime-400">← Tenis</Link>
-        <h1 className="mt-1 text-2xl font-bold text-white">Inteligencia · motor tennis-1.0</h1>
+        <h1 className="mt-1 text-2xl font-bold text-white">Inteligencia · motor {bt?.model_version ?? 'tennis'}</h1>
         <p className="text-sm text-zinc-400">
           Números <span className="text-zinc-200">medidos, no prometidos</span>. Backtest
           walk-forward: para cada partido el motor predice con lo conocido hasta
@@ -62,7 +62,7 @@ export default async function TennisIntelligencePage() {
               </p>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Motor tennis-1.0</p>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Motor {bt.model_version}</p>
                   <p className="mt-1 text-2xl font-bold text-lime-400 mono">{pct(base?.modelAccuracyOnSample)}</p>
                 </div>
                 <div>
@@ -73,8 +73,8 @@ export default async function TennisIntelligencePage() {
               <p className={`mt-4 rounded-lg border px-3 py-2 text-xs ${beatsRanking ? 'border-lime-500/30 bg-lime-500/10 text-lime-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
                 {beatsRanking === null ? 'Comparación no disponible.'
                   : beatsRanking
-                    ? 'El motor supera al ranking puro en precisión sobre este subconjunto.'
-                    : 'Hallazgo honesto: en precisión cruda el motor aún NO supera al ranking puro. Sí bate al azar en Brier y log-loss (calidad probabilística, clave para valor esperado). Cerrar esta brecha es la línea de trabajo de tennis-1.1 (arranque en frío del ELO con pocas temporadas, peso de la forma, calibración por superficie).'}
+                    ? 'El motor iguala/roza por encima al ranking puro en precisión (margen mínimo, dentro del ruido de ~1 partido). El avance sólido de tennis-1.1 es probabilístico: bate al azar y mejora a 1.0 en Brier y log-loss —la calidad que importa para el valor esperado—, gracias a sembrar el ELO desde el ranking (cold-start).'
+                    : 'Hallazgo honesto: en precisión cruda el motor aún NO supera al ranking puro. Sí bate al azar en Brier y log-loss (calidad probabilística, clave para valor esperado). Cerrar esta brecha es la línea de trabajo del tuning (peso de la forma, calibración por superficie).'}
               </p>
             </div>
           </section>

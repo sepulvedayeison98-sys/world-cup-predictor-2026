@@ -74,7 +74,9 @@ export async function runTennisBacktest(
 ): Promise<TennisBacktestResult> {
   const started = Date.now()
   const modelVersion = opts.modelVersion ?? TENNIS_MODEL_VERSION
-  const seedFromRanking = opts.seedFromRanking ?? false
+  // Por defecto el modelo de producción (tennis-1.1) siembra ELO por ranking;
+  // solo se corre sin siembra cuando se pide explícitamente la versión previa.
+  const seedFromRanking = opts.seedFromRanking ?? (modelVersion === TENNIS_MODEL_VERSION)
   const supabase = createAdminClient() as any
 
   // Partidos del tour (join con torneos; paginado con orden estable)

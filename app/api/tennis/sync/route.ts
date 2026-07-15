@@ -41,12 +41,15 @@ export async function GET(req: NextRequest) {
     }
     if (step === 'validate') return NextResponse.json(await validateIntegrity())
     if (step === 'backtest') {
-      // variant=tennis-1.1 activa la siembra de ELO por ranking (cold-start)
-      const variant = sp.get('variant') === 'tennis-1.1' ? 'tennis-1.1' : 'tennis-1.0'
-      return NextResponse.json(await runTennisBacktest(tour, {
-        modelVersion: variant,
-        seedFromRanking: variant === 'tennis-1.1',
-      }))
+      // Por defecto corre el modelo de producción (tennis-1.1, con siembra de
+      // ELO por ranking). variant=tennis-1.0 corre la versión previa sin
+      // siembra, para la comparación honesta.
+      if (sp.get('variant') === 'tennis-1.0') {
+        return NextResponse.json(await runTennisBacktest(tour, {
+          modelVersion: 'tennis-1.0', seedFromRanking: false,
+        }))
+      }
+      return NextResponse.json(await runTennisBacktest(tour))
     }
     return NextResponse.json({ error: 'step requerido: matches|validate|backtest' }, { status: 400 })
   } catch (err: any) {

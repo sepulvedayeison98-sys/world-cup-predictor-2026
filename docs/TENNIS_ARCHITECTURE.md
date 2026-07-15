@@ -125,15 +125,33 @@ jugados y persiste en `tennis_backtests` + `tennis_model_metrics`
 | Log-loss | **0,632** | azar 0,693 (ln 2) |
 | Precisión (jugadores maduros ≥5) | 63,54 % | muestra 4.270 |
 
-**Hallazgo honesto:** sobre el mismo subconjunto donde ambos jugadores
+**Hallazgo honesto (1.0):** sobre el mismo subconjunto donde ambos jugadores
 tienen ranking oficial (5.518 partidos), la línea base "gana el mejor
-clasificado" acierta **64,19 %** y el motor **63,88 %** — el modelo todavía
-NO supera al ranking puro en precisión cruda (−0,3 pp). Sí bate al azar en
-las tres métricas probabilísticas (Brier y log-loss), que es lo que importa
-para valor esperado en mercados. La brecha vs. ranking es la línea de trabajo
-del tuning tennis-1.1 (arranque en frío del ELO con solo 2 temporadas,
-peso del factor forma, calibración por superficie). Queda declarada, no
-maquillada.
+clasificado" acierta **64,19 %** y el motor **63,88 %** — 1.0 NO superaba al
+ranking puro en precisión cruda (−0,3 pp), aunque sí batía al azar en Brier y
+log-loss.
+
+### tennis-1.1 (producción) — siembra de ELO por ranking (cold-start)
+
+Diagnóstico: el ELO arrancaba a todos en 1500 y con solo 2 temporadas no
+"calentaba" a tiempo. Hipótesis única (sin overfitting): sembrar el ELO de
+cada debutante desde su ranking de entrada (`rankToSeedElo`, priores a
+priori: refRank 50, 180 pts/década). Un solo cambio; el resto es idéntico a
+1.0. Backtest comparativo pareado (misma ventana, walk-forward):
+
+| Métrica | tennis-1.0 | **tennis-1.1** | Δ |
+|---|---|---|---|
+| Precisión | 63,75 % | **63,95 %** | +0,20 pp |
+| Brier (2 clases) | 0,4420 | **0,4400** | −0,0020 |
+| Log-loss | 0,6316 | **0,6293** | −0,0023 |
+| Precisión vs. ranking (subset) | 63,88 % | **64,21 %** | iguala/roza la base (64,19 %) |
+
+1.1 mejora a 1.0 en **las tres métricas** y cierra la brecha con el ranking.
+El avance de precisión es pequeño (dentro del ruido de ~1 partido); el avance
+**sólido y consistente es probabilístico** (Brier/log-loss), que es lo que
+importa para valor esperado. Promovido a producción
+(`TENNIS_MODEL_VERSION='tennis-1.1'`); 1.0 se conserva para comparación
+(`?step=backtest&variant=tennis-1.0`). Queda declarado, no maquillado.
 
 ## 7. Plan de fases restantes
 

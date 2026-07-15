@@ -13,7 +13,15 @@
 export const ATP_COMPETITION_ID = '20000000-0000-4000-8000-000000000020'
 export const WTA_COMPETITION_ID = '21000000-0000-4000-8000-000000000021'
 
-export const TENNIS_MODEL_VERSION = 'tennis-1.0'
+/**
+ * Versión del motor en producción. tennis-1.1 (2026-07-15) añade la siembra
+ * de ELO por ranking (cold-start): medida por backtest walk-forward mejora a
+ * 1.0 en precisión (63,75→63,95 %), Brier (0,4420→0,4400) y log-loss
+ * (0,6316→0,6293), e iguala/roza la línea base de ranking. Un solo cambio,
+ * priores a priori — sin overfitting. 1.0 se conserva para comparación.
+ */
+export const TENNIS_MODEL_VERSION = 'tennis-1.1'
+export const TENNIS_MODEL_VERSION_PREV = 'tennis-1.0'
 
 /** Identidad visual del dominio (Fase 2 del plan: icono + color). */
 export const TENNIS_ACCENT = '#a3e635' // lima — distinto del esmeralda global y del ámbar NBA
