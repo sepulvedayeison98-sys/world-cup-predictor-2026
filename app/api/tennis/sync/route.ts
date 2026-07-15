@@ -40,7 +40,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(await syncMatchesYear(tour, year))
     }
     if (step === 'validate') return NextResponse.json(await validateIntegrity())
-    if (step === 'backtest') return NextResponse.json(await runTennisBacktest(tour))
+    if (step === 'backtest') {
+      // variant=tennis-1.1 activa la siembra de ELO por ranking (cold-start)
+      const variant = sp.get('variant') === 'tennis-1.1' ? 'tennis-1.1' : 'tennis-1.0'
+      return NextResponse.json(await runTennisBacktest(tour, {
+        modelVersion: variant,
+        seedFromRanking: variant === 'tennis-1.1',
+      }))
+    }
     return NextResponse.json({ error: 'step requerido: matches|validate|backtest' }, { status: 400 })
   } catch (err: any) {
     console.error('[tennis/sync]', step, tour, err?.message)

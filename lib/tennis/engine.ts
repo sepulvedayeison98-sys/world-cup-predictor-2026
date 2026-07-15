@@ -34,6 +34,26 @@ export const ELO_K = 32
 /** Partidos con tenis jugado: los walkover no cuentan (igual que en stats). */
 export const ELO_COUNTABLE = new Set(['finished', 'retired'])
 
+/**
+ * Semilla de ELO desde el ranking (experimento tennis-1.1). En 1.0 todo
+ * jugador nuevo arranca en 1500; con solo 2 temporadas el ELO no "calienta"
+ * a tiempo y queda por debajo del ranking puro. La hipótesis de 1.1 es que
+ * arrancar a cada debutante desde una estimación basada en su ranking de
+ * entrada corrige ese arranque en frío.
+ *
+ * Priores elegidos A PRIORI (no ajustados a los datos de prueba, para no
+ * hacer overfitting): a rango de referencia 50 le corresponde el 1500 medio,
+ * y cada década de ranking vale ~SCALE puntos de ELO. rank 1 ≈ 1806,
+ * rank 100 ≈ 1446, rank 500 ≈ 1320.
+ */
+export const TENNIS_RANK_SEED = { refRank: 50, scale: 180 } as const
+
+/** Estimación de ELO inicial a partir de una posición de ranking (≥1). */
+export function rankToSeedElo(rank: number): number {
+  if (!(rank > 0)) return ELO_INITIAL
+  return ELO_INITIAL + TENNIS_RANK_SEED.scale * Math.log10(TENNIS_RANK_SEED.refRank / rank)
+}
+
 /** Orden de rondas dentro de un torneo (BR = bronce en JJOO). */
 export const ROUND_ORDER: Record<string, number> = {
   RR: 0, ER: 0, R128: 1, R64: 2, R32: 3, R16: 4, QF: 5, SF: 6, BR: 7, F: 8,
@@ -84,12 +104,26 @@ export function createWalkState(): TennisWalkState {
 
 const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
 
+/**
+ * Semilla opcional de ELO por ranking al momento del partido (tennis-1.1).
+ * Solo afecta a jugadores COMPLETAMENTE nuevos (sin ELO global aún); si se
+ * omite, el comportamiento es el de 1.0 (arranque en 1500).
+ */
+export interface WalkSeed {
+  seedRank1?: number | null
+  seedRank2?: number | null
+}
+
 /** Actualiza el estado con el resultado real (llamar DESPUÉS de predecir). */
-export function advanceWalkState(state: TennisWalkState, m: TEngineMatch): void {
+export function advanceWalkState(state: TennisWalkState, m: TEngineMatch, seed?: WalkSeed): void {
   if (!m.p1_id || !m.p2_id || !m.winner_id || !ELO_COUNTABLE.has(m.status)) return
   const { p1_id: p1, p2_id: p2, winner_id: w } = m
-  const s1 = state.elo.get(p1) ?? ELO_INITIAL
-  const s2 = state.elo.get(p2) ?? ELO_INITIAL
+  // Cold-start: un debutante arranca desde su ranking (1.1) o en 1500 (1.0).
+  const new1 = !state.elo.has(p1), new2 = !state.elo.has(p2)
+  const seed1 = new1 && seed?.seedRank1 != null ? rankToSeedElo(seed.seedRank1) : ELO_INITIAL
+  const seed2 = new2 && seed?.seedRank2 != null ? rankToSeedElo(seed.seedRank2) : ELO_INITIAL
+  const s1 = state.elo.get(p1) ?? seed1
+  const s2 = state.elo.get(p2) ?? seed2
   const e1 = eloExpected(s1, s2)
   const y1 = w === p1 ? 1 : 0
   state.elo.set(p1, s1 + ELO_K * (y1 - e1))
@@ -98,8 +132,10 @@ export function advanceWalkState(state: TennisWalkState, m: TEngineMatch): void 
   const surf = (m.surface ?? '').toLowerCase()
   if (surf) {
     const k1 = `${p1}|${surf}`, k2 = `${p2}|${surf}`
-    const r1 = state.surfaceElo.get(k1) ?? ELO_INITIAL
-    const r2 = state.surfaceElo.get(k2) ?? ELO_INITIAL
+    // Un debutante también siembra su ELO de superficie desde el ranking;
+    // un jugador conocido nuevo en la superficie arranca en 1500 (como 1.0).
+    const r1 = state.surfaceElo.get(k1) ?? (new1 ? seed1 : ELO_INITIAL)
+    const r2 = state.surfaceElo.get(k2) ?? (new2 ? seed2 : ELO_INITIAL)
     const es = eloExpected(r1, r2)
     state.surfaceElo.set(k1, r1 + ELO_K * (y1 - es))
     state.surfaceElo.set(k2, r2 + ELO_K * ((1 - y1) - (1 - es)))

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import {
   ELO_INITIAL, ELO_K, eloExpected, sortChronologically,
   createWalkState, advanceWalkState, extractFactors, predictTennisMatch,
+  rankToSeedElo,
   type TEngineMatch, type TennisFactorInput,
 } from '../lib/tennis/engine'
 import { TENNIS_WEIGHTS } from '../lib/tennis/constants'
@@ -130,4 +131,44 @@ test('confianza: bandas alta/media/baja', () => {
   assert.equal(predictTennisMatch(factors({ marketP1: 0.70 }))!.confidence, 'alta')
   assert.equal(predictTennisMatch(factors({ marketP1: 0.60 }))!.confidence, 'media')
   assert.equal(predictTennisMatch(factors({ marketP1: 0.52 }))!.confidence, 'baja')
+})
+
+// ── tennis-1.1: siembra de ELO por ranking (cold-start) ──────────────────
+
+test('rankToSeedElo: mejor ranking → mayor ELO; rango de referencia → 1500', () => {
+  assert.equal(rankToSeedElo(50), ELO_INITIAL) // refRank
+  assert.ok(rankToSeedElo(1) > rankToSeedElo(50))
+  assert.ok(rankToSeedElo(200) < ELO_INITIAL)
+  assert.equal(rankToSeedElo(0), ELO_INITIAL)   // ranking inválido → neutro
+})
+
+test('advanceWalkState sin seed = comportamiento 1.0 (arranque en 1500)', () => {
+  const st = createWalkState()
+  advanceWalkState(st, m({ winner_id: 'A' })) // sin tercer argumento
+  assert.equal(st.elo.get('A'), ELO_INITIAL + ELO_K * 0.5)
+  assert.equal(st.elo.get('B'), ELO_INITIAL - ELO_K * 0.5)
+})
+
+test('tennis-1.1: el debutante arranca desde su ranking, no en 1500', () => {
+  const st = createWalkState()
+  // A es #1 (favorito), B es #200; A gana como se espera
+  advanceWalkState(st, m({ winner_id: 'A' }), { seedRank1: 1, seedRank2: 200 })
+  const seedA = rankToSeedElo(1), seedB = rankToSeedElo(200)
+  const eA = eloExpected(seedA, seedB)
+  assert.ok(Math.abs(st.elo.get('A')! - (seedA + ELO_K * (1 - eA))) < 1e-9)
+  assert.ok(Math.abs(st.elo.get('B')! - (seedB + ELO_K * (0 - (1 - eA)))) < 1e-9)
+  // Al ganar el favorito, el ajuste es pequeño: A se mantiene muy por encima
+  assert.ok(st.elo.get('A')! > st.elo.get('B')! + 200)
+})
+
+test('tennis-1.1: la semilla NO re-arranca a un jugador ya conocido', () => {
+  const st = createWalkState()
+  advanceWalkState(st, m({ winner_id: 'A' }), { seedRank1: 100, seedRank2: 100 })
+  const afterFirst = st.elo.get('A')!
+  // Segundo partido de A: aunque pasemos un seedRank, A ya no es nuevo
+  advanceWalkState(st, m({ p1_id: 'A', p2_id: 'C', winner_id: 'A', external_id: '2025-100-2' }),
+    { seedRank1: 1, seedRank2: 300 })
+  // El ELO de A partió de afterFirst (no se reinició por el seedRank1=1)
+  assert.ok(st.elo.get('A')! > afterFirst) // subió por ganar, no por reseed
+  assert.ok(st.elo.get('A')! < afterFirst + ELO_K) // ajuste acotado por K
 })

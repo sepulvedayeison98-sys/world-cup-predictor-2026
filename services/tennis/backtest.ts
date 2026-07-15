@@ -62,8 +62,19 @@ async function fetchAllPages(query: (from: number) => any): Promise<any[]> {
   return rows
 }
 
-export async function runTennisBacktest(tour: Tour): Promise<TennisBacktestResult> {
+export interface TennisBacktestOptions {
+  /** Versión bajo la que se persiste (default tennis-1.0). */
+  modelVersion?: string
+  /** Sembrar el ELO de los debutantes desde su ranking (experimento 1.1). */
+  seedFromRanking?: boolean
+}
+
+export async function runTennisBacktest(
+  tour: Tour, opts: TennisBacktestOptions = {},
+): Promise<TennisBacktestResult> {
   const started = Date.now()
+  const modelVersion = opts.modelVersion ?? TENNIS_MODEL_VERSION
+  const seedFromRanking = opts.seedFromRanking ?? false
   const supabase = createAdminClient() as any
 
   // Partidos del tour (join con torneos; paginado con orden estable)
@@ -129,11 +140,11 @@ export async function runTennisBacktest(tour: Tour): Promise<TennisBacktestResul
     } else {
       noVerdict++
     }
-    advanceWalkState(state, m)
+    advanceWalkState(state, m, seedFromRanking ? { seedRank1: rank1, seedRank2: rank2 } : undefined)
   }
 
   const result: TennisBacktestResult = {
-    ok: true, modelVersion: TENNIS_MODEL_VERSION, tour,
+    ok: true, modelVersion, tour,
     dateFrom, dateTo,
     totalMatches: predicted + noVerdict,
     predicted, noVerdict,
@@ -164,6 +175,7 @@ export async function runTennisBacktest(tour: Tour): Promise<TennisBacktestResul
       weights: TENNIS_WEIGHTS,
       no_verdict: noVerdict,
       brier_chance: BRIER_CHANCE_2CLASS,
+      seed_from_ranking: seedFromRanking,
       baseline: result.baseline,
       warmed_up: result.warmedUp,
     },
