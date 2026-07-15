@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAuthorizedCron } from '@/lib/cronAuth'
 import { syncMatchesYear, validateIntegrity } from '@/services/tennis/sackmann'
+import { runTennisBacktest } from '@/services/tennis/backtest'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,9 @@ export const maxDuration = 60
  *   ?step=matches&tour=ATP&year=2025   → torneos + jugadores + partidos +
  *       stats + rankings observados (rank real a la fecha del torneo)
  *   ?step=validate                     → invariantes de integridad
+ *   ?step=backtest&tour=ATP            → walk-forward del motor tennis-1.0
+ *       sobre todo el histórico real; persiste métricas medidas (no promesas)
+ *       en tennis_backtests + tennis_model_metrics
  * Fuente: TML-Database (solo ATP; WTA declarada pendiente de fuente).
  *
  * Vive bajo /api/tennis/ (dominio aislado; la barrera ESLint aplica aquí).
@@ -36,7 +40,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(await syncMatchesYear(tour, year))
     }
     if (step === 'validate') return NextResponse.json(await validateIntegrity())
-    return NextResponse.json({ error: 'step requerido: matches|validate' }, { status: 400 })
+    if (step === 'backtest') return NextResponse.json(await runTennisBacktest(tour))
+    return NextResponse.json({ error: 'step requerido: matches|validate|backtest' }, { status: 400 })
   } catch (err: any) {
     console.error('[tennis/sync]', step, tour, err?.message)
     return NextResponse.json({ error: err?.message ?? 'sync failed' }, { status: 500 })

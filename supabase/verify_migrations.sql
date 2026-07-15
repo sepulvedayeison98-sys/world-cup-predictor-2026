@@ -58,6 +58,7 @@ UNION ALL SELECT '050 hardening seguridad', NOT EXISTS(SELECT 1 FROM pg_proc p J
 UNION ALL SELECT '051 índice único match_events (anti-duplicado)', EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='uq_match_events_dedupe') AND NOT EXISTS(SELECT 1 FROM (SELECT match_id,minute,minute_extra,type,player_name,team_id,count(*) n FROM match_events GROUP BY 1,2,3,4,5,6) g WHERE n>1)
 UNION ALL SELECT '052 feature store (prediction_features)', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='prediction_features') AND (SELECT rowsecurity FROM pg_tables WHERE tablename='prediction_features') AND EXISTS(SELECT 1 FROM pg_policies WHERE tablename='prediction_features')
 UNION ALL SELECT '053 dominio tennis (9 tablas + ATP/WTA)', (SELECT count(*)=9 FROM information_schema.tables WHERE table_name LIKE 'tennis_%') AND (SELECT bool_and(rowsecurity) FROM pg_tables WHERE tablename LIKE 'tennis_%') AND (SELECT count(*)=2 FROM competitions WHERE sport_id=3)
+UNION ALL SELECT '054 unicidad partidos tennis (tournament_id, external_id)', EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='uq_tennis_matches_tournament_external')
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):
