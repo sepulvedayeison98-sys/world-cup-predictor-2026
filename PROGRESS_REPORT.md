@@ -46,6 +46,23 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-15 (5) · Tennis — detalle de partido + estado de tennis-1.2
+
+- **`/tennis/partidos/[id]`** — detalle real de cada partido: torneo, ronda,
+  superficie, fecha, mejor-de, marcador con ganador resaltado, ranking y mano
+  de cada jugador, **forma reciente ANTES del partido** (V/D) y resumen cara a
+  cara con enlace al historial. Los resultados enlazan al detalle. Página
+  dinámica; verificada en producción.
+- **tennis-1.2 (mapeo logElo del ranking) — código listo, SIN promover.**
+  Cambio principiado único sobre 1.1 (rank2/(rank1+rank2) → eloExpected de
+  rankToSeedElo). type-check/lint/126 pruebas ✔. Producción sigue en 1.1.
+  **Pendiente la comparación medida 1.1 vs 1.2**: el contenedor efímero borró
+  `.env.local` (service-role + CRON_SECRET) a mitad de sesión; sin esas claves
+  no puedo correr el backtest en producción. No se promueve a ciegas (regla
+  "medido, no prometido"). Se decide cuando se restauren las claves.
+
+---
+
 ## Actualización 2026-07-15 (4) · Tennis Fase 6 — resultados y cara a cara
 
 - **`/tennis/partidos`** — navegador de resultados reales, filtrable por
