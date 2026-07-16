@@ -41,13 +41,13 @@ export async function GET(req: NextRequest) {
     }
     if (step === 'validate') return NextResponse.json(await validateIntegrity())
     if (step === 'backtest') {
-      // Por defecto corre el modelo de producción (tennis-1.1, con siembra de
-      // ELO por ranking). variant=tennis-1.0 corre la versión previa sin
-      // siembra, para la comparación honesta.
-      if (sp.get('variant') === 'tennis-1.0') {
-        return NextResponse.json(await runTennisBacktest(tour, {
-          modelVersion: 'tennis-1.0', seedFromRanking: false,
-        }))
+      // Por defecto corre el modelo de producción (TENNIS_MODEL_VERSION). El
+      // variant permite correr cualquier versión conocida para comparar; la
+      // config del motor sale del mapa TENNIS_ENGINE_CONFIG por versión.
+      const variant = sp.get('variant')
+      const known = ['tennis-1.0', 'tennis-1.1', 'tennis-1.2']
+      if (variant && known.includes(variant)) {
+        return NextResponse.json(await runTennisBacktest(tour, { modelVersion: variant }))
       }
       return NextResponse.json(await runTennisBacktest(tour))
     }

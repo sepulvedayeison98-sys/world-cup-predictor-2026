@@ -1,5 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { TENNIS_MODEL_VERSION, TENNIS_WEIGHTS, type Tour } from '@/lib/tennis/constants'
+import {
+  TENNIS_MODEL_VERSION, TENNIS_WEIGHTS, TENNIS_ENGINE_CONFIG,
+  type Tour, type TennisRankMapping,
+} from '@/lib/tennis/constants'
 import {
   ELO_COUNTABLE, advanceWalkState, createWalkState, extractFactors,
   predictTennisMatch, sortChronologically, type TEngineMatch,
@@ -65,8 +68,10 @@ async function fetchAllPages(query: (from: number) => any): Promise<any[]> {
 export interface TennisBacktestOptions {
   /** Versión bajo la que se persiste (default tennis-1.0). */
   modelVersion?: string
-  /** Sembrar el ELO de los debutantes desde su ranking (experimento 1.1). */
+  /** Sembrar el ELO de los debutantes desde su ranking (1.1+). */
   seedFromRanking?: boolean
+  /** Mapeo del factor de ranking (1.2 usa 'logElo'). */
+  rankMapping?: TennisRankMapping
 }
 
 export async function runTennisBacktest(
@@ -74,9 +79,11 @@ export async function runTennisBacktest(
 ): Promise<TennisBacktestResult> {
   const started = Date.now()
   const modelVersion = opts.modelVersion ?? TENNIS_MODEL_VERSION
-  // Por defecto el modelo de producción (tennis-1.1) siembra ELO por ranking;
-  // solo se corre sin siembra cuando se pide explícitamente la versión previa.
-  const seedFromRanking = opts.seedFromRanking ?? (modelVersion === TENNIS_MODEL_VERSION)
+  // La versión determina la config del motor (fuente única); las opciones
+  // explícitas la pueden sobreescribir para experimentos ad-hoc.
+  const cfg = TENNIS_ENGINE_CONFIG[modelVersion] ?? TENNIS_ENGINE_CONFIG[TENNIS_MODEL_VERSION]
+  const seedFromRanking = opts.seedFromRanking ?? cfg.seedFromRanking
+  const rankMapping = opts.rankMapping ?? cfg.rankMapping
   const supabase = createAdminClient() as any
 
   // Partidos del tour (join con torneos; paginado con orden estable)
@@ -118,7 +125,7 @@ export async function runTennisBacktest(
     const prevP2 = state.played.get(m.p2_id) ?? 0
 
     const f = extractFactors(state, m, rank1, rank2, null)
-    const pred = f ? predictTennisMatch(f) : null
+    const pred = f ? predictTennisMatch(f, { rankMapping }) : null
     if (pred) {
       predicted++
       const y1 = m.winner_id === m.p1_id ? 1 : 0
@@ -178,6 +185,7 @@ export async function runTennisBacktest(
       no_verdict: noVerdict,
       brier_chance: BRIER_CHANCE_2CLASS,
       seed_from_ranking: seedFromRanking,
+      rank_mapping: rankMapping,
       baseline: result.baseline,
       warmed_up: result.warmedUp,
     },

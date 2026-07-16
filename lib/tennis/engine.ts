@@ -222,17 +222,30 @@ const winRate = (recent: ('W' | 'L')[] | null): number | null => {
   return (w + 1) / (recent.length + 2) // suavizado de Laplace
 }
 
+/** Opciones de combinación (versionado del motor sin romper 1.0/1.1). */
+export interface PredictOptions {
+  /**
+   * Mapeo ranking→probabilidad del factor de ranking:
+   * · 'ratio'  (1.0/1.1): rank2/(rank1+rank2) — de referencia, poco calibrado.
+   * · 'logElo' (1.2): eloExpected(rankToSeedElo(r1), rankToSeedElo(r2)) — misma
+   *   escala Elo que la señal de ELO, mejor calibrado en los extremos.
+   */
+  rankMapping?: 'ratio' | 'logElo'
+}
+
 /**
  * Combina los factores según TENNIS_WEIGHTS. Devuelve null si NINGÚN factor
  * existe (dos debutantes absolutos): sin datos no hay veredicto (Data First).
  */
-export function predictTennisMatch(f: TennisFactorInput): TennisPrediction | null {
-  // Ranking + ELO: promedio de las señales disponibles (ELO global y
-  // ranking oficial rank2/(rank1+rank2), fórmula estándar de referencia).
+export function predictTennisMatch(f: TennisFactorInput, opts: PredictOptions = {}): TennisPrediction | null {
+  // Ranking + ELO: promedio de las señales disponibles (ELO global y ranking
+  // oficial). El mapeo del ranking depende de la versión (ver PredictOptions).
   const parts: number[] = []
   if (f.eloP1 != null && f.eloP2 != null) parts.push(eloExpected(f.eloP1, f.eloP2))
-  if (f.rankP1 != null && f.rankP2 != null && f.rankP1 + f.rankP2 > 0) {
-    parts.push(f.rankP2 / (f.rankP1 + f.rankP2))
+  if (f.rankP1 != null && f.rankP2 != null && f.rankP1 > 0 && f.rankP2 > 0) {
+    parts.push(opts.rankMapping === 'logElo'
+      ? eloExpected(rankToSeedElo(f.rankP1), rankToSeedElo(f.rankP2))
+      : f.rankP2 / (f.rankP1 + f.rankP2))
   }
   const rankingElo = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null
 

@@ -23,6 +23,20 @@ export const WTA_COMPETITION_ID = '21000000-0000-4000-8000-000000000021'
 export const TENNIS_MODEL_VERSION = 'tennis-1.1'
 export const TENNIS_MODEL_VERSION_PREV = 'tennis-1.0'
 
+/**
+ * Config del motor por versión (fuente única). Cada versión es un cambio
+ * principiado sobre la anterior, medido por backtest walk-forward:
+ * · 1.0: base (ELO desde 1500, ranking ratio).
+ * · 1.1: + siembra de ELO por ranking (cold-start).
+ * · 1.2: + mapeo ranking→prob logarítmico (misma escala Elo, mejor calibrado).
+ */
+export type TennisRankMapping = 'ratio' | 'logElo'
+export const TENNIS_ENGINE_CONFIG: Record<string, { seedFromRanking: boolean; rankMapping: TennisRankMapping }> = {
+  'tennis-1.0': { seedFromRanking: false, rankMapping: 'ratio' },
+  'tennis-1.1': { seedFromRanking: true, rankMapping: 'ratio' },
+  'tennis-1.2': { seedFromRanking: true, rankMapping: 'logElo' },
+}
+
 /** Identidad visual del dominio (Fase 2 del plan: icono + color). */
 export const TENNIS_ACCENT = '#a3e635' // lima — distinto del esmeralda global y del ámbar NBA
 export const TENNIS_ICON = 'Activity'  // lucide; se usa al activar la navegación

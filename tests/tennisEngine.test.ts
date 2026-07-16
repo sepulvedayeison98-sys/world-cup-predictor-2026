@@ -101,6 +101,19 @@ test('predictTennisMatch: ranking rank2/(rank1+rank2) favorece al mejor clasific
   assert.equal(p.confidence, 'alta')
 })
 
+test('tennis-1.2: mapeo logElo del ranking favorece al mejor clasificado y es menos extremo que ratio', () => {
+  // rank 1 vs 100: ratio da 100/101 ≈ 0.99 (recortado a 0.98); logElo es alto
+  // pero más moderado, y sigue favoreciendo claramente al #1.
+  const logElo = predictTennisMatch(factors({ rankP1: 1, rankP2: 100 }), { rankMapping: 'logElo' })!
+  const ratio = predictTennisMatch(factors({ rankP1: 1, rankP2: 100 }))!
+  assert.equal(logElo.favorite, 'p1')
+  assert.ok(logElo.p1Probability > 0.5)
+  assert.ok(logElo.p1Probability < ratio.p1Probability, 'logElo menos extremo que ratio en 1 vs 100')
+  // simetría: invertir los rangos invierte la probabilidad
+  const inv = predictTennisMatch(factors({ rankP1: 100, rankP2: 1 }), { rankMapping: 'logElo' })!
+  assert.ok(Math.abs(logElo.p1Probability + inv.p1Probability - 1) < 1e-9)
+})
+
 test('predictTennisMatch: renormalización — pesos efectivos suman 1', () => {
   const p = predictTennisMatch(factors({
     eloP1: 1550, eloP2: 1450,
