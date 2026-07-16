@@ -403,3 +403,91 @@ export async function fetchTennisH2H(id1: string, id2: string): Promise<TennisH2
 
   return { p1, p2, p1Wins, p2Wins, bySurface, matches }
 }
+
+export interface TennisMatchPlayer {
+  id: string
+  name: string
+  country_code: string | null
+  plays_hand: 'R' | 'L' | null
+  rankPosition: number | null
+  /** Forma reciente ANTES de este partido (más reciente al final) */
+  formBefore: ('W' | 'L')[]
+}
+
+export interface TennisMatchDetail {
+  id: string
+  scheduled_at: string | null
+  round: string | null
+  surface: string | null
+  status: string
+  score: string | null
+  best_of: number | null
+  winner_id: string | null
+  tournament: { name: string | null; level: string | null; city: string | null; season: string | null }
+  p1: TennisMatchPlayer | null
+  p2: TennisMatchPlayer | null
+  h2h: { p1Wins: number; p2Wins: number } | null
+}
+
+/** Forma reciente de un jugador ANTES de una fecha (últimos n, W/L cronológico). */
+async function formBefore(sb: any, playerId: string, beforeIso: string | null, n = 5): Promise<('W' | 'L')[]> {
+  let q = sb
+    .from('tennis_matches')
+    .select('winner_id, scheduled_at')
+    .in('status', COUNTABLE)
+    .or(`p1_id.eq.${playerId},p2_id.eq.${playerId}`)
+    .order('scheduled_at', { ascending: false })
+    .limit(n)
+  if (beforeIso) q = q.lt('scheduled_at', beforeIso)
+  const { data } = await q
+  return ((data ?? []) as any[])
+    .reverse() // cronológico: más reciente al final
+    .map((m) => (m.winner_id === playerId ? 'W' : 'L'))
+}
+
+/** Detalle de un partido: hechos reales + contexto (rank, forma, H2H). */
+export async function fetchTennisMatchDetail(id: string): Promise<TennisMatchDetail | null> {
+  const sb = client()
+  const { data: m } = await sb
+    .from('tennis_matches')
+    .select('id, scheduled_at, round, surface, status, score, best_of, winner_id, p1_id, p2_id, tennis_tournaments!inner(name, level, city, season)')
+    .eq('id', id)
+    .maybeSingle()
+  if (!m) return null
+
+  const ids = [m.p1_id, m.p2_id].filter(Boolean) as string[]
+  const { data: players } = ids.length
+    ? await sb.from('tennis_players').select('id, name, country_code, plays_hand').in('id', ids)
+    : { data: [] }
+  const pmap = new Map(((players ?? []) as any[]).map((p) => [p.id, p]))
+
+  const build = async (pid: string | null): Promise<TennisMatchPlayer | null> => {
+    if (!pid) return null
+    const p = pmap.get(pid)
+    if (!p) return null
+    const [rank, form] = await Promise.all([
+      latestRankOfPlayer(sb, pid),
+      formBefore(sb, pid, m.scheduled_at),
+    ])
+    return {
+      id: pid, name: p.name, country_code: p.country_code, plays_hand: p.plays_hand,
+      rankPosition: rank?.position ?? null, formBefore: form,
+    }
+  }
+
+  const [p1, p2, h2hFull] = await Promise.all([
+    build(m.p1_id), build(m.p2_id),
+    m.p1_id && m.p2_id ? fetchTennisH2H(m.p1_id, m.p2_id) : Promise.resolve(null),
+  ])
+
+  return {
+    id: m.id, scheduled_at: m.scheduled_at, round: m.round, surface: m.surface,
+    status: m.status, score: m.score, best_of: m.best_of, winner_id: m.winner_id,
+    tournament: {
+      name: m.tennis_tournaments?.name ?? null, level: m.tennis_tournaments?.level ?? null,
+      city: m.tennis_tournaments?.city ?? null, season: m.tennis_tournaments?.season ?? null,
+    },
+    p1, p2,
+    h2h: h2hFull ? { p1Wins: h2hFull.p1Wins, p2Wins: h2hFull.p2Wins } : null,
+  }
+}

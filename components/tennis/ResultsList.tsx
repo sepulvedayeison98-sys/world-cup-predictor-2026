@@ -43,13 +43,13 @@ export function ResultsList({ rows, showTournament = true }: { rows: TennisResul
                 <PlayerCell player={m.p2} isWinner={p2Won} />
               </div>
             </div>
-            <div className="hidden sm:flex flex-col items-end gap-1 text-right">
+            <Link href={`/tennis/partidos/${m.id}`} className="hidden sm:flex flex-col items-end gap-1 text-right hover:opacity-80" title="Ver detalle del partido">
               <span className="mono text-xs text-zinc-300">{m.score ?? (m.status === 'retired' ? 'Ret.' : '—')}</span>
               <div className="flex items-center gap-1.5">
                 <SurfaceBadge surface={m.surface} />
                 {m.round && <span className="text-[10px] text-zinc-500">{roundLabel(m.round)}</span>}
               </div>
-            </div>
+            </Link>
             {showTournament && m.tournament && (
               <div className="hidden md:block w-40 shrink-0 truncate text-right text-[11px] text-zinc-500">
                 {m.tournament}
