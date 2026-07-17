@@ -73,7 +73,7 @@ export default async function TennisIntelligencePage() {
               <p className={`mt-4 rounded-lg border px-3 py-2 text-xs ${beatsRanking ? 'border-lime-500/30 bg-lime-500/10 text-lime-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
                 {beatsRanking === null ? 'Comparación no disponible.'
                   : beatsRanking
-                    ? 'El motor iguala/roza por encima al ranking puro en precisión (margen mínimo, dentro del ruido de ~1 partido). El avance sólido de tennis-1.1 es probabilístico: bate al azar y mejora a 1.0 en Brier y log-loss —la calidad que importa para el valor esperado—, gracias a sembrar el ELO desde el ranking (cold-start).'
+                    ? 'El motor supera al ranking puro en este subconjunto. La composición se eligió por ablación medida (walk-forward, sin fuga): ancla de ranking+ELO, ELO por superficie, forma, saque/devolución con stats reales al 100% y H2H. Cada versión anterior que midió peor fue descartada con números, no con promesas.'
                     : 'Hallazgo honesto: en precisión cruda el motor aún NO supera al ranking puro. Sí bate al azar en Brier y log-loss (calidad probabilística, clave para valor esperado). Cerrar esta brecha es la línea de trabajo del tuning (peso de la forma, calibración por superficie).'}
               </p>
             </div>

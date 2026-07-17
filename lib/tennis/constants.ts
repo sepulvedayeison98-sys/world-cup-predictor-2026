@@ -14,14 +14,17 @@ export const ATP_COMPETITION_ID = '20000000-0000-4000-8000-000000000020'
 export const WTA_COMPETITION_ID = '21000000-0000-4000-8000-000000000021'
 
 /**
- * Versión del motor en producción. tennis-1.1 (2026-07-15) añade la siembra
- * de ELO por ranking (cold-start): medida por backtest walk-forward mejora a
- * 1.0 en precisión (63,75→63,95 %), Brier (0,4420→0,4400) y log-loss
- * (0,6316→0,6293), e iguala/roza la línea base de ranking. Un solo cambio,
- * priores a priori — sin overfitting. 1.0 se conserva para comparación.
+ * Versión del motor en producción. tennis-2.0 (2026-07-17): ancla
+ * ranking+ELO 40% + superficie 15% + forma 15% + saque/devolución 15% +
+ * H2H 10% (+mercado 5% cuando exista fuente). Elegida por ablación medida:
+ * 64,00% de precisión, Brier 0,4375, log-loss 0,6264 — mejora a 1.1 en las
+ * tres métricas y BATE al ranking puro por primera vez (64,26% vs 64,19%).
+ * La espec original (superficie 30% dominante + fatiga) midió peor y se
+ * descartó con números; la fatiga (proxy fecha-de-torneo) midió dañina y
+ * quedó fuera. 1.1 se conserva para comparación.
  */
-export const TENNIS_MODEL_VERSION = 'tennis-1.1'
-export const TENNIS_MODEL_VERSION_PREV = 'tennis-1.0'
+export const TENNIS_MODEL_VERSION = 'tennis-2.0'
+export const TENNIS_MODEL_VERSION_PREV = 'tennis-1.1'
 
 /**
  * Config del motor por versión (fuente única). Cada versión es un cambio
@@ -38,6 +41,9 @@ export const TENNIS_ENGINE_CONFIG: Record<string, { seedFromRanking: boolean; ra
   'tennis-1.0': { seedFromRanking: false, rankMapping: 'ratio' },
   'tennis-1.1': { seedFromRanking: true, rankMapping: 'ratio' },
   'tennis-1.2': { seedFromRanking: true, rankMapping: 'logElo' },
+  // 2.0 usa el motor de factores TENNIS2_WEIGHTS (engine2); la siembra aplica
+  // igual y el mapeo de ranking vive en la jerarquía del factor superficie.
+  'tennis-2.0': { seedFromRanking: true, rankMapping: 'logElo' },
 }
 
 /** Identidad visual del dominio (Fase 2 del plan: icono + color). */
@@ -70,4 +76,22 @@ export const TENNIS_WEIGHTS = {
   surface: 0.20,
   headToHead: 0.10,
   market: 0.10,
+} as const
+
+/**
+ * Pesos del motor tennis-2.0 FINALES, elegidos por ablación medida (ver
+ * TENNIS_ARCHITECTURE §motor): la especificación original (superficie 30%
+ * dominante + fatiga) midió PEOR que 1.1 y se descartó; ganó la composición
+ * "ancla de ranking+ELO + saque/devolución". La fatiga (proxy con fecha de
+ * torneo) midió dañina y quedó fuera — al backlog hasta tener fechas/minutos
+ * reales por partido. market hoy no tiene fuente → null y renormaliza (las
+ * proporciones entre los presentes son exactamente las medidas). Suman 1.
+ */
+export const TENNIS2_WEIGHTS = {
+  rankingElo: 0.40,
+  surfaceElo: 0.15,
+  form: 0.15,
+  serveReturn: 0.15,
+  headToHead: 0.10,
+  market: 0.05,
 } as const

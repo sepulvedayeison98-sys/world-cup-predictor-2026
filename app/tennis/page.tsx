@@ -95,9 +95,9 @@ export default async function TennisHubPage() {
 
       <p className="text-[11px] text-zinc-600">
         Fuente: TML-Database (esquema Sackmann, CC BY-NC-SA). Motor {TENNIS_MODEL_VERSION}:
-        ELO walk-forward global + por superficie (con siembra por ranking),
-        factores combinados con renormalización honesta cuando falta un dato.
-        Cero datos fabricados.
+        ranking+ELO walk-forward (con siembra por ranking), ELO por superficie,
+        forma, saque/devolución con stats reales y H2H — combinados con
+        renormalización honesta cuando falta un dato. Cero datos fabricados.
       </p>
     </div>
   )

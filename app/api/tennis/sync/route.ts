@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       // variant permite correr cualquier versión conocida para comparar; la
       // config del motor sale del mapa TENNIS_ENGINE_CONFIG por versión.
       const variant = sp.get('variant')
-      const known = ['tennis-1.0', 'tennis-1.1', 'tennis-1.2']
+      const known = ['tennis-1.0', 'tennis-1.1', 'tennis-1.2', 'tennis-2.0']
       if (variant && known.includes(variant)) {
         return NextResponse.json(await runTennisBacktest(tour, { modelVersion: variant }))
       }

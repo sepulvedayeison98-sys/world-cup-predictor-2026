@@ -164,6 +164,45 @@ código queda tras `variant=tennis-1.2` solo para reproducir. Aprendizaje:
 ajustar más sobre 2 temporadas rinde poco y arriesga overfitting; la mejora
 real pide más datos o un split train/validación.
 
+### tennis-2.0 (PRODUCCIÓN) — saque/devolución + composición por ablación
+
+Del plan maestro del motor de tenis. Auditoría de datos primero: cobertura
+de stats de saque/resto = **100 %** de los partidos jugados (verificado
+paginado); sin cuotas, lesiones, minutos, WTA/Challenger/ITF ni "indoor"
+(declarados bloqueados, no fabricados).
+
+**La especificación original midió PEOR y se descartó con números**: pesos
+"superficie 30 % dominante + fatiga 10 %" dieron 62,89 % / 0,4500 / 0,6409
+(vs 1.1: 63,95 % / 0,4400 / 0,6293). La ablación pareada (una pasada, mismo
+estado, variantes simultáneas) localizó las causas: el ELO de superficie solo
+es más ruidoso que el ancla ranking+ELO; el proxy de fatiga (fecha de inicio
+de torneo, sin minutos) resta señal; **saque/devolución SÍ suma** (quitarlo
+empeora). Regla de promoción pre-declarada antes de mirar refinamientos:
+batir a 1.1 en las 3 métricas globales Y en el Brier de ventana tardía
+(≥2025-07-01), como guard de sobreajuste.
+
+Composición ganadora (pesos finales en `TENNIS2_WEIGHTS`): **40 %**
+ranking+ELO (ancla 1.1) · **15 %** superficie (con respaldo jerárquico:
+superficie → ELO global → ranking) · **15 %** forma · **15 %**
+saque/devolución (hold%+break% acumulados walk-forward, K=2,7 a priori,
+mínimo 3 partidos con stats) · **10 %** H2H · **5 %** mercado (sin fuente →
+renormaliza). Fatiga EXCLUIDA (medida dañina; `lib/tennis/fatigue.ts` queda
+como módulo puro para cuando la fuente tenga fechas/minutos por partido).
+
+| Métrica | tennis-1.1 | **tennis-2.0** | Δ |
+|---|---|---|---|
+| Precisión | 63,95 % | **64,00 %** | +0,05 pp |
+| Brier (2 clases) | 0,4400 | **0,4375** | −0,0025 |
+| Log-loss | 0,6293 | **0,6264** | −0,0029 |
+| Brier ventana tardía | 0,4529 | **0,4507** | −0,0022 |
+| Precisión vs. ranking (subset) | 64,21 % | **64,26 %** | **BATE la base (64,19 %) por primera vez** |
+
+Advertencia honesta: la composición se eligió entre pocas variantes sobre el
+mismo histórico (selección in-sample); el guard tardío mitiga pero no
+elimina el riesgo. La validación definitiva pide más temporadas o un split
+temporal — queda como línea de trabajo. `variant=tennis-1.0/1.1/1.2`
+reproducen las versiones anteriores.
+
 ## 7. Plan de fases restantes
 
 | Fase | Entregable | Bloqueo | Estimación |

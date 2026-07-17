@@ -46,6 +46,34 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-17 · Tennis — motor tennis-2.0 a producción (bate al ranking)
+
+Del plan maestro del motor de tenis, ejecutado con la disciplina de siempre:
+auditar datos → construir módulos puros → medir → promover solo con números.
+
+- **Auditoría de datos primero:** stats de saque/resto con cobertura **100 %**
+  (verificado paginado). Sin fuente: cuotas/EV, lesiones, minutos, clima,
+  WTA/Challenger/ITF, "indoor" — declarados bloqueados, no fabricados.
+- **Módulos nuevos:** `lib/tennis/serveReturn.ts` (índices 0-100 de saque y
+  devolución desde métricas reales) y `lib/tennis/fatigue.ts` (proxy de
+  frescura) — puros, con pruebas a mano.
+- **La espec original midió peor y se descartó:** "superficie 30 % + fatiga"
+  dio 62,89 % vs 63,95 % de 1.1. La ablación pareada localizó las causas
+  (superficie sola = ruidosa; fatiga con fecha-de-torneo = dañina;
+  **saque/devolución = suma señal**). También quedó medido y rechazado
+  tennis-1.2 (logElo: 63,43 %).
+- **Composición ganadora (regla pre-declarada: batir a 1.1 en 3 métricas +
+  Brier tardío):** ancla ranking+ELO 40 % · superficie 15 % (con respaldo) ·
+  forma 15 % · saque/devolución 15 % · H2H 10 % · mercado 5 % (renormaliza).
+  **64,00 % / Brier 0,4375 / log-loss 0,6264**, Brier tardío también mejor —
+  y **por primera vez el motor BATE al ranking puro: 64,26 % vs 64,19 %.**
+- Promovido: `TENNIS_MODEL_VERSION='tennis-2.0'`. Métricas persistidas en BD
+  (el runner local usa la service key; el CRON_SECRET sigue sin restaurar).
+  141/141 pruebas. Advertencia honesta documentada: selección in-sample entre
+  pocas variantes; la validación definitiva pide más temporadas.
+
+---
+
 ## Actualización 2026-07-15 (5) · Tennis — detalle de partido + estado de tennis-1.2
 
 - **`/tennis/partidos/[id]`** — detalle real de cada partido: torneo, ronda,

@@ -222,6 +222,18 @@ const winRate = (recent: ('W' | 'L')[] | null): number | null => {
   return (w + 1) / (recent.length + 2) // suavizado de Laplace
 }
 
+/**
+ * Prob. de forma vía log5 de las tasas recientes suavizadas (Laplace).
+ * Exportada para reutilizarla en el motor 2.0 sin duplicar la fórmula.
+ */
+export function formLog5(recentP1: ('W' | 'L')[] | null, recentP2: ('W' | 'L')[] | null): number | null {
+  const wr1 = winRate(recentP1), wr2 = winRate(recentP2)
+  if (wr1 == null || wr2 == null) return null
+  const num = wr1 * (1 - wr2)
+  const den = num + wr2 * (1 - wr1)
+  return den > 0 ? num / den : 0.5
+}
+
 /** Opciones de combinación (versionado del motor sin romper 1.0/1.1). */
 export interface PredictOptions {
   /**
@@ -250,13 +262,7 @@ export function predictTennisMatch(f: TennisFactorInput, opts: PredictOptions = 
   const rankingElo = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null
 
   // Forma: log5 de las tasas recientes suavizadas (ambos con historial)
-  const wr1 = winRate(f.recentP1), wr2 = winRate(f.recentP2)
-  let form: number | null = null
-  if (wr1 != null && wr2 != null) {
-    const num = wr1 * (1 - wr2)
-    const den = num + wr2 * (1 - wr1)
-    form = den > 0 ? num / den : 0.5
-  }
+  const form = formLog5(f.recentP1, f.recentP2)
 
   const surface = f.surfaceEloP1 != null && f.surfaceEloP2 != null
     ? eloExpected(f.surfaceEloP1, f.surfaceEloP2) : null

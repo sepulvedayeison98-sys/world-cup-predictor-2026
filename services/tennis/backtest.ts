@@ -1,12 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  TENNIS_MODEL_VERSION, TENNIS_WEIGHTS, TENNIS_ENGINE_CONFIG,
+  TENNIS_MODEL_VERSION, TENNIS_WEIGHTS, TENNIS2_WEIGHTS, TENNIS_ENGINE_CONFIG,
   type Tour, type TennisRankMapping,
 } from '@/lib/tennis/constants'
 import {
   ELO_COUNTABLE, advanceWalkState, createWalkState, extractFactors,
   predictTennisMatch, sortChronologically, type TEngineMatch,
 } from '@/lib/tennis/engine'
+import {
+  createWalkState2, advanceWalkState2, extractFactors2, predictTennisMatch2,
+  type T2MatchStats,
+} from '@/lib/tennis/engine2'
 
 /**
  * DOMINIO TENNIS — backtest walk-forward del motor tennis-1.0 (Fase 7).
@@ -84,6 +88,7 @@ export async function runTennisBacktest(
   const cfg = TENNIS_ENGINE_CONFIG[modelVersion] ?? TENNIS_ENGINE_CONFIG[TENNIS_MODEL_VERSION]
   const seedFromRanking = opts.seedFromRanking ?? cfg.seedFromRanking
   const rankMapping = opts.rankMapping ?? cfg.rankMapping
+  const useEngine2 = modelVersion === 'tennis-2.0'
   const supabase = createAdminClient() as any
 
   // Partidos del tour (join con torneos; paginado con orden estable)
@@ -95,6 +100,21 @@ export async function runTennisBacktest(
       .range(from, from + 999),
   )).map(({ tennis_tournaments: _t, ...m }: any) => m)
 
+  // Stats de saque por partido/jugador (solo motor 2.0; ~11k filas paginadas)
+  const statsByMatch = new Map<string, Map<string, T2MatchStats>>()
+  if (useEngine2) {
+    const statRows = await fetchAllPages((from) =>
+      supabase.from('tennis_match_stats')
+        .select('match_id, player_id, service_games, break_points_faced, break_points_saved')
+        .order('id')
+        .range(from, from + 999))
+    for (const r of statRows as any[]) {
+      const inner = statsByMatch.get(r.match_id) ?? new Map<string, T2MatchStats>()
+      inner.set(r.player_id, r)
+      statsByMatch.set(r.match_id, inner)
+    }
+  }
+
   // Rankings observados → posición por (jugador, fecha del torneo)
   const rankRows = await fetchAllPages((from) =>
     supabase.from('tennis_rankings')
@@ -105,8 +125,9 @@ export async function runTennisBacktest(
   const rankAt = new Map<string, number>(
     rankRows.map((r: any) => [`${r.player_id}|${r.ranking_date}`, r.position]))
 
-  // Walk-forward estricto
-  const state = createWalkState()
+  // Walk-forward estricto (1.x sobre state; 2.0 sobre state2, que lo envuelve)
+  const state2 = createWalkState2()
+  const state = useEngine2 ? state2.base : createWalkState()
   let predicted = 0, noVerdict = 0, correct = 0, brierSum = 0, llSum = 0
   let baseSample = 0, baseCorrect = 0, baseModelCorrect = 0
   let warmSample = 0, warmCorrect = 0, warmBrier = 0
@@ -124,8 +145,14 @@ export async function runTennisBacktest(
     const prevP1 = state.played.get(m.p1_id) ?? 0
     const prevP2 = state.played.get(m.p2_id) ?? 0
 
-    const f = extractFactors(state, m, rank1, rank2, null)
-    const pred = f ? predictTennisMatch(f, { rankMapping }) : null
+    let pred: { p1Probability: number } | null = null
+    if (useEngine2) {
+      const f2 = extractFactors2(state2, m, rank1, rank2, null)
+      pred = f2 ? predictTennisMatch2(f2) : null
+    } else {
+      const f = extractFactors(state, m, rank1, rank2, null)
+      pred = f ? predictTennisMatch(f, { rankMapping }) : null
+    }
     if (pred) {
       predicted++
       const y1 = m.winner_id === m.p1_id ? 1 : 0
@@ -149,7 +176,16 @@ export async function runTennisBacktest(
     } else {
       noVerdict++
     }
-    advanceWalkState(state, m, seedFromRanking ? { seedRank1: rank1, seedRank2: rank2 } : undefined)
+    const seed = seedFromRanking ? { seedRank1: rank1, seedRank2: rank2 } : undefined
+    if (useEngine2) {
+      const rows = statsByMatch.get(m.id)
+      advanceWalkState2(state2, m, {
+        p1: m.p1_id ? rows?.get(m.p1_id) ?? null : null,
+        p2: m.p2_id ? rows?.get(m.p2_id) ?? null : null,
+      }, seed)
+    } else {
+      advanceWalkState(state, m, seed)
+    }
   }
 
   const result: TennisBacktestResult = {
@@ -181,7 +217,7 @@ export async function runTennisBacktest(
     accuracy: result.accuracy, brier_score: result.brier, log_loss: result.logLoss,
     roi: null, yield: null, // sin cuotas reales de tenis todavía (Fase 9): no se fabrica ROI
     metadata: {
-      weights: TENNIS_WEIGHTS,
+      weights: useEngine2 ? TENNIS2_WEIGHTS : TENNIS_WEIGHTS,
       no_verdict: noVerdict,
       brier_chance: BRIER_CHANCE_2CLASS,
       seed_from_ranking: seedFromRanking,
