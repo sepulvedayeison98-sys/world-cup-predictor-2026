@@ -42,7 +42,7 @@ test('tenis: navegador de resultados con filtro y detalle de partido', async ({ 
   const href = await link.getAttribute('href')
   expect(href).toMatch(/^\/tennis\/partidos\/[0-9a-f-]{36}$/)
   await page.goto(href!)
-  await expect(page.getByText('resultado')).toBeVisible()
+  await expect(page.getByText('resultado', { exact: true })).toBeVisible()
   await expect(page.getByText(/TML-Database/)).toBeVisible()
 })
 

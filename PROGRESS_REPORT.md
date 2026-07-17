@@ -80,7 +80,9 @@ declarado pendiente):
   (top-3 del ranking honesto + precisión del motor,
   `fetchTennisDashboardStrip`), e2e Playwright del dominio
   (`e2e/tennis.spec.ts`, 7 escenarios), nota del registro → tennis-2.0.
-- Gates: 148/148 tests · lint 0 errores · type-check y build limpios.
+- Gates: 148/148 tests · lint 0 errores · type-check y build limpios ·
+  e2e 26/28 (tenis 7/7; los 2 fallos son los bloques de veredicto IA de
+  fútbol/NBA, ambientales: el sandbox no tiene la clave de generación).
 
 ## Actualización 2026-07-17 · Tennis — motor tennis-2.0 a producción (bate al ranking)
 
