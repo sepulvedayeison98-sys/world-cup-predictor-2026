@@ -53,13 +53,22 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
   de cada jugador, **forma reciente ANTES del partido** (V/D) y resumen cara a
   cara con enlace al historial. Los resultados enlazan al detalle. Página
   dinámica; verificada en producción.
-- **tennis-1.2 (mapeo logElo del ranking) — código listo, SIN promover.**
-  Cambio principiado único sobre 1.1 (rank2/(rank1+rank2) → eloExpected de
-  rankToSeedElo). type-check/lint/126 pruebas ✔. Producción sigue en 1.1.
-  **Pendiente la comparación medida 1.1 vs 1.2**: el contenedor efímero borró
-  `.env.local` (service-role + CRON_SECRET) a mitad de sesión; sin esas claves
-  no puedo correr el backtest en producción. No se promueve a ciegas (regla
-  "medido, no prometido"). Se decide cuando se restauren las claves.
+- **tennis-1.2 (mapeo logElo del ranking) — MEDIDO y RECHAZADO.** Tras
+  restaurar las claves, corrí el backtest comparativo walk-forward (misma
+  ventana, 5.556 partidos):
+
+  | modelo | precisión | Brier | log-loss | vs ranking |
+  |---|---|---|---|---|
+  | 1.1 (producción) | **63,95 %** | **0,4400** | **0,6293** | **64,21 %** |
+  | 1.2 (logElo) | 63,43 % | 0,4427 | 0,6324 | 63,68 % |
+
+  El mapeo logarítmico empeoró 1.1 en las tres métricas. **No se promueve;
+  producción sigue en tennis-1.1.** El código queda como experimento
+  documentado y rechazado (regla "medido, no prometido": no se sube algo solo
+  porque se construyó). Aprendizaje: seguir ajustando sobre la misma ventana de
+  2 temporadas da rendimientos decrecientes y arriesga overfitting — la mejora
+  real pide más datos (más temporadas) o un split train/validación, no más
+  perillas.
 
 ---
 

@@ -27,8 +27,11 @@ export const TENNIS_MODEL_VERSION_PREV = 'tennis-1.0'
  * Config del motor por versión (fuente única). Cada versión es un cambio
  * principiado sobre la anterior, medido por backtest walk-forward:
  * · 1.0: base (ELO desde 1500, ranking ratio).
- * · 1.1: + siembra de ELO por ranking (cold-start).
- * · 1.2: + mapeo ranking→prob logarítmico (misma escala Elo, mejor calibrado).
+ * · 1.1: + siembra de ELO por ranking (cold-start). ← PRODUCCIÓN.
+ * · 1.2: probó el mapeo ranking→prob logarítmico. RECHAZADO por medición:
+ *   empeoró 1.1 en las tres métricas (prec 63,95→63,43 %, Brier 0,4400→0,4427,
+ *   log-loss 0,6293→0,6324). Se conserva solo para reproducir la comparación;
+ *   NO es candidato de producción.
  */
 export type TennisRankMapping = 'ratio' | 'logElo'
 export const TENNIS_ENGINE_CONFIG: Record<string, { seedFromRanking: boolean; rankMapping: TennisRankMapping }> = {

@@ -153,6 +153,17 @@ importa para valor esperado. Promovido a producción
 (`TENNIS_MODEL_VERSION='tennis-1.1'`); 1.0 se conserva para comparación
 (`?step=backtest&variant=tennis-1.0`). Queda declarado, no maquillado.
 
+### tennis-1.2 (rechazado) — mapeo logarítmico del ranking
+
+Hipótesis: `rank2/(rank1+rank2)` está mal calibrado en los extremos;
+sustituirlo por `eloExpected(rankToSeedElo(r1), rankToSeedElo(r2))` (misma
+escala Elo) debería mejorar. **Medición (walk-forward, misma ventana):
+empeoró 1.1 en las tres métricas** — precisión 63,95→63,43 %, Brier
+0,4400→0,4427, log-loss 0,6293→0,6324. **Rechazado**, no se promueve. El
+código queda tras `variant=tennis-1.2` solo para reproducir. Aprendizaje:
+ajustar más sobre 2 temporadas rinde poco y arriesga overfitting; la mejora
+real pide más datos o un split train/validación.
+
 ## 7. Plan de fases restantes
 
 | Fase | Entregable | Bloqueo | Estimación |
