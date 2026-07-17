@@ -199,9 +199,58 @@ como módulo puro para cuando la fuente tenga fechas/minutos por partido).
 
 Advertencia honesta: la composición se eligió entre pocas variantes sobre el
 mismo histórico (selección in-sample); el guard tardío mitiga pero no
-elimina el riesgo. La validación definitiva pide más temporadas o un split
-temporal — queda como línea de trabajo. `variant=tennis-1.0/1.1/1.2`
-reproducen las versiones anteriores.
+elimina el riesgo. **Resuelta el 2026-07-17 con la re-validación de abajo.**
+`variant=tennis-1.0/1.1/1.2` reproducen las versiones anteriores.
+
+### Re-validación anti-overfitting (2026-07-17) — split temporal 2020-2026
+
+Ejecutada localmente desde los CSV de TML-Database 2020-2026 (la MISMA
+fuente y transformación de la ingesta; 16.270 partidos), replicando la
+lógica exacta de `services/tennis/backtest.ts`. La ventana 2020-2023 es
+**out-of-sample real**: esos años no participaron en ninguna decisión de
+diseño del 2.0 (que se eligió solo con 2024-2026).
+
+| Ventana | Métrica | tennis-1.1 | tennis-2.0 | Baseline ranking |
+|---|---|---|---|---|
+| 2020-2023 (out-of-sample, n=9.950) | Precisión | 65,04 % | 64,85 % | 63,97 % |
+| | Brier | 0,4319 | **0,4299** | — |
+| | Log-loss | 0,6201 | **0,6177** | — |
+| 2024-2026 (selección, n=6.059) | Precisión | 64,33 % | 64,20 % | 62,89 % |
+| | Brier | 0,4381 | **0,4368** | — |
+| | Log-loss | 0,6269 | **0,6255** | — |
+
+Conclusión: la ventaja **probabilística** del 2.0 (Brier y log-loss)
+replica fuera de muestra — sin señal de overfitting; la ventaja de
+precisión publicada es marginal (las diferencias de precisión entre 1.1 y
+2.0 quedan dentro del ruido muestral, <0,2 pp). Ambos baten al ranking
+puro en la muestra común. **tennis-2.0 se mantiene en producción.**
+Nota: la ingesta de 2020-2023 a la BD viva queda PENDIENTE (requiere
+service key/CRON_SECRET, acción del dueño); al ingestarse, el backtest
+remoto reproducirá estos números. Hallazgo de fuente: TML publica
+`minutes` por partido (no la fecha exacta) — la fatiga 2.0 podría
+reintentarse con carga por minutos, sigue en backlog.
+
+### Simulador Monte Carlo de mercados (2026-07-17, `lib/tennis/monteCarlo.ts`)
+
+Punto→juego→set→partido, puro y determinista por semilla. Entrada: % REAL
+de puntos ganados al saque y al resto por jugador (cobertura 100 %). La
+prob. de punto al saque combina saque propio y resto del rival con el
+ajuste Barnett–Clarke: `spwA − (rpwB − rpwMedia)`, con la media del
+circuito MEDIDA (0,3594 sobre 10.848 filas). El paso punto→juego usa la
+cadena cerrada del juego con ventaja; tiebreak, set y partido se simulan.
+Publica: marcador en sets (2-0/2-1/…), over/under de juegos y hándicap de
+juegos — SIN cuotas (el EV llega con la Fase 9).
+
+**Validación contra frecuencias reales antes de UI** (walk-forward sin
+fuga, n=3.704 Bo3 con perfil): el modelo iid puro predijo 54,8 % de
+partidos a dos sets vs 64,0 % reales (los promedios subestiman la
+variabilidad día a día). Se añadió un **choque de rendimiento por
+simulación** (`PERFORMANCE_SIGMA`), calibrado por rejilla contra el
+histórico: con σ=0,065 → 2-0 64,11 % (real 63,96 %), juegos totales 23,59
+(real 23,61), over 22,5 46,92 % (real 46,60 %). Expuesto en la UI del H2H
+(`MarketsPanel`, `fetchTennisMatchupSim`) como partido hipotético hoy;
+si un jugador no llega al mínimo de partidos con stats, se declara — no
+se estima.
 
 ## 7. Plan de fases restantes
 

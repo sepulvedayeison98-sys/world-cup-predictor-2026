@@ -8,6 +8,7 @@ import { MyTeamsStrip } from '@/components/dashboard/MyTeamsStrip'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, WC_FINAL_DATE } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
+import { fetchTennisDashboardStrip } from '@/services/tennis/queries'
 
 export const metadata: Metadata = {
   title: 'Inicio | Veredicto — Inteligencia Deportiva',
@@ -53,6 +54,7 @@ export default async function HomePage() {
     { count: liveCount },
     { data: nextWcMatch },
     { data: finalRow },
+    tennis,
   ] = await Promise.all([
     // Próximos partidos: cualquier competición, próximas 48 h (o en vivo)
     supabase
@@ -142,6 +144,8 @@ export default async function HomePage() {
       .eq('competition_id', COMPETITION_ID)
       .eq('phase', 'final')
       .maybeSingle(),
+    // Tenis: franja del dominio (top del ranking + medición del motor)
+    fetchTennisDashboardStrip('ATP').catch(() => ({ top: [], backtest: null })),
   ])
 
   // ── Confianza del motor ────────────────────────────────────
@@ -380,6 +384,49 @@ export default async function HomePage() {
           </p>
         )}
       </section>
+
+      {/* ── TENIS · ATP ──────────────────────────────────────── */}
+      {tennis.top.length > 0 && (
+        <section aria-label="Tenis ATP" className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-lime-400">Tenis · ATP</p>
+            <Link href="/tennis" className="text-xs font-semibold text-lime-400 hover:text-lime-300">
+              hub del tenis →
+            </Link>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Cabeza del ranking</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {tennis.top.map((r) => (
+                  <li key={r.player_id}>
+                    <Link href={`/tennis/jugadores/${r.player_id}`} className="flex items-center gap-2 text-sm text-zinc-200 hover:text-lime-300">
+                      <span className="mono w-6 shrink-0 text-xs font-bold text-zinc-500">#{r.position}</span>
+                      <span className="truncate font-medium">{r.name}</span>
+                      {r.points != null && (
+                        <span className="ml-auto shrink-0 mono text-[11px] text-zinc-500">{r.points.toLocaleString('es-ES')} pts</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Motor {tennis.backtest?.model_version ?? 'de tenis'}</p>
+              {tennis.backtest?.accuracy != null ? (
+                <>
+                  <p className="mt-1 text-3xl font-bold text-lime-400 mono">{(tennis.backtest.accuracy * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-zinc-500">
+                    precisión en backtest walk-forward · {tennis.backtest.sample_size.toLocaleString('es-ES')} partidos reales
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-zinc-500">Backtest pendiente de publicar.</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── SMART BET + ACTIVIDAD ────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

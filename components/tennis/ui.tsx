@@ -57,6 +57,29 @@ export function countryFlag(code: string | null): string {
   return String.fromCodePoint(...[...two].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
 }
 
+/**
+ * Barra de índice 0-100 (saque/devolución). El índice es un escalado
+ * transparente de métricas reales (ver lib/tennis/serveReturn.ts).
+ */
+export function IndexBar({ label, value, hint }: { label: string; value: number | null; hint?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{label}</span>
+      {value == null ? (
+        <span className="text-xs text-zinc-600">sin stats suficientes</span>
+      ) : (
+        <>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-full rounded-full bg-lime-500/70" style={{ width: `${value}%` }} />
+          </div>
+          <span className="mono w-8 shrink-0 text-right text-xs font-bold text-lime-300">{value}</span>
+        </>
+      )}
+      {hint && <span className="hidden shrink-0 text-[10px] text-zinc-600 sm:inline">{hint}</span>}
+    </div>
+  )
+}
+
 /** Tarjeta KPI reutilizable. */
 export function StatCard({ label, value, hint, accent }: {
   label: string; value: string; hint?: string; accent?: boolean

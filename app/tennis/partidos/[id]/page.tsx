@@ -38,6 +38,14 @@ function PlayerBlock({ p, isWinner, align }: { p: TennisMatchPlayer | null; isWi
       <p className="mt-1 text-[11px] text-zinc-500">
         {[p.rankPosition != null ? `ATP #${p.rankPosition}` : null, handLabel(p.plays_hand)].filter(Boolean).join(' · ')}
       </p>
+      {(p.serveIndex != null || p.returnIndex != null) && (
+        <p className="mt-1 text-[11px] text-zinc-500">
+          <span className="uppercase tracking-wider text-zinc-600">Saque </span>
+          <span className="mono font-bold text-lime-300">{p.serveIndex ?? '—'}</span>
+          <span className="uppercase tracking-wider text-zinc-600"> · Resto </span>
+          <span className="mono font-bold text-lime-300">{p.returnIndex ?? '—'}</span>
+        </p>
+      )}
       <div className={cn('mt-2 flex', align === 'right' && 'justify-end')}>
         <FormChips form={p.formBefore} />
       </div>
@@ -92,7 +100,10 @@ export default async function TennisMatchPage({ params }: { params: Promise<{ id
 
       <p className="text-[11px] text-zinc-600">
         Fuente: TML-Database (esquema Sackmann, CC BY-NC-SA). La forma reciente
-        es la de cada jugador ANTES de este partido. Cero datos fabricados.
+        es la de cada jugador ANTES de este partido. Los índices de saque/resto
+        (0-100, escalado transparente de métricas reales) son del histórico
+        completo del jugador — como el ranking, última verdad conocida, no una
+        foto pre-partido. Cero datos fabricados.
       </p>
     </div>
   )

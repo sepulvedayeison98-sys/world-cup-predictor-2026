@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Trophy, Globe, Users } from 'lucide-react'
+import { Search, X, Trophy, Globe, Users, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
 
@@ -11,6 +11,14 @@ interface TeamResult {
   name: string
   code: string
   logo_url: string | null
+  href: string
+  context: string
+}
+
+interface PlayerResult {
+  id: string
+  name: string
+  country_code: string | null
   href: string
   context: string
 }
@@ -24,12 +32,14 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   const inputRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
   const [teams, setTeams] = useState<TeamResult[]>([])
+  const [players, setPlayers] = useState<PlayerResult[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (open) {
       setQ('')
       setTeams([])
+      setPlayers([])
       // foco al abrir
       setTimeout(() => inputRef.current?.focus(), 30)
     }
@@ -43,17 +53,19 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  // Búsqueda de equipos con debounce corto
+  // Búsqueda de equipos y tenistas con debounce corto
   useEffect(() => {
-    if (q.trim().length < 2) { setTeams([]); return }
+    if (q.trim().length < 2) { setTeams([]); setPlayers([]); return }
     const t = setTimeout(async () => {
       setLoading(true)
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: 'no-store' })
         const body = await res.json()
         setTeams(body.teams ?? [])
+        setPlayers(body.players ?? [])
       } catch {
         setTeams([])
+        setPlayers([])
       } finally {
         setLoading(false)
       }
@@ -154,6 +166,24 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                   <span className="ml-auto shrink-0 text-[10px] text-zinc-500">{t.context}</span>
                 </button>
               ))}
+              {players.length > 0 && (
+                <>
+                  <p className="px-2 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                    Tenistas
+                  </p>
+                  {players.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => go(p.href)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none"
+                    >
+                      <Activity className="h-4 w-4 shrink-0 text-lime-400" />
+                      <span className="truncate font-medium">{p.name}</span>
+                      <span className="ml-auto shrink-0 text-[10px] text-zinc-500">{p.context}</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>

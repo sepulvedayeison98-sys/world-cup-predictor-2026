@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { fetchTennisPlayer, fetchRankedPlayerIds } from '@/services/tennis/queries'
 import { ResultsList } from '@/components/tennis/ResultsList'
-import { SurfaceBadge, StatCard, countryFlag, handLabel } from '@/components/tennis/ui'
+import { SurfaceBadge, StatCard, IndexBar, countryFlag, handLabel } from '@/components/tennis/ui'
 import { SURFACE_LABELS, type Surface } from '@/lib/tennis/constants'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,7 @@ export default async function TennisPlayerPage({ params }: { params: Promise<{ i
   const { id } = await params
   const profile = await fetchTennisPlayer(id)
   if (!profile) notFound()
-  const { player, stats, rankPosition, rankPoints, recent } = profile
+  const { player, stats, rankPosition, rankPoints, serveReturn, recent } = profile
 
   const surfaces = (Object.keys(SURFACE_LABELS) as Surface[])
     .map((s) => ({ s, e: stats.bySurface[s] }))
@@ -68,6 +68,25 @@ export default async function TennisPlayerPage({ params }: { params: Promise<{ i
         <StatCard label="Break % (resto)" value={pct(stats.breakPct)} hint={stats.statsMatches ? 'juegos al resto ganados' : 'sin datos de resto'} />
         <StatCard label="Aces / DF" value={stats.acesPerMatch != null ? `${stats.acesPerMatch} / ${stats.dfPerMatch}` : '—'} hint="por partido" />
       </div>
+
+      {/* Índices de saque y devolución (0-100, escalado de métricas reales) */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Saque y devolución</h2>
+        <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <IndexBar label="Saque" value={serveReturn.serveIndex}
+            hint={serveReturn.serve.firstServeWonPct != null ? `${(serveReturn.serve.firstServeWonPct * 100).toFixed(1)}% pts con 1er saque` : undefined} />
+          <IndexBar label="Devolución" value={serveReturn.returnIndex}
+            hint={serveReturn.return.returnPtsWonPct != null ? `${(serveReturn.return.returnPtsWonPct * 100).toFixed(1)}% pts al resto` : undefined} />
+          <p className="text-[11px] text-zinc-600">
+            Índices 0-100: escalado transparente entre anclas fijas del circuito
+            ATP sobre métricas 100 % reales ({serveReturn.matchesWithStats} partidos con stats).
+            {serveReturn.serve.bpSavedPct != null &&
+              ` Break points salvados: ${(serveReturn.serve.bpSavedPct * 100).toFixed(1)}%.`}
+            {serveReturn.return.bpConvertedPct != null &&
+              ` Break points convertidos: ${(serveReturn.return.bpConvertedPct * 100).toFixed(1)}%.`}
+          </p>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Rendimiento por superficie */}

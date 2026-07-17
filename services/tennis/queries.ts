@@ -15,6 +15,11 @@
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { fetchAllRows } from '@/lib/fetchAll'
 import { computeTennisPlayerStats, type TennisPlayerSeasonStats } from '@/lib/tennis/stats'
+import { computeServeReturnProfile, type ServeReturnProfile } from '@/lib/tennis/serveReturn'
+import {
+  computePointProfile, simulateTennisMarkets,
+  type MCPointProfile, type TennisMarkets,
+} from '@/lib/tennis/monteCarlo'
 import { TENNIS_MODEL_VERSION, type Tour } from '@/lib/tennis/constants'
 
 const client = () => createStaticSupabaseClient() as any
@@ -234,6 +239,8 @@ export interface TennisPlayerProfile {
   rankPosition: number | null
   rankPoints: number | null
   stats: TennisPlayerSeasonStats
+  /** Perfil de saque/devolución con índices 0-100 (métricas reales escaladas). */
+  serveReturn: ServeReturnProfile
   recent: TennisResultRow[]
 }
 
@@ -268,6 +275,7 @@ export async function fetchTennisPlayer(id: string): Promise<TennisPlayerProfile
   }
 
   const stats = computeTennisPlayerStats(matches as any, statsRows as any, id)
+  const serveReturn = computeServeReturnProfile(matches as any, statsRows as any, id)
 
   // Ranking actual = última posición conocida del propio jugador
   const r = await latestRankOfPlayer(sb, id)
@@ -298,6 +306,7 @@ export async function fetchTennisPlayer(id: string): Promise<TennisPlayerProfile
     rankPosition,
     rankPoints,
     stats,
+    serveReturn,
     recent,
   }
 }
@@ -404,6 +413,72 @@ export async function fetchTennisH2H(id1: string, id2: string): Promise<TennisH2
   return { p1, p2, p1Wins, p2Wins, bySurface, matches }
 }
 
+export interface TennisDashboardStrip {
+  top: TennisRankingRow[]
+  backtest: TennisBacktestView | null
+}
+
+/**
+ * Franja de tenis para el dashboard raíz: top del ranking honesto + última
+ * medición del motor en producción. Pensada para consumirse desde la app
+ * neutral (el dashboard no importa motores, solo esta vista).
+ */
+export async function fetchTennisDashboardStrip(tour: Tour = 'ATP'): Promise<TennisDashboardStrip> {
+  const sb = client()
+  const [top, backtest] = await Promise.all([
+    buildLatestRanking(sb, tour, 3),
+    fetchLatestBacktest(tour),
+  ])
+  return { top, backtest }
+}
+
+// ── Saque/devolución y simulador de mercados ─────────────────────────────
+
+/** Partidos + filas de stats de un jugador (para perfiles saque/resto). */
+async function playerMatchesWithStats(sb: any, pid: string): Promise<{ matches: any[]; stats: any[] }> {
+  const matches = await fetchAllRows((from, to) => sb
+    .from('tennis_matches')
+    .select('id, p1_id, p2_id, winner_id, surface, status, scheduled_at, external_id')
+    .or(`p1_id.eq.${pid},p2_id.eq.${pid}`)
+    .order('id')
+    .range(from, to))
+  const stats: any[] = []
+  const ids = (matches as any[]).map((m) => m.id)
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await sb
+      .from('tennis_match_stats')
+      .select('match_id, player_id, aces, double_faults, serve_points, first_serve_in, first_serve_won, second_serve_won, service_games, break_points_saved, break_points_faced, return_games_won')
+      .in('match_id', ids.slice(i, i + 200))
+    stats.push(...(data ?? []))
+  }
+  return { matches, stats }
+}
+
+export interface TennisMatchupSim {
+  markets: TennisMarkets
+  p1: MCPointProfile
+  p2: MCPointProfile
+}
+
+/**
+ * Simulador Monte Carlo de mercados para un enfrentamiento hipotético HOY
+ * (best-of-3): perfiles de puntos REALES de cada jugador → punto→juego→set→
+ * partido. Null si alguno no llega al mínimo de partidos con stats (se
+ * declara en la UI, no se estima).
+ */
+export async function fetchTennisMatchupSim(id1: string, id2: string): Promise<TennisMatchupSim | null> {
+  if (!id1 || !id2 || id1 === id2) return null
+  const sb = client()
+  const [a, b] = await Promise.all([
+    playerMatchesWithStats(sb, id1),
+    playerMatchesWithStats(sb, id2),
+  ])
+  const p1 = computePointProfile(a.matches, a.stats, id1)
+  const p2 = computePointProfile(b.matches, b.stats, id2)
+  if (!p1 || !p2) return null
+  return { markets: simulateTennisMarkets(p1, p2, { sims: 10000, seed: 20260717 }), p1, p2 }
+}
+
 export interface TennisMatchPlayer {
   id: string
   name: string
@@ -412,6 +487,10 @@ export interface TennisMatchPlayer {
   rankPosition: number | null
   /** Forma reciente ANTES de este partido (más reciente al final) */
   formBefore: ('W' | 'L')[]
+  /** Índices 0-100 de saque/devolución del histórico completo (como el rank,
+   *  es la última verdad conocida del jugador, no una foto pre-partido). */
+  serveIndex: number | null
+  returnIndex: number | null
 }
 
 export interface TennisMatchDetail {
@@ -465,13 +544,16 @@ export async function fetchTennisMatchDetail(id: string): Promise<TennisMatchDet
     if (!pid) return null
     const p = pmap.get(pid)
     if (!p) return null
-    const [rank, form] = await Promise.all([
+    const [rank, form, sr] = await Promise.all([
       latestRankOfPlayer(sb, pid),
       formBefore(sb, pid, m.scheduled_at),
+      playerMatchesWithStats(sb, pid),
     ])
+    const profile = computeServeReturnProfile(sr.matches as any, sr.stats as any, pid)
     return {
       id: pid, name: p.name, country_code: p.country_code, plays_hand: p.plays_hand,
       rankPosition: rank?.position ?? null, formBefore: form,
+      serveIndex: profile.serveIndex, returnIndex: profile.returnIndex,
     }
   }
 

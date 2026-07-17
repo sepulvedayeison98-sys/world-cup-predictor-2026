@@ -1,6 +1,6 @@
 # HANDOFF — Veredicto · Inteligencia Deportiva
 
-> Documento de traspaso de sesión. Última actualización: **2026-07-17**.
+> Documento de traspaso de sesión. Última actualización: **2026-07-17 (2ª sesión)**.
 > Para el contexto arquitectónico completo: `CLAUDE.md`, `CLAUDE_CONTEXT.md`,
 > `docs/TENNIS_ARCHITECTURE.md`. Para el histórico de entregas: `PROGRESS_REPORT.md`.
 
@@ -51,7 +51,11 @@ apuntan al mismo commit tras cada entrega).
 | **Motor `tennis-2.0` (PRODUCCIÓN)** | ✅ **64,00 % precisión · Brier 0,4375 · log-loss 0,6264 — BATE al ranking puro (64,26 % vs 64,19 %) por primera vez** |
 | Hub `/tennis` + `/tennis/ranking` + `/tennis/jugadores/[id]` + `/tennis/partidos` (+`[id]` detalle) + `/tennis/h2h` + `/tennis/inteligencia` | ✅ todas 200 en prod, datos reales |
 | Registro (`lib/sports.ts`) | ✅ ATP `activa` (sidebar con icono propio); WTA `proximamente` (sin fuente, declarado) |
-| Pruebas | ✅ **141/141** (`npm test`) · lint 0 errores · build 89/89 páginas |
+| **Monte Carlo de mercados** (`lib/tennis/monteCarlo.ts`) | ✅ punto→juego→set→partido con % reales de saque/resto; calibrado contra frecuencias reales (σ=0,065: 2-0 64,11 % vs 63,96 % real); UI en `/tennis/h2h` (`MarketsPanel`) |
+| **serveReturn cableado a UI** | ✅ índices 0-100 en perfil de jugador (sección "Saque y devolución") y detalle de partido |
+| **Re-validación anti-overfitting** | ✅ split temporal 2020-2026 desde CSVs TML (16.270 partidos): la ventaja Brier/log-loss del 2.0 replica out-of-sample — sin overfitting; 2.0 se mantiene. Ver `TENNIS_ARCHITECTURE.md` |
+| **Buscador global + dashboard raíz** | ✅ tenistas en `/api/search` y en el overlay; franja "Tenis · ATP" (top ranking + precisión del motor) en `/dashboard` |
+| Pruebas | ✅ **148/148** (`npm test`, +7 de Monte Carlo) · lint 0 errores · e2e del dominio tenis en `e2e/tennis.spec.ts` |
 
 ### Historial del motor de tenis (todo medido walk-forward, sin fuga)
 
@@ -119,6 +123,25 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+0. **Sesión 2026-07-17 (2ª) — plan §6 ejecutado** (rama
+   `claude/handoff-action-plan-splrmy`):
+   - **Monte Carlo de mercados** (§6.1): `lib/tennis/monteCarlo.ts` +
+     `MarketsPanel` en `/tennis/h2h` + 7 tests. Validado y CALIBRADO contra
+     frecuencias reales (`PERFORMANCE_SIGMA=0,065`, medido; el iid puro
+     sesgaba 2-0 en −9 pp). Media de resto del circuito medida: 0,3594.
+   - **serveReturn → UI** (§6.2): índices 0-100 en perfil y detalle de partido.
+   - **Re-validación anti-overfitting** (§6.3): hecha LOCALMENTE desde CSVs
+     TML 2020-2026 (sin tocar la BD): Brier/log-loss del 2.0 mejoran a 1.1
+     también out-of-sample (0,4299/0,6177 vs 0,4319/0,6201 en 2020-23);
+     precisión empatada dentro del ruido. 2.0 se mantiene. La INGESTA de
+     2020-2023 a la BD viva sigue pendiente (requiere service key — abajo).
+   - **Backlog menor** (§6.6): tenistas en el buscador global
+     (`/api/search` + overlay), franja "Tenis · ATP" en `/dashboard`,
+     e2e Playwright del dominio (`e2e/tennis.spec.ts`), nota del registro
+     actualizada a `tennis-2.0`.
+   - Hallazgo de fuente: TML publica **`minutes` por partido** → la fatiga
+     2.0 con carga por minutos es reintenable (sigue faltando la fecha
+     exacta por partido).
 1. **tennis-2.0 a producción** (2026-07-17): módulos `serveReturn`/`fatigue`,
    `engine2`, ablación, promoción. Docs con la historia completa.
 2. **Detalle de partido** `/tennis/partidos/[id]` + enlaces desde resultados.
@@ -178,25 +201,26 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 6. Qué se planea hacer (en orden recomendado)
 
-1. **Monte Carlo de mercados** (siguiente natural, sin bloqueos): simulador
-   punto→juego→set→partido alimentado con hold%/break% reales del motor 2.0
-   para publicar probabilidades de **2-0/2-1, over/under de juegos y
-   hándicap** — sin cuotas (los mercados con EV llegan con la Fase 9).
-   Módulo puro + tests + validación contra frecuencias reales del histórico
-   (p. ej. % real de 2-0 en best-of-3) antes de UI.
-2. **Cablear `serveReturn.ts` a la UI**: índices de saque/devolución 0-100 en
-   el perfil de jugador y en el detalle de partido.
-3. **Validación anti-overfitting del motor**: traer más temporadas ATP desde
-   TML (2020-2023) y re-validar tennis-2.0 con split temporal real
-   (advertencia in-sample documentada en `TENNIS_ARCHITECTURE.md` §motor).
+1. ✅ **HECHO (2ª sesión 2026-07-17) — Monte Carlo de mercados**: módulo puro
+   + 7 tests + validación/calibración contra frecuencias reales + UI en H2H.
+2. ✅ **HECHO — `serveReturn.ts` cableado a la UI** (perfil + detalle).
+3. ✅ **HECHO (validación) / ⏳ PENDIENTE (ingesta)** — re-validación
+   anti-overfitting con split temporal 2020-2026 desde CSVs TML: 2.0 sin
+   señal de overfitting, se mantiene. La ingesta de 2020-2023 a la BD viva
+   sigue pendiente: requiere service key o `CRON_SECRET` (punto 4). Al
+   ingestarse, re-correr el backtest remoto (los números cambiarán a los de
+   la tabla de `TENNIS_ARCHITECTURE.md` §re-validación).
 4. **Restaurar `CRON_SECRET`** (acción del dueño en Vercel → env vars) para
-   reactivar el endpoint remoto de backtest/sync.
+   reactivar el endpoint remoto de backtest/sync — y con él, la ingesta
+   2020-2023 (`?step=matches&year=…` por temporada).
 5. **Fase 9 Smart Bets tenis**: al confirmarse fuente de cuotas (candidatas:
    API-Tennis, Sportradar, Tennis-Data). El schema (`tennis_smart_bets`,
-   mercados moneyline/over-under/handicap) ya existe en migración 053.
-6. Backlog menor: buscador global con tenistas; tenis en dashboard raíz;
-   e2e Playwright del dominio tenis; fatiga 2.0 si llegan minutos/fechas
-   reales por partido.
+   mercados moneyline/over-under/handicap) ya existe en migración 053. El
+   Monte Carlo ya publica las probabilidades; con cuotas se calcula EV.
+6. ✅ **HECHO — backlog menor**: buscador global con tenistas; franja de
+   tenis en dashboard raíz; e2e Playwright del dominio. Queda: fatiga 2.0
+   (TML trae `minutes` por partido — reintenable con carga por minutos,
+   pero sigue sin fecha exacta por partido); WTA (sin fuente).
 
 ---
 
@@ -216,7 +240,9 @@ NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt \
 #   runTennisBacktest('ATP', { modelVersion: 'tennis-2.0' }) con npx tsx.
 #   Ver PROGRESS_REPORT 2026-07-17. Borrar el script tras usarlo.
 
-# Flujo de entrega
+# Flujo de entrega (2ª sesión 2026-07-17: se trabajó en la rama
+# claude/handoff-action-plan-splrmy por mandato de la sesión remota;
+# el merge a main queda a criterio del dueño)
 git branch --show-current   # debe ser claude/page-data-refresh-63yioa
 # commit → push rama → checkout main → merge --ff-only → push main → volver a la rama
 # después: smoke de las URLs públicas en prod (esperar ~1-2 min el deploy)

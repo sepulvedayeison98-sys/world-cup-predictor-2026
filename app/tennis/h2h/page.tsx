@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { fetchPlayersForPicker, fetchTennisH2H } from '@/services/tennis/queries'
+import { fetchPlayersForPicker, fetchTennisH2H, fetchTennisMatchupSim } from '@/services/tennis/queries'
 import { H2HPicker } from '@/components/tennis/H2HPicker'
+import { MarketsPanel } from '@/components/tennis/MarketsPanel'
 import { ResultsList } from '@/components/tennis/ResultsList'
 import { SurfaceBadge, countryFlag } from '@/components/tennis/ui'
 import { SURFACE_LABELS, type Surface } from '@/lib/tennis/constants'
@@ -17,9 +18,10 @@ export default async function TennisH2HPage({
   searchParams,
 }: { searchParams: Promise<{ p1?: string; p2?: string }> }) {
   const sp = await searchParams
-  const [players, h2h] = await Promise.all([
+  const [players, h2h, sim] = await Promise.all([
     fetchPlayersForPicker('ATP'),
     sp.p1 && sp.p2 ? fetchTennisH2H(sp.p1, sp.p2) : Promise.resolve(null),
+    sp.p1 && sp.p2 ? fetchTennisMatchupSim(sp.p1, sp.p2) : Promise.resolve(null),
   ])
 
   return (
@@ -78,6 +80,19 @@ export default async function TennisH2HPage({
               </div>
             )}
           </div>
+
+          {/* Mercados simulados (Monte Carlo) */}
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Mercados simulados</h2>
+            {sim ? (
+              <MarketsPanel sim={sim} name1={h2h.p1.name} name2={h2h.p2.name} />
+            ) : (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-6 text-center text-sm text-zinc-500">
+                Sin simulación: alguno de los jugadores no alcanza el mínimo de
+                partidos con estadísticas de saque/resto. No se estima.
+              </div>
+            )}
+          </section>
 
           {/* Historial de enfrentamientos */}
           {h2h.matches.length > 0 ? (

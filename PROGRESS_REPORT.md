@@ -46,6 +46,42 @@ Verificación: type-check · lint 0 · build OK (`/equipos/[id]` ● SSG/ISR) ·
 
 ---
 
+## Actualización 2026-07-17 (2) · Tennis — mercados Monte Carlo, saque/resto en UI y re-validación sin overfitting
+
+Ejecución completa del plan §6 del HANDOFF (rama
+`claude/handoff-action-plan-splrmy`; sesión sin service key ni CRON_SECRET —
+todo lo que requería escritura en BD se re-planteó en local o quedó
+declarado pendiente):
+
+- **Monte Carlo de mercados** (`lib/tennis/monteCarlo.ts`, 7 tests):
+  punto→juego→set→partido con los % reales de puntos al saque/resto
+  (ajuste Barnett–Clarke con media del circuito MEDIDA: 0,3594). Validado
+  contra frecuencias reales walk-forward (n=3.704 Bo3): el iid puro
+  predijo 54,8 % de 2-0 vs 64,0 % real → se añadió choque de rendimiento
+  por simulación calibrado por rejilla (σ=0,065: 2-0 64,11 %, juegos 23,59,
+  over 22,5 46,92 % — vs reales 63,96 %/23,61/46,60 %). UI: sección
+  "Mercados simulados" en `/tennis/h2h` (`MarketsPanel` +
+  `fetchTennisMatchupSim`): victoria, marcador en sets, over/under y
+  hándicap de juegos — sin cuotas (EV llega con Fase 9).
+- **serveReturn a la UI**: sección "Saque y devolución" (índices 0-100 +
+  ratios reales) en el perfil, e índices por jugador en el detalle de
+  partido (declarados como última verdad conocida, igual que el rank).
+- **Re-validación anti-overfitting del motor** (deuda declarada del 2.0):
+  split temporal real con CSVs TML 2020-2026 (16.270 partidos, misma
+  transformación de la ingesta, script efímero borrado). En 2020-2023
+  (out-of-sample de la selección): 2.0 mejora a 1.1 en Brier
+  (0,4299 vs 0,4319) y log-loss (0,6177 vs 0,6201); precisión empatada
+  dentro del ruido; ambos baten al ranking puro. **2.0 se mantiene.**
+  La ingesta de 2020-2023 a la BD viva queda pendiente de service
+  key/CRON_SECRET. Hallazgo: TML trae `minutes` por partido (fatiga 2.0
+  reintenable con carga por minutos).
+- **Backlog menor**: tenistas en el buscador global (`/api/search` +
+  overlay, sección "Tenistas"), franja "Tenis · ATP" en `/dashboard`
+  (top-3 del ranking honesto + precisión del motor,
+  `fetchTennisDashboardStrip`), e2e Playwright del dominio
+  (`e2e/tennis.spec.ts`, 7 escenarios), nota del registro → tennis-2.0.
+- Gates: 148/148 tests · lint 0 errores · type-check y build limpios.
+
 ## Actualización 2026-07-17 · Tennis — motor tennis-2.0 a producción (bate al ranking)
 
 Del plan maestro del motor de tenis, ejecutado con la disciplina de siempre:
