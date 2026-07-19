@@ -330,17 +330,22 @@ export default async function HomePage() {
             })}
           </div>
         ) : (
-          // Estado vacío inteligente: qué pasó, qué viene, una acción
+          // Estado vacío honesto y multideporte: qué pasó, qué sigue vivo
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-8 text-center">
-            <p className="text-sm font-medium text-zinc-300">No hay partidos en las próximas 48 horas</p>
+            <p className="text-sm font-medium text-zinc-300">No hay partidos de fútbol en las próximas 48 horas</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-zinc-500">
-              {nextWcMatch
-                ? `La actividad regresa con ${wcPhaseLabel.toLowerCase()} del Mundial.`
-                : 'La temporada europea 2026-27 arranca a mediados de agosto — mientras tanto, el backtest completo de las 5 grandes ligas está disponible.'}
+              El Mundial 2026 concluyó y las ligas europeas 2026-27 arrancan a
+              mediados de agosto. Mientras tanto, el tenis ATP sigue activo y el
+              backtest de las 5 grandes ligas está disponible.
             </p>
-            <Link href={nextWcMatch ? '/matches' : '/ligas'} className="mt-3 inline-block text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-              {nextWcMatch ? 'Ver agenda →' : 'Explorar ligas →'}
-            </Link>
+            <div className="mt-3 flex items-center justify-center gap-4">
+              <Link href="/tennis" className="text-xs font-semibold text-lime-400 hover:text-lime-300">
+                Tenis ATP en vivo →
+              </Link>
+              <Link href="/ligas" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+                Backtest de ligas →
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -368,10 +373,16 @@ export default async function HomePage() {
               </div>
             </>
           ) : (
-            <p className="mt-3 text-sm text-zinc-500">
-              Sin partidos con predicción en las próximas 72 horas. El pick
-              regresa con la próxima jornada.
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-zinc-500">
+                El Mundial concluyó. El pick del día regresa cuando arranquen las
+                ligas europeas (agosto) o la temporada NBA. Mientras tanto, el
+                motor de tenis ATP está activo con su análisis de partidos.
+              </p>
+              <Link href="/tennis/h2h" className="inline-block text-xs font-semibold text-lime-400 hover:text-lime-300">
+                Simular un cara a cara ATP →
+              </Link>
+            </div>
           )}
         </section>
 
