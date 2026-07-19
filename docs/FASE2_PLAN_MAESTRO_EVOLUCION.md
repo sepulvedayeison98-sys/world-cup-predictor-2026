@@ -258,6 +258,12 @@ gantt
 
 ## FASE B — El cerebro: aprendizaje y observabilidad
 
+> **Estado: 🟡 PARCIAL.** Escritores `model_registry` + `data_health`
+> implementados (`lib/observability.ts`, cableados en `recalibrate`, fail-open) y
+> Learning Engine F1 (métricas ECE/report) + F2 (tuner "propone") entregados.
+> Falta validar las escrituras en un entorno con Supabase conectado y el
+> dispatcher sobre `jobs` (B4). Ver CHANGELOG y ADR-011.
+
 - **Objetivo:** activar las primitivas latentes que convierten el modelo en un
   sistema que aprende y se auto-observa.
 - **Alcance:** (B1) escribir en `model_registry` las métricas del backtest tras
@@ -483,6 +489,23 @@ gantt
 - **Consecuencias:** el "detalle universal" tratará F1 como caso sport-aware propio;
   refuerza ADR-006.
 - **Estado:** Propuesto.
+
+### ADR-011 · Learning Engine en modo "propone": nunca auto-publica pesos
+- **Problema:** el auto-tuning de pesos puede degradar producción si publica
+  cambios sin control.
+- **Alternativas:** (a) tuner automático que publica el mejor candidato; (b)
+  tuner que solo propone y registra, con adopción aprobada; (c) no hacer tuning.
+- **Decisión:** (b). `lib/prediction/tuner.ts` calcula un candidato con
+  guardarraíles (bounds, Σ=1, cota de paso, regularización, masa mínima, mejora
+  ≥ 2%) pero **no publica ni activa nada**. La activación (F3) leerá pesos vía
+  `activeWeights()` con `DEFAULT_WEIGHTS` como red de seguridad, tras aprobación
+  humana y en un entorno conectado.
+- **Justificación:** protege el motor de fútbol (fuente única) de regresiones
+  silenciosas; alinea con "no modificar métricas deportivas sin evidencia".
+- **Consecuencias:** el Learning Engine avanza (métricas F1 + tuner F2) sin
+  riesgo para producción; publicar un set de pesos exige subir versión y
+  actualizar los valores dorados de la caracterización.
+- **Estado:** **Aceptado / implementado hasta F2** (F3 pendiente).
 
 ### ADR-010 · Modularización del Prediction Engine por responsabilidades
 - **Problema:** el motor de fútbol era un único archivo de ~275 líneas que

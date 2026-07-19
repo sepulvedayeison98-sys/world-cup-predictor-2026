@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   brierScore, BRIER_CHANCE_1X2, logLoss, accuracy, calibrationBuckets,
+  expectedCalibrationError, calibrationReport,
   type CalibPrediction,
 } from '../lib/calibration'
 
@@ -55,4 +56,29 @@ test('calibración: agrupa por probabilidad del favorito y mide observado', () =
   assert.equal(b.total, 2)
   assert.equal(b.correct, 1)
   assert.equal(b.observed, 0.5)
+})
+
+test('ECE: null sin resueltos; 0 cuando lo observado = lo prometido', () => {
+  assert.equal(expectedCalibrationError([p(0.6, 0.25, 0.15, null)]), null)
+  // Tramo 55–65% (midpoint 0.6): 5 picks, 3 aciertos → observado 0.6 = prometido
+  const preds = [
+    p(0.6, 0.25, 0.15, 'home'), p(0.6, 0.25, 0.15, 'home'), p(0.6, 0.25, 0.15, 'home'),
+    p(0.6, 0.25, 0.15, 'draw'), p(0.6, 0.25, 0.15, 'away'),
+  ]
+  assert.ok(Math.abs(expectedCalibrationError(preds)!) < 1e-9)
+})
+
+test('ECE: mide la brecha cuando el modelo está sobreconfiado', () => {
+  // Promete 60% pero nunca acierta → brecha 0.6
+  const preds = [p(0.6, 0.25, 0.15, 'draw'), p(0.6, 0.25, 0.15, 'away')]
+  assert.ok(Math.abs(expectedCalibrationError(preds)! - 0.6) < 1e-9)
+})
+
+test('calibrationReport: agrega todas las métricas; null-safe sin resueltos', () => {
+  const empty = calibrationReport([p(0.6, 0.25, 0.15, null)])
+  assert.deepEqual(empty, { n: 0, brier: null, logLoss: null, accuracyPct: null, ece: null })
+  const r = calibrationReport([p(1, 0, 0, 'home'), p(0, 0, 1, 'away')])
+  assert.equal(r.n, 2)
+  assert.equal(r.brier, 0)
+  assert.equal(r.accuracyPct, 1)
 })

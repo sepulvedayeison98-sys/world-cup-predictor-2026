@@ -123,6 +123,18 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-4. **Sesión 2026-07-19 — Fases B + C (observabilidad + Learning Engine)** (misma rama):
+   - **Fase B:** `lib/observability.ts` (`recordModelRegistry`, `recordDataHealth`,
+     fail-open) cableado en `recalibrate` → puebla `model_registry` (métricas de
+     resueltas) y `data_health`. Aditivo, no cambia predicciones.
+   - **Fase C · F1:** `lib/calibration.ts` gana ECE + `calibrationReport`.
+   - **Fase C · F2:** `lib/prediction/tuner.ts` — tuner de pesos **modo propone**
+     (coordinate search + guardarraíles, determinista). NO publica ni activa.
+   - Suite 169/169, tsc 0, lint 0, build compila. ADR-011.
+   - **Límite:** las escrituras a Supabase no se validaron aquí (sin `.env.local`);
+     son fail-open. **F3 (activar pesos en vivo) pendiente** de aprobación +
+     entorno conectado. Dispatcher sobre `jobs` (B4) también pendiente.
+
 -3. **Sesión 2026-07-19 — Fase 5 (Prediction Engine fútbol)** (misma rama):
    - Motor modularizado en `lib/prediction/{config,factors,poisson}.ts` +
      `lib/predictionEngine.ts` como fachada (API estable, 13 consumidores intactos).

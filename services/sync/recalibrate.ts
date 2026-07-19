@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { computeModelPrediction, computeConfidenceLevel, type Probabilities } from '@/lib/predictionEngine'
 import { COMPETITION_ID, MODEL_VERSION } from '@/lib/constants'
 import { revalidatePredictionPaths } from '@/lib/revalidate'
+import { recordModelRegistry, recordDataHealth } from '@/lib/observability'
+import { calibrationReport, accuracy, type CalibPrediction, type Outcome } from '@/lib/calibration'
 
 const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'])
 
@@ -164,6 +166,37 @@ export async function recalibratePredictions(): Promise<{
     records_processed: withMarket + modelOnly, records_failed: 0,
     metadata: { withMarket, modelOnly, inserted, model_version: MODEL_VERSION }, duration_ms: Date.now() - started,
   })
+
+  // Fase B · Observabilidad (aditivo, fail-open): versiona las métricas del
+  // modelo en model_registry a partir de las predicciones YA resueltas (sin
+  // fabricar nada) y registra la salud de esta fuente en data_health. Nunca
+  // bloquea la recalibración ni cambia predicción alguna.
+  try {
+    const { data: resolved } = await supabase
+      .from('predictions')
+      .select('home_win_probability, draw_probability, away_win_probability, actual_outcome, matches!inner(competition_id)')
+      .eq('matches.competition_id', COMPETITION_ID)
+      .not('actual_outcome', 'is', null)
+    const preds: CalibPrediction[] = (resolved ?? []).map((r: any) => ({
+      home: Number(r.home_win_probability),
+      draw: Number(r.draw_probability),
+      away: Number(r.away_win_probability),
+      outcome: r.actual_outcome as Outcome,
+    }))
+    if (preds.length) {
+      const report = calibrationReport(preds)
+      const acc = accuracy(preds)
+      await recordModelRegistry('futbol-mundial', MODEL_VERSION, {
+        accuracy_1x2: report.accuracyPct,
+        brier_score: report.brier,
+        predictions_evaluated: report.n,
+        correct_predictions: acc.correct,
+      })
+    }
+  } catch (e) {
+    console.error('[recalibrate] model_registry (no bloqueante):', e)
+  }
+  await recordDataHealth('recalibrate', { ok: true, latencyMs: Date.now() - started })
 
   // Revalidación por evento (capa 3): las páginas con probabilidades reflejan
   // la recalibración de inmediato.

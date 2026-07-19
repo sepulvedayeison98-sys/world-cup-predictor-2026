@@ -101,3 +101,45 @@ export function calibrationBuckets(preds: CalibPrediction[]): CalibrationBucket[
   for (const b of buckets) b.observed = b.total ? b.correct / b.total : 0
   return buckets
 }
+
+/**
+ * Expected Calibration Error (ECE): media —ponderada por tamaño de tramo— de la
+ * brecha |observado − prometido| sobre la curva de calibración. 0 = perfectamente
+ * calibrado. Es el diagnóstico de "cuando digo 60%, ¿pasa el 60%?". null si no
+ * hay resueltos. (F1 de docs/WEIGHT_TUNING_DESIGN.md.)
+ */
+export function expectedCalibrationError(preds: CalibPrediction[]): number | null {
+  const buckets = calibrationBuckets(preds)
+  const n = buckets.reduce((s, b) => s + b.total, 0)
+  if (n === 0) return null
+  let ece = 0
+  for (const b of buckets) {
+    if (!b.total) continue
+    ece += (b.total / n) * Math.abs(b.observed - b.midpoint)
+  }
+  return ece
+}
+
+export interface CalibrationReport {
+  n: number                 // predicciones resueltas evaluadas
+  brier: number | null
+  logLoss: number | null
+  accuracyPct: number | null
+  ece: number | null
+}
+
+/**
+ * Reporte de calibración de una tanda de predicciones resueltas — la función
+ * objetivo del tuner (F1/F2) y la vitrina de /inteligencia en un solo objeto.
+ * Módulo puro; cero datos fabricados (todo null si no hay resueltos).
+ */
+export function calibrationReport(preds: CalibPrediction[]): CalibrationReport {
+  const a = accuracy(preds)
+  return {
+    n: a.total,
+    brier: brierScore(preds),
+    logLoss: logLoss(preds),
+    accuracyPct: a.pct,
+    ece: expectedCalibrationError(preds),
+  }
+}

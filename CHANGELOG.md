@@ -4,6 +4,42 @@ Cambios relevantes del proyecto, más reciente primero. Este archivo se inicia e
 la Fase 3 de consolidación; el historial anterior vive en el log de git y en
 `PROGRESS_REPORT.md` / `HANDOFF.md`.
 
+## 2026-07-19 · Fases B + C — Observabilidad y Learning Engine (modo "propone")
+
+Activación de primitivas latentes (Fase B) y maquinaria del Learning Engine
+(Fase C · F1/F2), **sin cambiar ningún resultado ni publicar pesos nuevos**.
+Todo aditivo y fail-open. Gates: tsc 0 · lint 0 · npm test **169/169** · build
+compila. Caracterización del motor intacta (3/3, bit a bit).
+
+### Fase B · Observabilidad (escritores de tablas latentes)
+- Nuevo `lib/observability.ts`: `recordModelRegistry` (versiona métricas del
+  modelo en `model_registry`, idempotente por model_name+version) y
+  `recordDataHealth` (upsert de salud de fuente en `data_health`). Ambos
+  **nunca lanzan** — mismo patrón que `lib/syncLog.ts`.
+- `services/sync/recalibrate.ts`: al final (fail-open) calcula las métricas de
+  las predicciones YA resueltas (Brier/accuracy, sin fabricar nada) y las
+  registra en `model_registry`; registra la salud de la fuente `recalibrate` en
+  `data_health`. No cambia la recalibración ni ninguna predicción.
+
+### Fase C · Learning Engine — F1 (métricas) + F2 (tuner "propone")
+- `lib/calibration.ts`: nuevas `expectedCalibrationError` (ECE) y
+  `calibrationReport` (Brier/log-loss/accuracy/ECE + n) — puras, testeadas.
+- Nuevo `lib/prediction/tuner.ts` (F2, **modo propone**): búsqueda por
+  coordenadas sobre el símplex que minimiza el Brier con TODOS los guardarraíles
+  del diseño (pesos ∈ [0.05,0.60], Σ=1, cota de paso 0.05, regularización, masa
+  mínima, mejora ≥ 2%). Determinista. **Devuelve un candidato; NO publica ni
+  activa nada** — la adopción (F3) es una decisión versionada y aprobada.
+- Tests: `tests/tuner.test.ts` (guardarraíles, determinismo, nunca empeora) +
+  ECE/report en `tests/calibration.test.ts`. +11 casos.
+
+### Límite de validación declarado (honesto)
+- La lógica pura (métricas, tuner) está 100% validada por tests. Las ESCRITURAS
+  a Supabase (`model_registry`/`data_health`) no pudieron ejecutarse en este
+  sandbox (sin `.env.local`), pero son aditivas y fail-open (jamás tumban el
+  sync). Requieren un entorno conectado para confirmar el efecto end-to-end.
+- **F3 (activación de pesos en vivo) NO se implementó**: cambia predicciones y
+  exige aprobación humana + entorno conectado (ADR-011).
+
 ## 2026-07-19 · Fase 5 — Consolidación del Prediction Engine (fútbol)
 
 Modularización del motor de fútbol **sin cambiar resultados**. Verificado bit a

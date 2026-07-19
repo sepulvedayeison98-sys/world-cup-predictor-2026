@@ -124,9 +124,9 @@ no pueden copiar.
 | Fase | Entregable | Esfuerzo | Toca predicciones en vivo |
 |---|---|---|---|
 | **F0** ✅ | Feature store: snapshot de `ModelInput` por predicción (habilitador) — migración 052 + writer en recalibrate | hecho | No (solo escribe features) |
-| **F1** | Métricas puras: Brier/log-loss/ECE por competición + tests + publicar en /inteligencia | 1 d | No |
-| **F2** | Tuner offline (modo *propone*): coordinate search con guardarraíles → candidato a `model_registry` | 2-3 d | No (no activa nada) |
-| **F3** | Activación: `activeWeights()` leído por el motor + cron semanal + aprobación manual | 1-2 d | Sí (con fallback + aprobación) |
+| **F1** ✅ | Métricas puras: Brier/log-loss/**ECE**/accuracy en `lib/calibration.ts` (`expectedCalibrationError`, `calibrationReport`) + tests | hecho | No |
+| **F2** ✅ | Tuner offline (modo *propone*): `lib/prediction/tuner.ts` — coordinate search con TODOS los guardarraíles → candidato (no publica) + tests | hecho | No (no activa nada) |
+| **F3** ⏳ | Activación: `activeWeights()` leído por el motor + cron semanal + aprobación manual. **Pendiente** (cambia predicciones; requiere entorno conectado + aprobación — ADR-011) | 1-2 d | Sí (con fallback + aprobación) |
 | **F4** | Automático con guardarraíles + historia de pesos visible en /inteligencia | 1-2 d | Sí (con todos los guardarraíles) |
 | **F5 (opc.)** | Escalado de goles (λ Poisson) — objetivo separado del 1X2 | 1-2 d | Sí |
 
