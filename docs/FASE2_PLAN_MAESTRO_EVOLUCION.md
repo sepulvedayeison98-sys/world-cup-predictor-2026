@@ -490,6 +490,24 @@ gantt
   refuerza ADR-006.
 - **Estado:** Propuesto.
 
+### ADR-012 · Smart Bets Engine consume el Prediction Engine (nunca genera probs)
+- **Problema:** cómo producir recomendaciones de apuesta con valor sin acoplar ni
+  duplicar el Prediction Engine, y de forma extensible a mercados/deportes/casas.
+- **Alternativas:** (a) que Smart Bets calcule sus propias probabilidades; (b)
+  motor de valor independiente que consume las probs del PE; (c) extender
+  `valueBets.ts` in situ.
+- **Decisión:** (b). Nuevo `lib/smartBets/` modular (validate/markets/value/risk/
+  scoring/engine) que recibe `ModelProbabilities` del PE. Los mercados derivados
+  son álgebra sobre las probs del PE; los que requieren la rejilla de goles quedan
+  registrados pero inactivos. Reutiliza `gradeEV`/`kellyFraction` (sin duplicar).
+- **Justificación:** respeta la dependencia PE → Smart Bets → Dashboard → IA;
+  mantiene el PE como fuente única; extensible sin reescritura (registro de
+  mercados, multi-casa, multi-deporte); aditivo (cero regresión en producción).
+- **Consecuencias:** cablear a datos reales + Dashboard es un paso posterior con
+  entorno conectado. Versionado propio (`SMART_BETS_ENGINE_VERSION`) + trazabilidad.
+- **Estado:** **Aceptado / implementado** (Fase 6, motor puro). Ver
+  `docs/SMART_BETS_ENGINE.md`.
+
 ### ADR-011 · Learning Engine en modo "propone": nunca auto-publica pesos
 - **Problema:** el auto-tuning de pesos puede degradar producción si publica
   cambios sin control.

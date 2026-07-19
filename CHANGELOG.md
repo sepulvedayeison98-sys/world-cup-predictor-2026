@@ -4,6 +4,40 @@ Cambios relevantes del proyecto, más reciente primero. Este archivo se inicia e
 la Fase 3 de consolidación; el historial anterior vive en el log de git y en
 `PROGRESS_REPORT.md` / `HANDOFF.md`.
 
+## 2026-07-19 · Fase 6 — Smart Bets Engine (motor de valor, modular)
+
+Nuevo motor de valor `lib/smartBets/` que CONSUME el Prediction Engine y produce
+recomendaciones con EV, riesgo, score explicable y trazabilidad. Aditivo y puro:
+no toca el Prediction Engine, el Dashboard ni el flujo de producción de
+`value_bets`/`smart_bet_picks`. Gates: tsc 0 · lint 0 · npm test **179/179** ·
+build compila. Caracterización del PE intacta.
+
+### Módulos (responsabilidad única cada uno)
+- `version.ts` (`SMART_BETS_ENGINE_VERSION = sbe-1.0.0`, independiente del PE),
+  `types.ts` (contratos + `TraceRecord`), `validate.ts` (ingesta/inconsistencias),
+  `markets.ts` (registro extensible multi-deporte), `value.ts` (comparación de
+  cuotas multi-casa + EV), `risk.ts` (riesgo 0-100), `scoring.ts` (score
+  explicable 0-100), `engine.ts` (orquestador), `index.ts` (API).
+
+### Principios respetados
+- **Nunca genera probabilidades:** consume `ModelProbabilities` del PE; los
+  mercados derivados (doble oportunidad, empate-no-acción) son álgebra sobre las
+  probs del PE. Mercados de goles/BTTS/córners **registrados pero inactivos**
+  (punto de extensión, sin inventar nada).
+- **Sin duplicar lógica:** reutiliza `gradeEV`/`kellyFraction` de `valueBets`.
+- **Multi-casa / multi-deporte / multi-mercado** por diseño (registro + `bestQuote`).
+- **Trazabilidad:** cada recomendación registra fecha, partido, mercado, prob y
+  cuota usadas, EV, riesgo, versión del PE y del SBE, y motivo.
+
+### Pruebas (`tests/smartBetsEngine.test.ts`, 10 casos)
+Determinismo, sin duplicados (una por familia), consistencia (EV>0), aislamiento
+por deporte, validación de inconsistencias, scoring reproducible, registro
+extensible. ADR-012. Doc: `docs/SMART_BETS_ENGINE.md`.
+
+### Pendiente (no en esta fase, evita regresiones)
+Cablear a persistencia/endpoint con datos reales + panel en Dashboard + activar
+mercados de goles cuando el PE exponga la rejilla — requiere entorno conectado.
+
 ## 2026-07-19 · Fases B + C — Observabilidad y Learning Engine (modo "propone")
 
 Activación de primitivas latentes (Fase B) y maquinaria del Learning Engine

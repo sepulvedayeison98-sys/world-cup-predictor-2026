@@ -123,6 +123,18 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-5. **Sesión 2026-07-19 — Fase 6 (Smart Bets Engine)** (misma rama):
+   - Nuevo `lib/smartBets/` — motor de valor modular (version/types/validate/
+     markets/value/risk/scoring/engine) que **consume** el Prediction Engine y
+     produce recomendaciones con EV, riesgo, score explicable y trazabilidad.
+   - Nunca genera probabilidades (álgebra sobre las probs del PE); registro de
+     mercados extensible multi-deporte/casa; reutiliza `gradeEV`/`kellyFraction`
+     (sin duplicar). Aditivo: no toca PE, Dashboard ni `value_bets` de producción.
+   - `tests/smartBetsEngine.test.ts` (10). Suite 179/179, tsc 0, lint 0, build
+     compila. ADR-012. Doc `docs/SMART_BETS_ENGINE.md`.
+   - **Pendiente:** cablear a datos reales + panel Dashboard + activar mercados de
+     goles (requiere que el PE exponga la rejilla) — con entorno conectado.
+
 -4. **Sesión 2026-07-19 — Fases B + C (observabilidad + Learning Engine)** (misma rama):
    - **Fase B:** `lib/observability.ts` (`recordModelRegistry`, `recordDataHealth`,
      fail-open) cableado en `recalibrate` → puebla `model_registry` (métricas de
