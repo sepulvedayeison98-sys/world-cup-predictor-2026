@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import {
-  Play, RotateCcw, Layers, ChevronDown, ChevronUp,
+  RotateCcw, Layers, ChevronDown, ChevronUp,
   Zap, AlertTriangle, CloudLightning, Users,
 } from 'lucide-react'
 import { applyScenario, type SimScenario, type SimResult } from '@/lib/scenarioEngine'

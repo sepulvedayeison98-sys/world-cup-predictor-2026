@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { fetchAllRows } from '@/lib/fetchAll'
-import { SITE_URL, LEAGUE_SLUGS, COMPETITION_ID } from '@/lib/constants'
+import { SITE_URL, LEAGUE_SLUGS } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 

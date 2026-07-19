@@ -6,7 +6,6 @@ import { Zap, Target, Triangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { runMonteCarloModel, type MCResult, type Percentile } from '@/lib/models/monteCarloModel'
 import { simulateEventTimeline } from '@/lib/intelligence/eventSimulator'
-import { formToScore } from '@/lib/predictionEngine'
 import { getMatchContext } from '@/lib/matchContext'
 
 // ─── Sub-componentes ────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -19,7 +19,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronLeft, ChevronRight, ExternalLink,
 } from 'lucide-react'
-import { cn, formatProbability } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { matchesService } from '@/services/matches.service'
 import { Flag } from '@/components/ui/Flag'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'

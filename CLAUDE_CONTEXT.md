@@ -81,7 +81,7 @@ financiera oscura con esmeralda #10b981.
 ✅ Quick Wins Sofascore (SOFASCORE_PLAYBOOK.md): sitemap+robots+JSON-LD,
    ranking ELO Mundial, favoritos localStorage + "Mis equipos", countdown
    a la final, ProbBar1X2 (visualización firma)
-✅ Calidad: 72 tests unitarios · 17 e2e · lint 0 · verify_migrations 43/43
+✅ Calidad: 155 tests unitarios · 28 e2e · lint 0 · verify_migrations 47/47
 
 ⏳ BACKLOG: ver SOFASCORE_PLAYBOOK.md (mejoras 6-12 y estratégicas 13-17) ·
    temporada NBA 2025-26 (octubre, autollenado por cron) · stats de
@@ -144,8 +144,8 @@ services/
 
 ## 7. BASE DE DATOS
 
-Migraciones `001` → `050` (aplicar en orden; `032b` entre 032 y 033).
-Verificación: `supabase/verify_migrations.sql` — 43 chequeos.
+Migraciones `001` → `054` (aplicar en orden; `032b` entre 032 y 033).
+Verificación: `supabase/verify_migrations.sql` — 47 chequeos.
 
 Tablas principales: competitions, sports, teams (+conference/division),
 team_statistics, matches (+period_scores JSONB, round), predictions,
@@ -163,7 +163,7 @@ completas (~1.900 partidos) · NBA 30 equipos/1.314 partidos con cuartos.
 ```bash
 npm run dev          # desarrollo
 npm run build        # SIEMPRE antes de push
-npm test             # 72 unitarias
+npm test             # 155 unitarias
 npm run test:e2e     # Playwright (en sandbox: ver CLAUDE.md para proxy)
 npm run lint         # 0 errores esperado (incluye barrera NBA)
 npm run type-check

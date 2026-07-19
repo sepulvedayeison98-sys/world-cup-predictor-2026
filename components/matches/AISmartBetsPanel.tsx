@@ -2,13 +2,9 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Sparkles, Brain, TrendingUp, Globe2, AlertTriangle,
-  Target, Zap, Shield, ChevronRight, Activity, Flame,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Sparkles } from 'lucide-react'
 import { computeSmartBets } from '@/lib/smartBetsEngine'
-import type { MatchFormEntry, SmartBetRecommendation } from '@/lib/smartBetsEngine'
+import type { MatchFormEntry } from '@/lib/smartBetsEngine'
 import { generateFallbackAnalysis, type AnalysisContext, type MatchAnalysis, type GroupContext } from '@/lib/matchAnalysisFallback'
 import {
   AISummarySection, TacticalSection, FormSection, ContextSection,

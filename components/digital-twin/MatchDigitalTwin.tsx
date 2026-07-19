@@ -8,7 +8,6 @@ import {
   analyzeMatchTactics,
   parseFormation,
   type MatchTacticalAnalysis,
-  type TacticalProfile,
 } from '@/lib/intelligence/tacticalAnalysis'
 
 // ─── Utilidades ────────────────────────────────────────────────────────────────

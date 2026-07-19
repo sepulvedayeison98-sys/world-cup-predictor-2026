@@ -6,7 +6,6 @@ import {
   PolarGrid,
   PolarAngleAxis,
   ResponsiveContainer,
-  Legend,
   Tooltip,
 } from 'recharts'
 import { cn } from '@/lib/utils'

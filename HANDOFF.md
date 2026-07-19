@@ -123,6 +123,18 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-1. **Sesión 2026-07-19 — Fases 1-3 de arquitectura** (rama
+   `claude/indu-predictor-architecture-analysis-5qxz6y`):
+   - **Fase 1** `docs/FASE1_ANALISIS_ARQUITECTURA.md`: análisis completo del repo
+     (15 secciones, solo lectura).
+   - **Fase 2** `docs/FASE2_PLAN_MAESTRO_EVOLUCION.md`: plan maestro, arquitectura
+     objetivo, roadmap A-E, matrices, 8 ADR (diseño, sin implementar).
+   - **Fase 3** consolidación segura: imports muertos eliminados en 14 archivos
+     (sin cambio de comportamiento — `tsc` 0, `lint` 0, `npm test` 155/155),
+     documentación sincronizada con el estado real (migraciones 054, tests 155,
+     verify 47, e2e 28), nuevo `docs/CAPA_ANALITICA_VS_PRODUCCION.md` (frontera
+     V3) y `CHANGELOG.md`. Detalle en el changelog.
+
 0. **Sesión 2026-07-17 (2ª) — plan §6 ejecutado** (rama
    `claude/handoff-action-plan-splrmy`):
    - **Monte Carlo de mercados** (§6.1): `lib/tennis/monteCarlo.ts` +

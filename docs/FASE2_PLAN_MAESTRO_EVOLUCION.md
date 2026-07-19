@@ -235,7 +235,7 @@ gantt
 - **Objetivo:** eliminar ambigüedad conceptual y blindar los invariantes antes de
   construir sobre ellos.
 - **Alcance:** (A1) sincronizar `CLAUDE_CONTEXT.md`/`README` con el estado real
-  (54 migraciones, 166 tests, Tenis activo); (A2) documentar la frontera entre la
+  (54 migraciones, 155 tests, Tenis activo); (A2) documentar la frontera entre la
   capa V3 analítica y el motor de producción; (A3) test/lint que detecte queries a
   `matches`/`teams`/`predictions` sin filtro de competición.
 - **Impacto:** alto (habilita todo lo demás con seguridad).
@@ -385,7 +385,7 @@ gantt
 
 | Deuda | Clase | Por qué |
 |-------|-------|---------|
-| Documentación desincronizada (50→54 migraciones, 72→166 tests, Tenis) | **Crítica** | Induce a error toda decisión y todo onboarding; barata de arreglar |
+| Documentación desincronizada (50→54 migraciones, 72→155 tests, Tenis) | **Crítica** | Induce a error toda decisión y todo onboarding; barata de arreglar |
 | Frontera V3 no declarada (dos nociones de "modelo") | **Crítica** | Riesgo de motor sombra divergente (RT-2) |
 | Regla de oro sin verificación automática | **Crítica** | El guardrail más importante depende de disciplina humana |
 | `model_registry` / `data_health` sin escritores | **Importante** | Impiden mejorar el modelo con seguridad y observar fallos |

@@ -35,7 +35,7 @@ Es de acceso libre, sin autenticación.
 **Veredicto de madurez: producción funcional, con arquitectura sólida y deuda
 técnica acotada.** El proyecto está notablemente bien diseñado para su etapa:
 tiene una regla de aislamiento entre deportes **impuesta por linter** (no solo por
-convención), motores de predicción puros y testeados (166 pruebas unitarias),
+convención), motores de predicción puros y testeados (155 pruebas unitarias),
 honestidad estadística como principio de producto (cero datos fabricados,
 líneas base publicadas), y una capa de sincronización de datos resiliente vía
 crons. La estética y el discurso de producto ("terminal financiera",
@@ -52,9 +52,9 @@ en vivo para mercados secundarios).
 |-----------|--------|------|
 | Arquitectura base | 🟢 Sólida | Aislamiento multi-deporte real, motores puros |
 | Calidad de datos | 🟢 Honesta | Data First aplicado con rigor |
-| Cobertura de tests | 🟢 Alta | 166 `test()` en 24 archivos; motores cubiertos |
+| Cobertura de tests | 🟢 Alta | 155 `test()` en 24 archivos; motores cubiertos |
 | Seguridad | 🟢 Razonable | RLS, CRON_SECRET timing-safe, headers, sin secretos en repo |
-| Documentación | 🟡 Desactualizada | Refiere migraciones 050 / 72 tests; real: 054 / 166 |
+| Documentación | 🟡 Desactualizada | Refiere migraciones 050 / 72 tests; real: 054 / 155 |
 | Deuda técnica | 🟡 Acotada | Capa V3 difusa, tablas auth vestigiales, ISR mixto |
 | Dependencia de fuentes | 🟡 Limitante | Planes gratuitos condicionan features |
 
@@ -156,7 +156,7 @@ flowchart TD
 
 4. **Motores puros.** `predictionEngine.ts`, `lib/nba/engine.ts`,
    `lib/tennis/engine*.ts` no tocan Supabase: reciben datos, devuelven
-   predicciones. Esto los hace testeables sin BD (de ahí las 166 pruebas).
+   predicciones. Esto los hace testeables sin BD (de ahí las 155 pruebas).
 
 5. **Data First.** Cero datos fabricados. Si la fuente no da una métrica, se
    declara honestamente y va al backlog (posesión NBA, boxscores, cuotas de
@@ -231,7 +231,7 @@ world-cup-predictor-2026/
 │   └── tennis/               # Servicios del dominio tenis
 ├── supabase/migrations/      # 55 archivos SQL (001 → 054 + 032b + APPLY_V3)
 ├── types/                    # database.ts (generado) + index.ts
-├── tests/                    # 24 archivos, 166 test()
+├── tests/                    # 24 archivos, 155 test()
 ├── e2e/                      # Playwright (smoke + tennis)
 ├── docs/                     # Documentación de diseño
 └── .github/workflows/        # 5 workflows de sync/simulación
@@ -569,7 +569,7 @@ permanente en `match_verdicts` (idempotente ante carreras por PK `match_id`).
 
 1. **Documentación desactualizada (confirmada).** `CLAUDE_CONTEXT.md` y `README.md`
    dicen "migraciones 001→050", "68–72 tests unitarios", "15–17 e2e". El estado
-   real es **54 migraciones** (55 archivos con 032b/APPLY_V3) y **166 `test()` en
+   real es **54 migraciones** (55 archivos con 032b/APPLY_V3) y **155 `test()` en
    24 archivos**. El dominio Tenis (migraciones 053/054, motor tennis-2.0, hub
    `/tennis`) ya existe y NO está reflejado como "activo" en la sección de estado.
 
@@ -608,7 +608,7 @@ permanente en `match_verdicts` (idempotente ante carreras por PK `match_id`).
 
 | ID | Oportunidad | Prioridad | Esfuerzo | Justificación |
 |----|-------------|-----------|----------|---------------|
-| O1 | Sincronizar documentación maestra con el estado real (tenis activo, 054, 166 tests) | **P0** | Bajo | Onboarding correcto; base para Fase 2 |
+| O1 | Sincronizar documentación maestra con el estado real (tenis activo, 054, 155 tests) | **P0** | Bajo | Onboarding correcto; base para Fase 2 |
 | O2 | Declarar frontera de la capa V3 (producción vs. display) en un doc de arquitectura | **P0** | Bajo | Elimina la principal ambigüedad conceptual |
 | O3 | Test/lint automático de la "regla de oro" (query sin `competition_id`) | **P1** | Medio | Convierte el guardrail más crítico en garantía |
 | O4 | Implementar auto-tuning de pesos por calibración (F0–F5) | **P1** | Alto | Mayor salto de precisión del motor de fútbol |

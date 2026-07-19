@@ -4,8 +4,6 @@
  * y en la predicción antes de publicarla.
  */
 
-import { type Probabilities } from '@/lib/predictionEngine'
-
 export interface RiskInput {
   prediction: any | null
   homeStats: any | null

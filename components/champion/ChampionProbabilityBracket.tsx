@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Trophy, Medal, ArrowUpDown, Info } from 'lucide-react'
+import { Trophy, ArrowUpDown, Info } from 'lucide-react'
 import { Flag } from '@/components/ui/Flag'
 
 interface SimEntry {

@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface Game {
   id: string

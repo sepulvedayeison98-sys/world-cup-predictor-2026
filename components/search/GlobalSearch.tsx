@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Trophy, Globe, Users, Activity } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
 
 interface TeamResult {

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { COMPETITION_ID } from '@/lib/constants'
-import type { Match, MatchFilters, PaginatedResponse, MatchStatistics, Lineup } from '@/types'
+import type { Match, MatchFilters, PaginatedResponse, MatchStatistics } from '@/types'
 
 const PAGE_SIZE = 15
 

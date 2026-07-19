@@ -63,12 +63,12 @@ cp .env.example .env.local   # rellenar claves (Supabase, APIs)
 npm run dev                  # http://localhost:3000
 ```
 
-**Base de datos**: aplicar `supabase/migrations/` en orden (001 → 050;
+**Base de datos**: aplicar `supabase/migrations/` en orden (001 → 054;
 `032b` ordena entre 032 y 033). Verificar con
-`supabase/verify_migrations.sql` (43 chequeos).
+`supabase/verify_migrations.sql` (47 chequeos).
 
 **Comandos**: `npm run build` (obligatorio antes de push) ·
-`npm test` (68 unitarias) · `npm run test:e2e` (15 Playwright) ·
+`npm test` (155 unitarias) · `npm run test:e2e` (28 Playwright) ·
 `npm run lint` · `npm run type-check`.
 
 ---
