@@ -123,6 +123,18 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-3. **Sesión 2026-07-19 — Fase 5 (Prediction Engine fútbol)** (misma rama):
+   - Motor modularizado en `lib/prediction/{config,factors,poisson}.ts` +
+     `lib/predictionEngine.ts` como fachada (API estable, 13 consumidores intactos).
+   - Parámetros centralizados en `ENGINE_PARAMS` (config.ts) → listo para el
+     Learning Engine (Fase C) sin reescribir. `docs/PREDICTION_ENGINE.md` es el
+     documento canónico (arquitectura, versionado, registro de versiones).
+   - **Sin cambiar resultados:** `tests/predictionEngineCharacterization.test.ts`
+     fija valores dorados exactos; refactor verificado bit a bit. Suite 161/161,
+     tsc 0, lint 0, build compila. ADR-010.
+   - Barreras ESLint NBA/Tenis extendidas a `lib/prediction/*`. No se tocó Smart
+     Bets, Dashboard ni IA. Sin ML.
+
 -2. **Sesión 2026-07-19 — Fase 4 (ejecución roadmap, iter. 1-2)** (misma rama):
    - **A3 · Guard regla de oro** `tests/goldenRule.test.ts`: falla la CI si una
      query a `matches`/`teams`/`team_statistics`/`predictions` no está acotada por

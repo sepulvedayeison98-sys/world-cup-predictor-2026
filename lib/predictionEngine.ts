@@ -1,39 +1,42 @@
 /**
- * Motor de prediccion (logica pura, sin Supabase). Unica fuente de verdad:
- * la usan services/sync/recalibrate.ts, app/api/predictions/route.ts y
- * lib/simulationEngine.ts. No duplicar esta logica en otros archivos.
+ * Motor de predicción de fútbol — FACHADA y ORQUESTACIÓN (lógica pura, sin
+ * Supabase). ÚNICA FUENTE DE VERDAD de las predicciones de fútbol: la usan
+ * services/sync/recalibrate.ts, app/api/predictions/route.ts, lib/simulationEngine
+ * y el detalle de partido. No duplicar esta lógica en otros archivos.
  *
- * Modelo hibrido de 5 factores ponderados:
+ * Estructura modular (Fase 5 — responsabilidades desacopladas):
+ *   - lib/prediction/config.ts   → parámetros y versión (perillas del modelo)
+ *   - lib/prediction/factors.ts  → señales → factores 0..1 + utilidades
+ *   - lib/prediction/poisson.ts  → lambdas → probabilidades (Poisson/Dixon-Coles)
+ *   - este archivo               → orquesta los 5 factores y compone la salida
+ *
+ * Este módulo re-exporta el API público estable; los consumidores siguen
+ * importando desde '@/lib/predictionEngine' sin cambios.
+ *
+ * Modelo híbrido de 5 factores ponderados (ver config.DEFAULT_WEIGHTS):
  *   1. xG y capacidad ofensiva/defensiva  — 40%
  *   2. ELO Rating                          — 25%
- *   3. Forma reciente (ultimos 10 partidos) — 15%
+ *   3. Forma reciente (últimos 10)          — 15%
  *   4. Mercado de apuestas (cuotas devig)   — 10%
  *   5. Noticias / lesiones / bajas          — 10%
  *
- * Las probabilidades 1X2 y la matriz de marcadores exactos no salen de una
- * heuristica directa: se derivan de una distribucion de goles esperados
- * (lambda por equipo) resuelta analiticamente sobre la rejilla de Poisson.
- * Esto equivale al resultado de una simulacion de Montecarlo de 100,000
- * iteraciones (la rejilla analitica es exacta, no aproximada por muestreo),
- * por lo que se usa como motor de la "simulacion Montecarlo" del modelo.
+ * Las probabilidades 1X2 y la matriz de marcadores se derivan analíticamente de
+ * la rejilla de Poisson: determinista y repetible (misma entrada → misma salida).
  */
+import { ENGINE_PARAMS, DEFAULT_WEIGHTS, type Weights } from './prediction/config'
+import {
+  clamp, clamp01, round4, normalizeELO, formToScore, computeXgFactor, computeConfidenceLevel,
+} from './prediction/factors'
+import { simulateMatch, type Probabilities, type ExactScore } from './prediction/poisson'
 
-export interface Weights {
-  xg: number
-  elo: number
-  form: number
-  market: number
-  news: number
-}
+// ─── Re-exportación del API público estable ──────────────────────────────────
+export { ENGINE_VERSION, DEFAULT_WEIGHTS } from './prediction/config'
+export type { Weights } from './prediction/config'
+export { normalizeELO, formToScore, computeConfidenceLevel } from './prediction/factors'
+export { simulateMatch } from './prediction/poisson'
+export type { Probabilities, ExactScore } from './prediction/poisson'
 
-export const DEFAULT_WEIGHTS: Weights = {
-  xg: 0.40,
-  elo: 0.25,
-  form: 0.15,
-  market: 0.10,
-  news: 0.10,
-}
-
+// ─── Tipos del motor ──────────────────────────────────────────────────────────
 export interface ModelInput {
   homeElo: number; awayElo: number
   homeForm: string[]; awayForm: string[]
@@ -46,10 +49,6 @@ export interface ModelInput {
   isKnockout?: boolean // eliminatoria directa: menos goles por juego conservador
 }
 
-export interface Probabilities { home: number; draw: number; away: number }
-
-export interface ExactScore { home: number; away: number; prob: number }
-
 export interface ModelResult extends Probabilities {
   predictedHome: number
   predictedAway: number
@@ -57,134 +56,11 @@ export interface ModelResult extends Probabilities {
   exactScores: ExactScore[]
 }
 
-function clamp(x: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, x))
-}
-
-function clamp01(x: number): number {
-  return clamp(x, 0, 1)
-}
-
-function round4(x: number): number {
-  return Math.round(x * 10000) / 10000
-}
-
-export function normalizeELO(homeELO: number, awayELO: number): number {
-  return 1 / (1 + Math.pow(10, -(homeELO - awayELO) / 400))
-}
-
-/** Puntaje de forma 0..1 (W=1, D=0.5, L=0) sobre los ultimos `lookback` partidos. */
-export function formToScore(form: string[], lookback = 10): number {
-  if (!form?.length) return 0.5
-  const recent = form.slice(-lookback)
-  return recent.reduce((s, r) => s + (r === 'W' ? 1 : r === 'D' ? 0.5 : 0), 0) / recent.length
-}
-
 /**
- * Factor xG/capacidad ofensiva (0..1, ventaja local): combina ataque (xG a
- * favor), solidez defensiva (xG en contra del rival) y eficiencia de
- * conversion (goles / tiros a puerta) cuando hay datos disponibles.
- */
-function computeXgFactor(i: ModelInput): number {
-  const attack = i.homeXg / Math.max(i.homeXg + i.awayXg, 0.01)
-  const defense = i.awayXga / Math.max(i.homeXga + i.awayXga, 0.01)
-
-  const homeConv = (i.homeGoalsScored ?? i.homeXg) / Math.max(i.homeShotsOnTarget ?? 4, 1)
-  const awayConv = (i.awayGoalsScored ?? i.awayXg) / Math.max(i.awayShotsOnTarget ?? 4, 1)
-  const conversion = homeConv / Math.max(homeConv + awayConv, 0.01)
-
-  return clamp01((attack + defense + conversion) / 3)
-}
-
-export function computeConfidenceLevel(score: number): 1 | 2 | 3 | 4 | 5 {
-  if (score >= 85) return 5
-  if (score >= 75) return 4
-  if (score >= 65) return 3
-  if (score >= 55) return 2
-  return 1
-}
-
-/** P(k goles | lambda) segun la distribucion de Poisson. */
-function poissonPMF(k: number, lambda: number): number {
-  if (k < 0 || !Number.isInteger(k)) return 0
-  if (lambda < 0) return 0
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k)
-}
-
-function factorial(n: number): number {
-  let res = 1
-  for (let i = 2; i <= n; i++) res *= i
-  return res
-}
-
-/**
- * Correlación de marcadores bajos (Dixon-Coles 1997): el Poisson
- * independiente subestima sistemáticamente los empates 0-0 y 1-1 en fútbol
- * real. Rho negativo infla esas celdas y deflacta 1-0/0-1. Valor estándar
- * de la literatura para fútbol de selecciones: ~-0.11.
- */
-const DIXON_COLES_RHO = -0.11
-
-function dixonColesTau(h: number, a: number, lh: number, la: number, rho: number): number {
-  if (h === 0 && a === 0) return 1 - lh * la * rho
-  if (h === 0 && a === 1) return 1 + lh * rho
-  if (h === 1 && a === 0) return 1 + la * rho
-  if (h === 1 && a === 1) return 1 - rho
-  return 1
-}
-
-/**
- * Resuelve la rejilla de Poisson (home x away) con corrección Dixon-Coles
- * y devuelve las probabilidades 1X2 y el top-10 de marcadores exactos.
- * Equivalente al resultado de una simulacion de Montecarlo de 100,000
- * iteraciones sobre los mismos lambdas.
- */
-export function simulateMatch(
-  lambdaHome: number,
-  lambdaAway: number,
-  rho: number = DIXON_COLES_RHO,
-): {
-  probabilities: Probabilities; exactScores: ExactScore[]
-} {
-  const maxGoals = 8
-  const cellProb: number[][] = []
-  let totalProb = 0
-
-  for (let h = 0; h <= maxGoals; h++) {
-    cellProb[h] = []
-    for (let a = 0; a <= maxGoals; a++) {
-      const p = poissonPMF(h, lambdaHome) * poissonPMF(a, lambdaAway)
-        * dixonColesTau(h, a, lambdaHome, lambdaAway, rho)
-      cellProb[h][a] = Math.max(0, p)
-      totalProb += cellProb[h][a]
-    }
-  }
-
-  let home = 0, draw = 0, away = 0
-  const scores: ExactScore[] = []
-  for (let h = 0; h <= maxGoals; h++) {
-    for (let a = 0; a <= maxGoals; a++) {
-      const p = cellProb[h][a] / totalProb
-      if (h > a) home += p
-      else if (h < a) away += p
-      else draw += p
-      scores.push({ home: h, away: a, prob: p })
-    }
-  }
-
-  const exactScores = scores
-    .sort((x, y) => y.prob - x.prob)
-    .slice(0, 10)
-    .map((s) => ({ ...s, prob: round4(s.prob) }))
-
-  return { probabilities: { home: round4(home), draw: round4(draw), away: round4(away) }, exactScores }
-}
-
-/**
- * Probabilidad de clasificación en un cruce eliminatorio. El 1X2 de 90'
- * sigue siendo válido como mercado, pero el empate no es un resultado final:
- * ~50% de los empates se deciden en prórroga (donde la ventaja ELO opera
- * amortiguada, x0.6) y ~50% en penales (moneda al aire).
+ * Probabilidad de clasificación en un cruce eliminatorio. El 1X2 de 90' sigue
+ * siendo válido como mercado, pero el empate no es un resultado final: ~50% de
+ * los empates se deciden en prórroga (donde la ventaja ELO opera amortiguada) y
+ * ~50% en penales (moneda al aire).
  */
 export function computeKnockoutAdvance(
   probs: Probabilities,
@@ -192,13 +68,13 @@ export function computeKnockoutAdvance(
   awayElo: number,
 ): { home: number; away: number } {
   const eloEdge = normalizeELO(homeElo, awayElo)
-  const etEdge = 0.5 + (eloEdge - 0.5) * 0.6
+  const etEdge = 0.5 + (eloEdge - 0.5) * ENGINE_PARAMS.knockoutExtraTimeDamping
   const pDrawToHome = 0.5 * etEdge + 0.5 * 0.5
   const home = clamp01(probs.home + probs.draw * pDrawToHome)
   return { home: round4(home), away: round4(1 - home) }
 }
 
-/** Quita el margen de la casa de las cuotas 1X2 -> probabilidades de mercado. */
+/** Quita el margen de la casa de las cuotas 1X2 → probabilidades de mercado. */
 export function devigMarket(oddsHome: number, oddsDraw: number, oddsAway: number): Probabilities | null {
   if (!(oddsHome > 1 && oddsDraw > 1 && oddsAway > 1)) return null
   const ih = 1 / oddsHome, id = 1 / oddsDraw, ia = 1 / oddsAway
@@ -208,64 +84,66 @@ export function devigMarket(oddsHome: number, oddsDraw: number, oddsAway: number
 }
 
 /**
- * Probabilidad del modelo a partir de los 5 factores ponderados. Construye
- * una distribucion de goles esperados por equipo y resuelve la simulacion
- * (rejilla de Poisson, ver `simulateMatch`) para obtener probabilidades 1X2
- * y la matriz de marcadores exactos.
+ * Probabilidad del modelo a partir de los 5 factores ponderados. Construye una
+ * distribución de goles esperados por equipo (lambda) y resuelve la rejilla de
+ * Poisson para obtener las probabilidades 1X2 y los marcadores exactos.
  */
 export function computeModelPrediction(i: ModelInput, weights: Weights = DEFAULT_WEIGHTS): ModelResult {
+  const P = ENGINE_PARAMS
+
+  // 1. Factores (0..1, ventaja local)
   const xgScore = computeXgFactor(i)
   const eloScore = normalizeELO(i.homeElo, i.awayElo)
   const formScore = clamp01(formToScore(i.homeForm) - formToScore(i.awayForm) + 0.5)
   const marketScore = i.marketProbabilities
     ? clamp01(i.marketProbabilities.home / Math.max(i.marketProbabilities.home + i.marketProbabilities.away, 0.0001))
     : 0.5
-  // Simétrico: mismo piso para ambos equipos (antes el local tenía piso 0.1
-  // y el visitante 0, sesgando el factor cuando ambos acumulaban bajas).
-  const homeFit = Math.max(0, 1 - i.homeInjuryImpact / 50)
-  const awayFit = Math.max(0, 1 - i.awayInjuryImpact / 50)
+  // Simétrico: mismo piso para ambos equipos.
+  const homeFit = Math.max(0, 1 - i.homeInjuryImpact / P.injuryScale)
+  const awayFit = Math.max(0, 1 - i.awayInjuryImpact / P.injuryScale)
   const newsScore = clamp01(homeFit - awayFit + 0.5)
 
-  // Fuerza local combinada (0.05..0.95): reparte el total de goles esperados.
+  // 2. Fuerza local combinada (reparte el total de goles esperados)
   const hs = clamp(
     xgScore * weights.xg + eloScore * weights.elo + formScore * weights.form +
     marketScore * weights.market + newsScore * weights.news,
-    0.05, 0.95
+    P.homeStrengthClamp[0], P.homeStrengthClamp[1],
   )
 
-  const baseHomeGoals = Math.max(0.2, (i.homeXg + i.awayXga) / 2)
-  const baseAwayGoals = Math.max(0.2, (i.awayXg + i.homeXga) / 2)
-  // En eliminatorias directas el juego es más conservador: históricamente
-  // se anota ~10% menos que en fase de grupos con equipos equivalentes.
-  const knockoutDamping = i.isKnockout ? 0.90 : 1
-  const totalGoals = clamp((baseHomeGoals + baseAwayGoals) * knockoutDamping, 1, 6)
+  // 3. Goles esperados por equipo (lambda)
+  const baseHomeGoals = Math.max(P.minBaseGoals, (i.homeXg + i.awayXga) / 2)
+  const baseAwayGoals = Math.max(P.minBaseGoals, (i.awayXg + i.homeXga) / 2)
+  const knockoutDamping = i.isKnockout ? P.knockoutDamping : 1
+  const totalGoals = clamp((baseHomeGoals + baseAwayGoals) * knockoutDamping, P.totalGoalsClamp[0], P.totalGoalsClamp[1])
+  const lambdaHome = clamp(totalGoals * hs, P.lambdaClamp[0], P.lambdaClamp[1])
+  const lambdaAway = clamp(totalGoals * (1 - hs), P.lambdaClamp[0], P.lambdaClamp[1])
 
-  const lambdaHome = clamp(totalGoals * hs, 0.15, 5)
-  const lambdaAway = clamp(totalGoals * (1 - hs), 0.15, 5)
-
+  // 4. Probabilidades desde la rejilla de Poisson/Dixon-Coles
   const { probabilities: gridProbs, exactScores } = simulateMatch(lambdaHome, lambdaAway)
 
-  // Mezcla con el mercado a nivel de probabilidad: las cuotas devigueadas
-  // contienen información del empate que el reparto de lambdas ignora.
-  // 80% modelo / 20% mercado, renormalizado.
+  // 5. Mezcla con el mercado a nivel de probabilidad (rescata la señal del empate)
   let probabilities = gridProbs
   if (i.marketProbabilities) {
     const mp = i.marketProbabilities
-    const bh = gridProbs.home * 0.8 + mp.home * 0.2
-    const bd = gridProbs.draw * 0.8 + mp.draw * 0.2
-    const ba = gridProbs.away * 0.8 + mp.away * 0.2
+    const { model: mw, market: ow } = P.marketBlend
+    const bh = gridProbs.home * mw + mp.home * ow
+    const bd = gridProbs.draw * mw + mp.draw * ow
+    const ba = gridProbs.away * mw + mp.away * ow
     const sum = bh + bd + ba
     probabilities = { home: round4(bh / sum), draw: round4(bd / sum), away: round4(ba / sum) }
   }
 
+  // 6. Confianza del resultado (0-100)
   const decisiveness = Math.max(probabilities.home, probabilities.draw, probabilities.away) - 1 / 3
   const totalInjury = i.homeInjuryImpact + i.awayInjuryImpact
-  const confidenceScore = clamp(60 + decisiveness * 90 - totalInjury * 0.5, 40, 95)
+  const confidenceScore = clamp(
+    P.confidence.base + decisiveness * P.confidence.decisivenessCoef - totalInjury * P.confidence.injuryPenalty,
+    P.confidence.clamp[0], P.confidence.clamp[1],
+  )
 
   return {
     ...probabilities,
-    // Marcador estimado = el más probable de la matriz (su moda), para que
-    // nunca contradiga la tabla de marcadores exactos mostrada al lado.
+    // Marcador estimado = moda de la matriz (nunca contradice la tabla de exactos)
     predictedHome: exactScores[0]?.home ?? Math.round(lambdaHome),
     predictedAway: exactScores[0]?.away ?? Math.round(lambdaAway),
     confidenceScore: Math.round(confidenceScore * 100) / 100,

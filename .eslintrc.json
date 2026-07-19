@@ -8,7 +8,8 @@
           "patterns": [
             {
               "group": [
-                "**/predictionEngine", "**/leagueEngine", "**/simulationEngine",
+                "**/predictionEngine", "@/lib/prediction/*", "**/prediction/*",
+                "**/leagueEngine", "**/simulationEngine",
                 "**/scenarioEngine", "**/smartBetsEngine", "**/smartBetGrading",
                 "**/valueBets", "**/bracket", "**/leagueStandings",
                 "@/lib/models/*", "@/lib/agents/*", "@/lib/intelligence/*",
@@ -31,7 +32,8 @@
           "patterns": [
             {
               "group": [
-                "**/predictionEngine", "**/leagueEngine", "**/simulationEngine",
+                "**/predictionEngine", "@/lib/prediction/*", "**/prediction/*",
+                "**/leagueEngine", "**/simulationEngine",
                 "**/scenarioEngine", "**/smartBetsEngine", "**/smartBetGrading",
                 "**/valueBets", "**/bracket", "**/leagueStandings",
                 "@/lib/models/*", "@/lib/agents/*", "@/lib/intelligence/*",

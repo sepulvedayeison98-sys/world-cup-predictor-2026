@@ -484,6 +484,23 @@ gantt
   refuerza ADR-006.
 - **Estado:** Propuesto.
 
+### ADR-010 · Modularización del Prediction Engine por responsabilidades
+- **Problema:** el motor de fútbol era un único archivo de ~275 líneas que
+  mezclaba parámetros, factores, generación de probabilidades y orquestación;
+  difícil de evolucionar y de preparar para el Learning Engine.
+- **Alternativas:** (a) dejarlo como estaba; (b) split físico en submódulos con
+  fachada; (c) reescritura del modelo.
+- **Decisión:** (b). `lib/prediction/{config,factors,poisson}.ts` +
+  `lib/predictionEngine.ts` como fachada que re-exporta el API estable. Los
+  parámetros se centralizan en `ENGINE_PARAMS`.
+- **Justificación:** separa "qué valores" de "cómo se calcula" (clave para el
+  auto-tuning de la Fase C) sin tocar a los 13 consumidores; el motor sigue
+  siendo la fuente única. Cero cambio de resultados, verificado por un test de
+  caracterización con valores dorados.
+- **Consecuencias:** cualquier cambio futuro de resultados exige subir versión y
+  actualizar los valores dorados (rompe CI si no). Ver `docs/PREDICTION_ENGINE.md`.
+- **Estado:** **Aceptado / implementado** (Fase 5).
+
 ### ADR-009 · Invariantes de arquitectura como guards ejecutables (tests)
 - **Problema:** los invariantes críticos (regla de oro multi-competición,
   frontera V3) dependían de disciplina humana y revisión manual.

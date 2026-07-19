@@ -4,6 +4,40 @@ Cambios relevantes del proyecto, más reciente primero. Este archivo se inicia e
 la Fase 3 de consolidación; el historial anterior vive en el log de git y en
 `PROGRESS_REPORT.md` / `HANDOFF.md`.
 
+## 2026-07-19 · Fase 5 — Consolidación del Prediction Engine (fútbol)
+
+Modularización del motor de fútbol **sin cambiar resultados**. Verificado bit a
+bit: `tests/predictionEngineCharacterization.test.ts` (valores dorados exactos +
+10 corridas idénticas), tests de motor 20/20, suite completa **161/161**, tsc 0,
+lint 0, build compila y empaqueta correctamente.
+
+### Modularización (responsabilidades desacopladas)
+- Nuevo `lib/prediction/config.ts`: `ENGINE_VERSION`, `Weights`,
+  `DEFAULT_WEIGHTS` y `ENGINE_PARAMS` (todas las perillas del modelo con sus
+  valores actuales, sin cambio).
+- Nuevo `lib/prediction/factors.ts`: `normalizeELO`, `formToScore`,
+  `computeXgFactor`, `computeConfidenceLevel` + utilidades (`clamp`, `round4`).
+- Nuevo `lib/prediction/poisson.ts`: `simulateMatch` + tipos `Probabilities`,
+  `ExactScore` (rejilla Poisson/Dixon-Coles).
+- `lib/predictionEngine.ts` reescrito como **fachada + orquestación**: mantiene
+  el API público estable (re-exporta todo); los 13 consumidores no cambian.
+
+### Configuración y versionado
+- Parámetros antes hardcodeados (ρ Dixon-Coles, maxGoals, amortiguación de
+  eliminatoria, cotas de λ, escala de lesiones, mezcla de mercado, coeficientes
+  de confianza) centralizados en `ENGINE_PARAMS`. Cuidado con el trap IEEE-754:
+  la mezcla de mercado usa pesos explícitos {model:0.8, market:0.2} (no 1−0.8).
+- Nuevo `docs/PREDICTION_ENGINE.md`: documento canónico (arquitectura, I/O,
+  estrategia de versionado, registro de versiones, preparación Learning Engine).
+
+### Integración
+- `.eslintrc.json`: los submódulos `lib/prediction/*` añadidos a las barreras
+  NBA y Tenis (no pueden importar el motor de fútbol ni bypasear la fachada).
+
+### Sin cambios (respetadas las reglas de la fase)
+- No se tocó Smart Bets, Dashboard ni la IA. No se implementó aprendizaje
+  automático — solo se dejó el motor preparado para recibirlo.
+
 ## 2026-07-19 · Fase 4 — Ejecución del roadmap (iteraciones 1-2)
 
 Ejecución controlada del roadmap. Cada iteración validada con `tsc` (0),
