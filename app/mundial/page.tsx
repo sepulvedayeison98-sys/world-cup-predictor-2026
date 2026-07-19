@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Trophy, GitBranch, Users, Crosshair, FlaskConical, Calendar, Grid3X3, Activity } from 'lucide-react'
+import { Trophy, GitBranch, Users, Crosshair, Calendar, Grid3X3, Activity } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, PHASE_LABELS } from '@/lib/constants'
 import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
 import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
 import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
-import { TournamentPathTracker } from '@/components/dashboard/TournamentPathTracker'
 
 export const metadata: Metadata = {
   title: 'Mundial 2026 | Veredicto',
@@ -40,8 +39,6 @@ export default async function MundialHubPage() {
     { data: simulations },
     { data: teams },
     { data: statsRaw },
-    { data: simForScorers },
-    { data: matchCounts },
     { data: knockoutMatches },
   ] = await Promise.all([
     supabase
@@ -87,18 +84,6 @@ export default async function MundialHubPage() {
       .gt('matches_played', 0)
       .order('goals', { ascending: false })
       .limit(10),
-    latestRunId
-      ? supabase
-          .from('tournament_simulations')
-          .select('team_id, winner_prob, final_prob, semi_final_prob, quarter_final_prob, round_of_16_prob, group_stage_advance_prob')
-          .eq('competition_id', COMPETITION_ID)
-          .eq('simulation_run_id', latestRunId)
-      : Promise.resolve({ data: [] as any[] }),
-    supabase
-      .from('matches')
-      .select('home_team_id, away_team_id, status')
-      .eq('competition_id', COMPETITION_ID)
-      .in('status', ['finished', 'live']),
     supabase
       .from('matches')
       .select(`
@@ -124,46 +109,27 @@ export default async function MundialHubPage() {
     .filter((s: any) => s.team)
   const favorite = championData[0]
 
-  // Goleadores: proyección (misma lógica que tenía el dashboard)
-  const playedByTeam = new Map<string, number>()
-  for (const m of matchCounts ?? []) {
-    playedByTeam.set((m as any).home_team_id, (playedByTeam.get((m as any).home_team_id) ?? 0) + 1)
-    playedByTeam.set((m as any).away_team_id, (playedByTeam.get((m as any).away_team_id) ?? 0) + 1)
-  }
-  const simByTeam = new Map((simForScorers ?? []).map((s: any) => [s.team_id, s]))
-  const scorersData = (statsRaw ?? []).map((s: any) => {
-    const teamId = s.player?.team_id
-    const gamesPlayed = s.matches_played || 1
-    const goalsPerGame = s.goals / gamesPlayed
-    const sim = simByTeam.get(teamId)
-    const teamMatchesPlayed = playedByTeam.get(teamId) ?? gamesPlayed
-    const groupRemaining = Math.max(0, 3 - teamMatchesPlayed)
-    const expectedKnockout = sim
-      ? (sim.round_of_16_prob ?? 0) + (sim.quarter_final_prob ?? 0) + (sim.semi_final_prob ?? 0) + (sim.final_prob ?? 0) + (sim.winner_prob ?? 0)
-      : 0
-    const projectedGoals = Math.round(goalsPerGame * (groupRemaining + expectedKnockout) * 10) / 10
-    return { ...s, projectedGoals }
-  })
+  // Goleadores: tabla final del torneo (cifras reales, sin proyección)
+  const scorersData = (statsRaw ?? []) as any[]
 
   const currentPhase = (nextMatches?.[0] as any)?.phase as string | undefined
   const phaseLabel = (currentPhase && PHASE_LABELS[currentPhase]) ?? 'Torneo'
 
   const kpis = [
     { label: 'Precisión del motor', value: accuracy ? `${accuracy}%` : '—', sub: `${correct}/${resolved.length} · azar 33%` },
-    { label: 'Partidos jugados', value: `${played ?? 0}/100`, sub: 'de todo el torneo' },
-    { label: 'Favorito al título', value: favorite?.team?.name ?? '—', sub: favorite ? `${Number(favorite.winner_prob).toFixed(1)}% en simulaciones` : 'sin simulaciones' },
+    { label: 'Partidos jugados', value: `${played ?? 0}/104`, sub: 'de todo el torneo' },
+    { label: 'Favorito del modelo', value: favorite?.team?.name ?? '—', sub: favorite ? `máx. ${Number(favorite.winner_prob).toFixed(1)}% de título en simulaciones` : 'sin simulaciones' },
   ]
 
   const sections = [
-    { href: '/bracket', label: 'Eliminatorias', desc: 'Cuadro del torneo con probabilidades por llave', icon: GitBranch },
+    { href: '/bracket', label: 'Eliminatorias', desc: 'Cuadro final del torneo y cómo lo veía el modelo', icon: GitBranch },
     { href: '/mundial/rankings', label: 'Ranking ELO', desc: 'Las 48 selecciones según el modelo vs ranking FIFA', icon: Trophy },
     { href: '/mundial/balance', label: 'Balance del modelo', desc: 'Cómo le fue al motor: precisión, calibración, aciertos y fallos', icon: Activity },
-    { href: '/champion', label: 'Campeón', desc: 'Probabilidades de título por selección', icon: Trophy },
+    { href: '/champion', label: 'Campeón', desc: 'Lo que proyectó el modelo para el título', icon: Trophy },
     { href: '/groups', label: 'Grupos', desc: 'Clasificación final de la fase de grupos', icon: Grid3X3 },
-    { href: '/scorers', label: 'Goleadores', desc: 'Tabla y proyección de anotadores', icon: Crosshair },
+    { href: '/scorers', label: 'Goleadores', desc: 'Tabla final de anotadores del torneo', icon: Crosshair },
     { href: '/players', label: 'Jugadores', desc: 'Planteles y estado físico', icon: Users },
-    { href: '/simulation', label: 'Simulador', desc: 'Escenarios what-if: lesiones, clima, tácticas', icon: FlaskConical },
-    { href: '/matches', label: 'Partidos', desc: 'Agenda completa con predicciones', icon: Calendar },
+    { href: '/matches', label: 'Partidos', desc: 'Agenda completa con predicciones y resultados', icon: Calendar },
   ]
 
   return (
@@ -194,9 +160,6 @@ export default async function MundialHubPage() {
         <ChampionStripWidget simulations={championData} />
         <TopScorersStripWidget scorers={scorersData} />
       </div>
-
-      {/* Camino del torneo por selección */}
-      <TournamentPathTracker />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Próximos partidos del torneo */}

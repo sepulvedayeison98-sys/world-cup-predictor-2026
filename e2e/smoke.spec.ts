@@ -23,7 +23,7 @@ test('la raíz redirige al inicio global y renderiza los bloques núcleo', async
 test('hub del Mundial: estado vital, widgets del torneo y secciones', async ({ page }) => {
   await page.goto('/mundial')
   await expect(page.getByRole('heading', { name: 'Mundial 2026' })).toBeVisible()
-  await expect(page.getByText('Favorito al título')).toBeVisible()
+  await expect(page.getByText('Favorito del modelo')).toBeVisible()
   await expect(page.getByText('Precisión del motor')).toBeVisible()
   await expect(page.getByRole('link', { name: /Eliminatorias/ }).first()).toBeVisible()
 })

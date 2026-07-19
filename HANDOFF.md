@@ -233,6 +233,32 @@ campaña ya jugada). La ingesta de ligas queda manual/on-demand a propósito
 Recomendable añadir un cron semanal de `/api/sync/leagues/ingest` SOLO ya
 con el plan de pago.
 
+### Mundial → retrospectiva + goleadores (sesión 2026-07-19)
+El Mundial 2026 **terminó** (103/104 finished, la final fue el 19-jul). Se
+convirtió el hub a registro histórico: **eliminados** el Simulador what-if
+(ruta `/simulation` + tile + `TournamentPathTracker` "avance por etapas"),
+las proyecciones de goleadores y el KPI forward "Favorito al título"
+(→ "Favorito del modelo"). Campeón muestra ahora **campeón real vs lo que
+daba el modelo** (banner solo si la final está resuelta en BD). Goleadores
+es tabla FINAL sin proyección.
+**Hallazgo de datos (goleadores desactualizados)**: NO existe sync de
+`player_statistics` — se pobló A MANO vía migración `026_wc2026_players_scorers.sql`
+con datos "al 23-jun-2026 (jornada 2)". El sync de ESPN (`espn-stats.ts`)
+solo escribe `match_statistics` (nivel equipo), nunca goles por jugador. La
+UI ahora declara honestamente "datos a la última actualización". **Arreglo
+real (backlog)**: cablear una fuente de stats por jugador (ESPN summary
+scoring plays, o api-football player-stats en plan pago) o re-seed manual
+verificado — no se fabrican cifras finales (conocimiento < resultado real).
+
+### Próximo (pendiente, decisión del dueño): reforma KPIs cross-deporte + UX
+El usuario pidió (2026-07-19) revisar qué KPIs/pestañas sirven para
+ligas/NBA/tenis, estandarizar los útiles y trabajar la experiencia. Alcance
+acordado: **poda del Mundial primero (HECHO)**; la reforma cross-deporte +
+UX queda para un pase aparte. Patrón clave a estandarizar en los 3 deportes:
+página "precisión/calibración del motor" (existe en los tres), tarjeta de
+predicción de partido, tabla de ranking, y franja de próximos partidos
+(bloqueada por datos en fútbol/NBA hoy).
+
 ---
 
 ## 6. Qué se planea hacer (en orden recomendado)

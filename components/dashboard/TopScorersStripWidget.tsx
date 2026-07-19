@@ -6,7 +6,6 @@ import Link from 'next/link'
 interface ScorerRow {
   player_id: string
   goals: number
-  projectedGoals: number
   player: {
     short_name: string
     name: string
@@ -26,7 +25,7 @@ const CONF_DOT: Record<string, string> = {
 
 export function TopScorersStripWidget({ scorers }: Props) {
   const top6 = scorers.slice(0, 6)
-  const maxProjected = Math.max(...top6.map(s => s.goals + s.projectedGoals), 1)
+  const maxGoals = Math.max(...top6.map(s => s.goals), 1)
 
   return (
     <div className="card p-4 space-y-3">
@@ -44,32 +43,25 @@ export function TopScorersStripWidget({ scorers }: Props) {
         <p className="text-xs text-zinc-600 text-center py-2">Sin datos de goleadores</p>
       ) : (
         <div className="space-y-1.5">
-          {top6.map((s, i) => {
-            const total = s.goals + s.projectedGoals
-            return (
-              <div key={s.player_id} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
-                <Flag code={s.player?.team?.code} />
-                <span className="text-[10px] text-zinc-300 w-20 truncate">
-                  {s.player?.short_name ?? s.player?.name}
-                </span>
-                <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full flex rounded-full overflow-hidden">
-                    <div className="bg-zinc-500 h-full" style={{ width: `${(s.goals / maxProjected) * 100}%` }} />
-                    <div className="bg-emerald-600/60 h-full" style={{ width: `${(s.projectedGoals / maxProjected) * 100}%` }} />
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold mono text-zinc-300 w-6 text-right">{s.goals}</span>
-                <span className="text-[10px] text-emerald-500 mono w-10 text-right">+{s.projectedGoals.toFixed(1)}</span>
-                <div className={cn('h-1.5 w-1.5 rounded-full shrink-0', CONF_DOT[s.player?.team?.confederation] ?? 'bg-zinc-600')} />
+          {top6.map((s, i) => (
+            <div key={s.player_id} className="flex items-center gap-2">
+              <span className="text-[10px] font-bold mono text-zinc-600 w-3">{i + 1}</span>
+              <Flag code={s.player?.team?.code} />
+              <span className="text-[10px] text-zinc-300 w-20 truncate">
+                {s.player?.short_name ?? s.player?.name}
+              </span>
+              <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="bg-emerald-600/70 h-full rounded-full" style={{ width: `${(s.goals / maxGoals) * 100}%` }} />
               </div>
-            )
-          })}
+              <span className="text-[10px] font-bold mono text-zinc-300 w-6 text-right">{s.goals}</span>
+              <div className={cn('h-1.5 w-1.5 rounded-full shrink-0', CONF_DOT[s.player?.team?.confederation] ?? 'bg-zinc-600')} />
+            </div>
+          ))}
         </div>
       )}
 
       <p className="text-[10px] text-zinc-700">
-        Barras: goles actuales (gris) + proyectados (verde)
+        Goles del torneo (cifras reales de la fuente)
       </p>
     </div>
   )

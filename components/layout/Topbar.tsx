@@ -27,7 +27,6 @@ function breadcrumbOf(pathname: string): [string, string] | [string] {
   if (pathname.startsWith('/groups')) return ['Mundial 2026', 'Grupos']
   if (pathname.startsWith('/scorers')) return ['Mundial 2026', 'Goleadores']
   if (pathname.startsWith('/players')) return ['Mundial 2026', 'Jugadores']
-  if (pathname.startsWith('/simulation')) return ['Mundial 2026', 'Simulador']
   if (pathname.startsWith('/matches')) return ['Análisis', 'Partidos']
   if (pathname.startsWith('/predictions')) return ['Análisis', 'Predicciones']
   if (pathname.startsWith('/value-bets')) return ['Análisis', 'Smart Bets']

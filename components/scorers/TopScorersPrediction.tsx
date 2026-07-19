@@ -16,9 +16,6 @@ interface Player {
   form_score: number
   physical_condition: number
   goalsPerGame: number
-  expectedRemaining: number
-  projectedGoals: number
-  teamAdvanceProb: number
   player: {
     id: string
     name: string
@@ -98,11 +95,11 @@ function TopThreePodium({ players }: { players: Player[] }) {
             </div>
             <div>
               <p className={cn('text-2xl font-black mono', rankColors[ri])}>{player.goals}</p>
-              <p className="text-[10px] text-zinc-600">goles actuales</p>
+              <p className="text-[10px] text-zinc-600">goles</p>
             </div>
             <div className="w-full">
-              <p className="text-xs font-bold text-emerald-400 mono">+{player.projectedGoals.toFixed(1)}</p>
-              <p className="text-[10px] text-zinc-600">proyectados</p>
+              <p className="text-xs font-bold text-zinc-300 mono">{player.assists}</p>
+              <p className="text-[10px] text-zinc-600">asistencias</p>
             </div>
           </div>
         )
@@ -113,18 +110,15 @@ function TopThreePodium({ players }: { players: Player[] }) {
 
 export function TopScorersPrediction({ players }: Props) {
   const [showAll, setShowAll] = useState(false)
-  const [sortBy, setSortBy] = useState<'goals' | 'projected' | 'perGame'>('goals')
+  const [sortBy, setSortBy] = useState<'goals' | 'perGame'>('goals')
 
   const sorted = [...players].sort((a, b) => {
-    if (sortBy === 'goals')     return b.goals - a.goals || b.projectedGoals - a.projectedGoals
-    if (sortBy === 'projected') return b.projectedGoals - a.projectedGoals || b.goals - a.goals
+    if (sortBy === 'goals') return b.goals - a.goals || b.goalsPerGame - a.goalsPerGame
     return b.goalsPerGame - a.goalsPerGame || b.goals - a.goals
   })
 
   const visible = showAll ? sorted : sorted.slice(0, 15)
   const maxGoals = sorted[0]?.goals ?? 1
-  const maxProjected = Math.max(...sorted.map(p => p.projectedGoals), 1)
-  const maxPerGame = Math.max(...sorted.map(p => p.goalsPerGame), 1)
 
   if (sorted.length === 0) {
     return (
@@ -146,9 +140,8 @@ export function TopScorersPrediction({ players }: Props) {
       <div className="flex items-center gap-2">
         <span className="text-xs text-zinc-600">Ordenar por:</span>
         {([
-          ['goals',     'Goles actuales'],
-          ['projected', 'Proyección total'],
-          ['perGame',   'Goles/partido'],
+          ['goals',   'Goles'],
+          ['perGame', 'Goles/partido'],
         ] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSortBy(key)}
             className={cn(
@@ -174,8 +167,6 @@ export function TopScorersPrediction({ players }: Props) {
                 <th className="text-center px-3 py-3 text-zinc-500 font-medium">Goles</th>
                 <th className="text-center px-3 py-3 text-zinc-500 font-medium">Ast.</th>
                 <th className="text-center px-3 py-3 text-zinc-500 font-medium">G/P</th>
-                <th className="text-center px-3 py-3 text-zinc-500 font-medium">P. Rest.</th>
-                <th className="text-center px-4 py-3 text-emerald-500 font-medium">Proyección</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
@@ -228,21 +219,6 @@ export function TopScorersPrediction({ players }: Props) {
                     <td className="px-3 py-3 text-center">
                       <span className="text-zinc-300 mono">{player.goalsPerGame.toFixed(2)}</span>
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-zinc-400 mono">{player.expectedRemaining.toFixed(1)}</span>
-                        <span className="text-[10px] text-zinc-600">{Math.round(player.teamAdvanceProb * 100)}% avance</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-center">
-                        <p className="text-emerald-400 font-black mono text-sm">
-                          {(player.goals + player.projectedGoals).toFixed(1)}
-                        </p>
-                        <p className="text-[10px] text-zinc-600">+{player.projectedGoals.toFixed(1)} más</p>
-                        <MiniBar value={player.goals + player.projectedGoals} max={maxGoals + maxProjected} color="bg-emerald-500" />
-                      </div>
-                    </td>
                   </tr>
                 )
               })}
@@ -267,7 +243,8 @@ export function TopScorersPrediction({ players }: Props) {
       <div className="flex items-center gap-2 text-[10px] text-zinc-700">
         <TrendingUp className="h-3 w-3" />
         <span>
-          Proyección = goles/partido × partidos esperados restantes (grupos + rondas eliminatorias ponderadas por probabilidad de avance)
+          Tabla de goleadores del torneo con datos verificados de la fuente. Sin
+          proyecciones: el Mundial concluyó y estas son cifras reales, no estimadas.
         </span>
       </div>
     </div>
