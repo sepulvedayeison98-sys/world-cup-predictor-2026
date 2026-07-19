@@ -9,6 +9,8 @@ import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, WC_FINAL_DATE } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
 import { fetchTennisDashboardStrip } from '@/services/tennis/queries'
+import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
+import { EngineConfidencePanel, type EngineConfidenceRow } from '@/components/dashboard/EngineConfidencePanel'
 
 export const metadata: Metadata = {
   title: 'Inicio | Veredicto — Inteligencia Deportiva',
@@ -47,6 +49,7 @@ export default async function HomePage() {
     { data: upcoming },
     { data: wcPreds },
     { data: ligaPreds },
+    { data: nbaPreds },
     { data: preds30d },
     { data: topBet },
     { data: lastFinished },
@@ -81,6 +84,12 @@ export default async function HomePage() {
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
       .in('match.competition_id', LEAGUE_DISPLAY_ORDER)
+      .not('was_correct', 'is', null),
+    // Confianza: NBA (motor nba-1.0)
+    supabase
+      .from('predictions')
+      .select('was_correct, match:matches!inner(competition_id)')
+      .eq('match.competition_id', NBA_COMPETITION_ID)
       .not('was_correct', 'is', null),
     // Precisión 30 días (cinta terminal, cualquier competición)
     supabase
@@ -156,7 +165,36 @@ export default async function HomePage() {
   }
   const wc = acc(wcPreds)
   const ligas = acc(ligaPreds)
+  const nba = acc(nbaPreds)
   const d30 = acc(preds30d)
+
+  // Panel multideporte: precisión medida por dominio, cada uno con su base
+  const tennisBt = tennis.backtest
+  const confidenceRows: EngineConfidenceRow[] = [
+    {
+      sport: 'mundial', label: 'Mundial 2026', accuracy: wc.pct, accent: true,
+      detail: wc.total ? `${wc.correct}/${wc.total} · azar 33%` : 'sin partidos resueltos',
+      href: '/mundial/balance',
+    },
+    {
+      sport: 'ligas', label: '5 grandes ligas', accuracy: ligas.pct,
+      detail: ligas.total ? `${ligas.correct}/${ligas.total} · azar 33%` : 'sin backtest cargado',
+      href: '/inteligencia',
+    },
+    {
+      sport: 'nba', label: 'NBA', accuracy: nba.pct,
+      detail: nba.total ? `${nba.correct}/${nba.total} · azar 50%` : 'sin partidos resueltos',
+      href: '/nba/predicciones',
+    },
+    {
+      sport: 'tenis', label: 'Tenis · ATP',
+      accuracy: tennisBt?.accuracy != null ? tennisBt.accuracy * 100 : null,
+      detail: tennisBt?.accuracy != null
+        ? `${tennisBt.sample_size.toLocaleString('es-ES')} partidos · azar 50%`
+        : 'sin backtest cargado',
+      href: '/tennis/inteligencia',
+    },
+  ]
 
   // ── Pick del día: mayor confianza entre lo que viene (72 h) ─
   const upcomingRows = (upcoming ?? []) as any[]
@@ -307,8 +345,8 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* ── PICK DEL DÍA + CONFIANZA ─────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* ── PICK DEL DÍA ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4">
         <section aria-label="El pick del día" className="rounded-xl border border-emerald-500/30 bg-zinc-900 p-5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">El pick del día</p>
           {pick ? (
@@ -337,29 +375,10 @@ export default async function HomePage() {
           )}
         </section>
 
-        <section aria-label="Confianza del motor" className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Confianza del motor</p>
-            <Link href="/inteligencia" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-              metodología →
-            </Link>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-3xl font-bold text-emerald-400 mono">{wc.pct !== null ? `${wc.pct.toFixed(1)}%` : '—'}</p>
-              <p className="text-xs text-zinc-500">Mundial 2026 · {wc.correct}/{wc.total} aciertos 1X2</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-white mono">{ligas.pct !== null ? `${ligas.pct.toFixed(1)}%` : '—'}</p>
-              <p className="text-xs text-zinc-500">5 grandes ligas · backtest {ligas.total} picks</p>
-            </div>
-          </div>
-          <p className="mt-3 border-t border-zinc-800 pt-2.5 text-[11px] text-zinc-600">
-            Líneas base: azar 33% · apostar siempre local ≈44%. Cada cifra es
-            verificable en Inteligencia.
-          </p>
-        </section>
       </div>
+
+      {/* ── CONFIANZA DEL MOTOR (multideporte) ─────────────────── */}
+      <EngineConfidencePanel rows={confidenceRows} />
 
       {/* ── COMPETICIONES ────────────────────────────────────── */}
       <section aria-label="Competiciones">
