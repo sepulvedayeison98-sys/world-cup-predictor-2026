@@ -243,8 +243,8 @@ export function TopScorersPrediction({ players }: Props) {
       <div className="flex items-center gap-2 text-[10px] text-zinc-700">
         <TrendingUp className="h-3 w-3" />
         <span>
-          Tabla de goleadores del torneo con datos verificados de la fuente. Sin
-          proyecciones: el Mundial concluyó y estas son cifras reales, no estimadas.
+          Tabla de goleadores con los últimos datos disponibles de la fuente. Sin
+          proyecciones; consulta la fecha de actualización mostrada arriba.
         </span>
       </div>
     </div>

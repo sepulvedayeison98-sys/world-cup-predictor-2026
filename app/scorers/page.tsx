@@ -50,7 +50,7 @@ export default async function ScorersPage() {
         <div>
           <h1 className="text-xl font-bold text-white">Goleadores del Mundial</h1>
           <p className="text-sm text-zinc-500">
-            Tabla final de anotadores del torneo — cifras reales, sin proyecciones.
+            Tabla de anotadores con los últimos datos disponibles — sin proyecciones.
             {lastUpdated && (
               <> Datos a la última actualización de la fuente ({new Date(lastUpdated).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}).</>
             )}

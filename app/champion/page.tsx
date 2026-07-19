@@ -40,7 +40,7 @@ export default async function ChampionPage() {
       .eq('competition_id', COMPETITION_ID),
     supabase
       .from('matches')
-      .select('home_team_id, away_team_id, home_score, away_score, status')
+      .select('home_team_id, away_team_id, home_score, away_score, home_penalties, away_penalties, status')
       .eq('competition_id', COMPETITION_ID)
       .eq('phase', 'final')
       .eq('status', 'finished')
@@ -56,10 +56,16 @@ export default async function ChampionPage() {
   const totalWinProb = enriched.reduce((acc, s: any) => acc + (s.winner_prob ?? 0), 0)
 
   // Campeón REAL: solo si la final ya se jugó (Data First — no se asume).
+  // Si hubo empate, el sincronizador ESPN persiste el desenlace por penales.
   const fm = finalMatch as any
+  const tournamentFinished = Boolean(fm)
   let actualChampionId: string | null = null
-  if (fm && fm.home_score != null && fm.away_score != null && fm.home_score !== fm.away_score) {
-    actualChampionId = fm.home_score > fm.away_score ? fm.home_team_id : fm.away_team_id
+  if (fm && fm.home_score != null && fm.away_score != null) {
+    if (fm.home_score !== fm.away_score) {
+      actualChampionId = fm.home_score > fm.away_score ? fm.home_team_id : fm.away_team_id
+    } else if (fm.home_penalties != null && fm.away_penalties != null && fm.home_penalties !== fm.away_penalties) {
+      actualChampionId = fm.home_penalties > fm.away_penalties ? fm.home_team_id : fm.away_team_id
+    }
   }
   const actualChampion = actualChampionId ? teamsMap.get(actualChampionId) : null
   const modelProbForChampion = actualChampionId
@@ -74,10 +80,12 @@ export default async function ChampionPage() {
             <Trophy className="h-5 w-5 text-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Campeón — lo que proyectó el modelo</h1>
+            <h1 className="text-xl font-bold text-white">
+              {tournamentFinished ? 'Campeón — lo que proyectó el modelo' : 'Predicción de Campeón'}
+            </h1>
             <p className="text-sm text-zinc-500">
               Probabilidades de título por equipo · Monte Carlo {(3000).toLocaleString()} iteraciones.
-              Vista retrospectiva del torneo concluido.
+              {tournamentFinished ? ' Vista retrospectiva del torneo concluido.' : ' El torneo aún está en curso.'}
             </p>
           </div>
         </div>
