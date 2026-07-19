@@ -29,7 +29,7 @@ export async function GET() {
   // ¿Hay algún partido realmente en ventana de juego? Si no, no tiene sentido.
   const nowMs = Date.now()
   const { data: windowRows } = await supabase
-    .from('matches')
+    .from('matches') // regla-oro-ok: gate operativo global (solo status/kickoff, sin métricas por deporte)
     .select('kickoff_time, status')
     .in('status', ['live', 'scheduled'])
     .gte('kickoff_time', new Date(nowMs - 210 * 60 * 1000).toISOString())  // prórroga+penales pueden superar 160 min

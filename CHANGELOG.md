@@ -4,6 +4,40 @@ Cambios relevantes del proyecto, más reciente primero. Este archivo se inicia e
 la Fase 3 de consolidación; el historial anterior vive en el log de git y en
 `PROGRESS_REPORT.md` / `HANDOFF.md`.
 
+## 2026-07-19 · Fase 4 — Ejecución del roadmap (iteraciones 1-2)
+
+Ejecución controlada del roadmap. Cada iteración validada con `tsc` (0),
+`next lint` (0) y `npm test`. Completa la **Fase A** del Plan Maestro
+(fundaciones) — A1/A2 se entregaron en la Fase 3; A3 aquí.
+
+### Iteración 1 · Guard de la regla de oro (A3) — Arquitectura, prioridad Crítica
+- Nuevo `tests/goldenRule.test.ts`: escanea `app/`, `lib/`, `services/` y falla
+  si una query a `matches`/`teams`/`team_statistics`/`predictions` no está
+  acotada por competición (o por fila/entidad única). Convierte el guardrail más
+  crítico del proyecto —hasta ahora dependiente de disciplina humana— en garantía
+  de CI.
+- 4 queries globales legítimas (KPIs/gates que solo leen columnas neutras) se
+  marcaron con el comentario explícito `regla-oro-ok: <motivo>` en
+  `app/api/sync/live/route.ts`, `app/dashboard/page.tsx` (×2) y
+  `services/sync/odds.ts`. Solo comentarios — sin cambio de comportamiento.
+
+### Iteración 2 · Guard de la frontera V3 (ADR-004) — Arquitectura
+- Nuevo `tests/v3Frontier.test.ts`: verifica que la capa analítica
+  (`lib/models`, `lib/agents`, `lib/intelligence`) no importa el cliente de
+  escritura (`@/lib/supabase/admin`) ni muta tablas autoritativas. Cierra el
+  riesgo del "motor sombra" (RT-2). Confirmado limpio hoy; el guard lo mantiene.
+
+### Resultado
+- Suite **156 → 158** tests (+3 casos). tsc 0 · lint 0. Sin cambios de runtime.
+
+### Pendiente / bloqueo declarado para la Fase B
+- La Fase B (activar escritores en `model_registry`/`data_health` y el dispatcher
+  sobre `jobs`) toca las rutas de sync que escriben en Supabase. Implementarlas
+  con seguridad exige un entorno con Supabase conectado para validar los writes
+  sin regresión; en este sandbox no hay credenciales (`.env.local` ausente). Se
+  deja como la siguiente tarea, pendiente de ese entorno. No se envía código de
+  escritura que no pueda ejecutarse al menos una vez.
+
 ## 2026-07-19 · Fase 3 — Consolidación de la arquitectura
 
 Consolidación técnica sin cambios de comportamiento. Todo verificado con

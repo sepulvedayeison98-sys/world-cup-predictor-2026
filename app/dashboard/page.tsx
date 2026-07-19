@@ -124,12 +124,12 @@ export default async function HomePage() {
       .limit(3),
     // Actividad: última recalibración del motor
     supabase
-      .from('predictions')
+      .from('predictions') // regla-oro-ok: KPI global (timestamp de última recalibración, sin métricas)
       .select('updated_at')
       .order('updated_at', { ascending: false })
       .limit(1),
     supabase
-      .from('matches')
+      .from('matches') // regla-oro-ok: KPI global (conteo de partidos en vivo, cross-deporte a propósito)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'live'),
     supabase

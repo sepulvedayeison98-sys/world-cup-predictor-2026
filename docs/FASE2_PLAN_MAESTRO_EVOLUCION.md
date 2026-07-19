@@ -232,6 +232,11 @@ gantt
 
 ## FASE A — Fundaciones limpias
 
+> **Estado: ✅ COMPLETADA** (Fase 3 + Fase 4). A1 docs sincronizadas y A2 frontera
+> V3 en la Fase 3; A3 guards ejecutables (`tests/goldenRule.test.ts`,
+> `tests/v3Frontier.test.ts`) en la Fase 4. Gates verdes: tsc 0 · lint 0 · 158
+> tests.
+
 - **Objetivo:** eliminar ambigüedad conceptual y blindar los invariantes antes de
   construir sobre ellos.
 - **Alcance:** (A1) sincronizar `CLAUDE_CONTEXT.md`/`README` con el estado real
@@ -478,6 +483,21 @@ gantt
 - **Consecuencias:** el "detalle universal" tratará F1 como caso sport-aware propio;
   refuerza ADR-006.
 - **Estado:** Propuesto.
+
+### ADR-009 · Invariantes de arquitectura como guards ejecutables (tests)
+- **Problema:** los invariantes críticos (regla de oro multi-competición,
+  frontera V3) dependían de disciplina humana y revisión manual.
+- **Alternativas:** (a) confiar en revisión de PR; (b) regla ESLint personalizada;
+  (c) test de escaneo estático en la suite existente.
+- **Decisión:** (c). `tests/goldenRule.test.ts` y `tests/v3Frontier.test.ts`
+  escanean el código y fallan la CI ante una violación. Las excepciones
+  conscientes se marcan con un comentario explícito `regla-oro-ok: <motivo>`.
+- **Justificación:** cero dependencias nuevas (usa el runner `node:test` ya
+  presente); un test es más simple y portable que una regla ESLint a medida; el
+  marcador de escape documenta la intención en el propio código.
+- **Consecuencias:** toda query nueva sin acotar, o cualquier intento de que V3
+  escriba predicciones, rompe la CI. Estado de la Fase A: completada.
+- **Estado:** **Aceptado / implementado** (Fase 4, iteraciones 1-2).
 
 ### ADR-008 · Versionado de modelo obligatorio en cada recalibración
 - **Problema:** hoy `predictions.model_version` existe pero `model_registry` no se

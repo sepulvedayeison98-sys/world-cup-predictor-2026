@@ -282,7 +282,7 @@ export async function syncOdds(): Promise<{
   // Autolimpieza: las cuotas de partidos ya finalizados no sirven a nadie
   // (no se puede apostar a un partido jugado) y solo acumulan ruido.
   const { data: finishedIds } = await supabase
-    .from('matches').select('id').eq('status', 'finished')
+    .from('matches').select('id').eq('status', 'finished') // regla-oro-ok: limpieza global por match_id (las odds solo existen en fútbol)
   const finishedList = (finishedIds ?? []).map((m: any) => m.id)
   let oddsCleaned = 0
   if (finishedList.length) {

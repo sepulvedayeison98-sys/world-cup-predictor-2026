@@ -123,6 +123,18 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-2. **Sesión 2026-07-19 — Fase 4 (ejecución roadmap, iter. 1-2)** (misma rama):
+   - **A3 · Guard regla de oro** `tests/goldenRule.test.ts`: falla la CI si una
+     query a `matches`/`teams`/`team_statistics`/`predictions` no está acotada por
+     competición. 4 queries globales legítimas marcadas con `regla-oro-ok`.
+   - **Frontera V3** `tests/v3Frontier.test.ts` (ADR-004): la capa analítica no
+     importa el cliente de escritura ni muta tablas autoritativas.
+   - Suite 156→158, tsc 0, lint 0, sin cambios de runtime. **Fase A completa.**
+   - **Siguiente (Fase B):** activar escritores `model_registry`/`data_health` +
+     dispatcher sobre `jobs`. BLOQUEO en este sandbox: requiere Supabase conectado
+     para validar los writes; `.env.local` ausente. No se envía código de
+     escritura sin poder ejecutarlo. Ver ADR-002/008 y CHANGELOG.
+
 -1. **Sesión 2026-07-19 — Fases 1-3 de arquitectura** (rama
    `claude/indu-predictor-architecture-analysis-5qxz6y`):
    - **Fase 1** `docs/FASE1_ANALISIS_ARQUITECTURA.md`: análisis completo del repo
