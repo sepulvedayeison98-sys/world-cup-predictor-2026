@@ -9,13 +9,13 @@
  *
  * Credenciales: SPORTS_API_KEY (Vercel, ya verificada) y opcionalmente
  * SPORTS_API_HOST. Plan Free: 100 requests/día y solo temporadas
- * 2022-2024 — suficiente para validar; la temporada 2026-27 en vivo
- * requerirá upgrade de plan (~agosto).
+ * 2022-2024. Para 2025-26 (ya jugada) y 2026-27 (en vivo) se necesita el
+ * upgrade de plan; una vez contratado, basta con la env FOOTBALL_API_SEASON
+ * (ver DEFAULT_SEASON abajo) — no hace falta tocar código.
  *
  * NOTA: SPORTS_API_SEASON y SPORTS_API_LEAGUE existen en Vercel como
  * restos de una configuración anterior con valores desconocidos; se
- * ignoran a propósito (la season por defecto rechazada el 2026-07-07
- * vino de ahí).
+ * ignoran a propósito. El knob válido es FOOTBALL_API_SEASON.
  */
 
 // IDs oficiales de liga en API-Football. Opción A aprobada (Premier +
@@ -28,8 +28,36 @@ export const TARGET_LEAGUES = [
   { key: 'ligue_1', apiFootballId: 61, name: 'Ligue 1', country: 'France' },
 ] as const
 
-// Plan Free de API-Football: última temporada accesible (2022-2024).
-const DEFAULT_SEASON = 2024
+/**
+ * Temporada de fútbol en el formato de API-Football: el AÑO DE INICIO de la
+ * campaña europea (2024 = temporada 2024-25, ago-2024 → may-2025). La liga
+ * arranca a mediados de agosto y los fixtures salen en junio-julio; de julio
+ * en adelante ya apunta a la campaña que empieza ese año.
+ *
+ * Hoy NO es el default (ver DEFAULT_SEASON): el plan Free solo sirve hasta
+ * 2024. Queda listo para que, tras contratar el plan de pago, el fallback se
+ * cambie a esta función y el número de temporada avance solo cada año.
+ */
+export function currentFootballSeason(now: Date = new Date()): number {
+  const y = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1 // 1-12
+  return month >= 7 ? y : y - 1
+}
+
+/**
+ * Temporada por defecto de la validación y la ingesta. Se fuerza con la env
+ * `FOOTBALL_API_SEASON` — ESE es el único knob a mover en Vercel tras el
+ * upgrade de plan (p. ej. `FOOTBALL_API_SEASON=2026` para la 2026-27).
+ *
+ * Fallback: 2024, la última temporada accesible en el plan Free. Se mantiene
+ * fijo a propósito: subirlo sin plan de pago haría que la API devuelva 0
+ * equipos/partidos y el ingest falle. Con el plan de pago ya activo, se puede
+ * dejar la env o cambiar este fallback a `currentFootballSeason()`.
+ */
+export const DEFAULT_SEASON: number = ((): number => {
+  const env = Number(process.env.FOOTBALL_API_SEASON)
+  return Number.isFinite(env) && env > 2000 ? env : 2024
+})()
 
 interface ApiFootballResponse<T> {
   errors: Record<string, string> | string[]

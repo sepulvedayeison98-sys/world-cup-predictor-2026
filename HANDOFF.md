@@ -217,6 +217,22 @@ no habrá "próximos partidos" NBA hasta que la liga publique el calendario
 2026-27 (~mediados de agosto); hasta entonces la vitrina vacía es honesta,
 no un bug. Para adelantarlo cuando salga, setear env `NBA_API_SEASON=2026-2027`.
 
+### Próximos partidos de FÚTBOL (5 ligas) — bloqueado por plan de pago
+Verificado (sesión 2026-07-19): las 5 ligas tienen SOLO la temporada
+2024-25 completa (Premier/LaLiga/SerieA 380/380, Bundesliga/Ligue1 308/308),
+último partido may-2025. Falta la 2025-26 (ya jugada) y la 2026-27. **No es
+bug de código sino límite del plan Free de API-Football (solo hasta 2024)** —
+subir el número de temporada sin plan de pago hace que la API devuelva 0.
+**Dejado listo (código, no bloqueante)**: `DEFAULT_SEASON` ahora se controla
+con la env `FOOTBALL_API_SEASON` y existe `currentFootballSeason()` (+ test).
+Tras contratar el upgrade (~19 USD/mes, ya en el roadmap), el flujo es:
+1) poner `FOOTBALL_API_SEASON=2026` en Vercel; 2) llamar una vez
+`/api/sync/leagues/ingest` (opcional `?season=2025` para backfillear la
+campaña ya jugada). La ingesta de ligas queda manual/on-demand a propósito
+(no en cron: los fixtures no cambian a diario y en Free malgastaría cuota).
+Recomendable añadir un cron semanal de `/api/sync/leagues/ingest` SOLO ya
+con el plan de pago.
+
 ---
 
 ## 6. Qué se planea hacer (en orden recomendado)
