@@ -3,6 +3,14 @@
   "framework": "nextjs",
   "crons": [
     {
+      "path": "/api/sync/nba/ingest",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/sync/nba/calibrate",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/sync/auto",
       "schedule": "0 6 * * *"
     },

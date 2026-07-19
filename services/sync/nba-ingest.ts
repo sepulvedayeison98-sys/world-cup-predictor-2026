@@ -1,10 +1,12 @@
 /**
  * Ingesta de la NBA desde API-Basketball (api-sports.io, liga 12).
  *
- * Carga las 30 franquicias y el calendario completo de la temporada
- * 2024-25 (accesible en el plan Free) en las MISMAS tablas del fútbol
- * (teams/matches) bajo la competición NBA. Las vistas del resto de la
- * plataforma filtran por competición, así que nada se mezcla.
+ * Carga las 30 franquicias y el calendario completo de la temporada activa
+ * (`NBA_API_SEASON`, dinámica según el calendario o forzada por env) en las
+ * MISMAS tablas del fútbol (teams/matches) bajo la competición NBA. Los
+ * partidos por jugar entran como 'scheduled' → alimentan "próximos
+ * partidos". Las vistas del resto de la plataforma filtran por competición,
+ * así que nada se mezcla.
  *
  * Idempotente: upserts por api_football_id (reutilizado como id externo
  * de api-sports, sea cual sea el deporte). Consume 2 requests por corrida.
@@ -112,13 +114,18 @@ export async function ingestNba(): Promise<NbaIngestResult> {
   const gamesBody = await apiGet(`/games?league=${NBA_API_LEAGUE_ID}&season=${NBA_API_SEASON}`)
   const apiGames = (gamesBody?.response ?? []) as any[]
 
-  // Ventanas de la temporada 2024-25 (la API mezcla pretemporada, regular
-  // y playoffs bajo una sola "season"). Clasificamos por fecha:
-  //   < 22 oct 2024 → pretemporada (se ignora, baja señal)
-  //   22 oct 2024 – 14 abr 2025 → temporada regular (cuenta para standings)
-  //   ≥ 15 abr 2025 → play-in + playoffs
-  const REGULAR_START = '2024-10-22'
-  const PLAYOFFS_START = '2025-04-15'
+  // La API mezcla pretemporada, regular y playoffs bajo una sola "season"
+  // (formato "YYYY-YYYY"). Clasificamos por fecha, derivando las ventanas
+  // del año de inicio de la temporada activa (no hardcodeadas):
+  //   < ~22 oct del año de inicio → pretemporada (se ignora, baja señal)
+  //   ~22 oct – ~14 abr → temporada regular (cuenta para standings)
+  //   ≥ ~15 abr del año siguiente → play-in + playoffs
+  // Las fechas exactas varían un par de días por temporada; la
+  // clasificación de fase es aproximada por diseño (no afecta a los
+  // partidos por jugar, que entran como 'scheduled' sea cual sea la fase).
+  const seasonStartYear = parseInt(NBA_API_SEASON.slice(0, 4), 10)
+  const REGULAR_START = `${seasonStartYear}-10-22`
+  const PLAYOFFS_START = `${seasonStartYear + 1}-04-15`
   const dayOf = (iso: string) => String(iso).slice(0, 10)
 
   const matchRows = apiGames

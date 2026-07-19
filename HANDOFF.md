@@ -193,9 +193,29 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 ### Bloqueado por falta de fuente (NO fabricar)
 - **Cuotas de tenis / EV / Smart Bets tenis (Fase 9)**: requiere API de pago
   (api-sports no cubre tenis). **Decisión de compra del dueño pendiente.**
-- **WTA / Challenger / ITF**: sin fuente verificable.
+- **WTA / Challenger / ITF**: sin fuente verificable en TML-Database.
 - **Lesiones, clima, minutos jugados, indoor**: la fuente no los trae.
-- **Calendario de próximos partidos**: la fuente es histórica; no hay fixtures.
+- **Próximos partidos de TENIS**: TML-Database es histórico (resultados ya
+  jugados), no publica sorteos/fixtures. Para "próximos partidos" reales
+  hace falta OTRO proveedor de calendario. Comparativa hecha (sesión
+  2026-07-19): **tennis-api.com (matchstat)** es la candidata recomendada
+  — free tier 50 req/día, Pro US$29/mes, cubre ATP+WTA+ITF+Challenger con
+  fixtures/draws (desbloquearía WTA de paso). Alternativas: api-tennis.com
+  (solo trial, desde US$40), Sportradar/SportsDataIO (más robustas, sin
+  precio público — hablar con ventas). Mantener TML para histórico/motor.
+  **Decisión de fuente/compra del dueño pendiente.**
+
+### Próximos partidos de NBA — resuelto en código (sesión 2026-07-19)
+No era falta de fuente: API-Basketball (api-sports.io, misma clave que
+fútbol) SÍ trae partidos `NS`/scheduled. El gap era de config:
+`NBA_API_SEASON` estaba fijo en `2024-2025` y el ingest no estaba en cron.
+**Arreglado**: `currentNbaSeason()` sigue el calendario (override por env
+`NBA_API_SEASON`), ventanas de fecha del ingest derivadas del año, y
+`/api/sync/nba/ingest` + `/api/sync/nba/calibrate` añadidos al cron de
+Vercel (05:00 y 05:30). Se activa al restaurar `CRON_SECRET`. **Nota real**:
+no habrá "próximos partidos" NBA hasta que la liga publique el calendario
+2026-27 (~mediados de agosto); hasta entonces la vitrina vacía es honesta,
+no un bug. Para adelantarlo cuando salga, setear env `NBA_API_SEASON=2026-2027`.
 
 ---
 

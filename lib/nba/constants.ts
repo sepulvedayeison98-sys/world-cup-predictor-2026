@@ -10,8 +10,28 @@
 
 export const NBA_COMPETITION_ID = '12000000-0000-4000-8000-000000000012'
 export const NBA_API_LEAGUE_ID = 12
-export const NBA_API_SEASON = '2024-2025'
 export const NBA_MODEL_VERSION = 'nba-1.0'
+
+/**
+ * Temporada NBA activa en el formato de API-Basketball ("YYYY-YYYY").
+ *
+ * La temporada arranca a mediados de octubre y cruza el cambio de año: de
+ * octubre en adelante es {año}-{año+1}; antes de octubre, la que empezó el
+ * año anterior. Así, entre el fin de una temporada (junio) y el arranque de
+ * la siguiente (octubre) seguimos apuntando a la MÁS RECIENTE jugada, no a
+ * una vacía.
+ *
+ * Se puede forzar con la env `NBA_API_SEASON` — útil para adelantar la
+ * próxima cuando la NBA publica su calendario (~mediados de agosto) sin
+ * esperar al giro automático de octubre, o para reingestar una pasada.
+ */
+export function currentNbaSeason(now: Date = new Date()): string {
+  const y = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1 // 1-12
+  return month >= 10 ? `${y}-${y + 1}` : `${y - 1}-${y}`
+}
+
+export const NBA_API_SEASON = process.env.NBA_API_SEASON || currentNbaSeason()
 
 export type Conference = 'Este' | 'Oeste'
 
