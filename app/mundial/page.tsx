@@ -109,7 +109,7 @@ export default async function MundialHubPage() {
     .filter((s: any) => s.team)
   const favorite = championData[0]
 
-  // Goleadores: tabla final del torneo (cifras reales, sin proyección)
+  // Goleadores: últimos datos disponibles de la fuente (sin proyección)
   const scorersData = (statsRaw ?? []) as any[]
 
   const currentPhase = (nextMatches?.[0] as any)?.phase as string | undefined
@@ -127,7 +127,7 @@ export default async function MundialHubPage() {
     { href: '/mundial/balance', label: 'Balance del modelo', desc: 'Cómo le fue al motor: precisión, calibración, aciertos y fallos', icon: Activity },
     { href: '/champion', label: 'Campeón', desc: 'Lo que proyectó el modelo para el título', icon: Trophy },
     { href: '/groups', label: 'Grupos', desc: 'Clasificación final de la fase de grupos', icon: Grid3X3 },
-    { href: '/scorers', label: 'Goleadores', desc: 'Tabla final de anotadores del torneo', icon: Crosshair },
+    { href: '/scorers', label: 'Goleadores', desc: 'Tabla de anotadores con los últimos datos disponibles', icon: Crosshair },
     { href: '/players', label: 'Jugadores', desc: 'Planteles y estado físico', icon: Users },
     { href: '/matches', label: 'Partidos', desc: 'Agenda completa con predicciones y resultados', icon: Calendar },
   ]
