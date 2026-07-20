@@ -4,6 +4,34 @@ Cambios relevantes del proyecto, más reciente primero. Este archivo se inicia e
 la Fase 3 de consolidación; el historial anterior vive en el log de git y en
 `PROGRESS_REPORT.md` / `HANDOFF.md`.
 
+## 2026-07-19 · Fase 7 — Dashboard & UX (auditoría + puente Smart Bets)
+
+Auditoría del Dashboard + capa de presentación reutilizable que consume el Smart
+Bets Engine (Fase 6). **Aditivo y puro**: no toca el Prediction Engine, el Smart
+Bets Engine, ni rutas de producción. Gates: tsc 0 · lint 0 · npm test **185/185**
+· build compila.
+
+### Auditoría (`docs/DASHBOARD.md`)
+- Mapa de secciones (todas las exigidas existen; gaps reales: Smart Bets
+  Dashboard con filtros, Prediction Center didáctico, Live dedicado).
+- Cobertura del detalle de partido (ya agrega casi todos los bloques exigidos).
+- Hallazgo D1: **badge `+18` hardcodeado** sin fuente en el inicio
+  (`app/dashboard/page.tsx:466`) — sospecha de dato fabricado (Data First).
+  **No se cambió** (no se puede validar el render); marcado para corregir.
+
+### Puente Fase 6 → Dashboard (componente reutilizable, sin cablear)
+- `components/smart-bets/present.ts` — filtro/orden deterministas + formateo +
+  tokens de tema centralizados (pura, 6 pruebas).
+- `components/smart-bets/SmartBetsBoard.tsx` — panel presentacional accesible
+  (filtros por riesgo, orden por score/EV/cuota, estado vacío, `aria-*`). Puro:
+  recibe `SmartBetRecommendation[]` por props.
+- `tests/smartBetsPresentation.test.ts` (6). ADR-013. Doc `docs/DASHBOARD.md`.
+
+### Límite de entorno (honesto)
+Sin render ni datos en el sandbox: rediseño visual, responsive real, auditoría de
+accesibilidad (axe) y wiring a datos reales requieren un entorno con navegador.
+Se dejan documentados como el trabajo de la siguiente iteración.
+
 ## 2026-07-19 · Fase 6 — Smart Bets Engine (motor de valor, modular)
 
 Nuevo motor de valor `lib/smartBets/` que CONSUME el Prediction Engine y produce

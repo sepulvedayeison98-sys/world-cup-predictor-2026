@@ -123,6 +123,17 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
 
 ## 4. Qué ha cambiado (últimas entregas, más reciente primero)
 
+-6. **Sesión 2026-07-19 — Fase 7 (Dashboard & UX)** (misma rama):
+   - Auditoría `docs/DASHBOARD.md` (mapa de secciones, cobertura del detalle,
+     hallazgos). D1: badge `+18` hardcodeado en inicio (sospecha de dato
+     fabricado) — marcado, NO cambiado (sin render para validar).
+   - Puente Fase 6→UI: `components/smart-bets/present.ts` (filtro/orden/formato
+     puro, 6 tests) + `SmartBetsBoard.tsx` (panel presentacional accesible). Puro,
+     por props, NO cableado a rutas (cero regresión). ADR-013.
+   - Suite 185/185, tsc 0, lint 0, build compila.
+   - **Pendiente (requiere navegador):** rediseño visual, responsive, auditoría
+     a11y (axe), wiring a datos reales, Prediction Center didáctico y Live dedicado.
+
 -5. **Sesión 2026-07-19 — Fase 6 (Smart Bets Engine)** (misma rama):
    - Nuevo `lib/smartBets/` — motor de valor modular (version/types/validate/
      markets/value/risk/scoring/engine) que **consume** el Prediction Engine y

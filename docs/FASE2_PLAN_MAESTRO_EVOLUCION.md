@@ -490,6 +490,25 @@ gantt
   refuerza ADR-006.
 - **Estado:** Propuesto.
 
+### ADR-013 · Dashboard consume los motores como capa de presentación pura
+- **Problema:** cómo evolucionar el Dashboard (mostrar Smart Bets, predicciones)
+  sin acoplar la UI a la lógica de los motores ni arriesgar regresiones visuales
+  no validables en un entorno sin render.
+- **Alternativas:** (a) lógica de presentación mezclada en componentes; (b) capa
+  de presentación pura (filtro/orden/formato) separada del JSX; (c) rediseño
+  visual completo a ciegas.
+- **Decisión:** (b). `components/smart-bets/present.ts` (puro, testeable) +
+  `SmartBetsBoard.tsx` (presentacional, recibe datos por props). El Dashboard
+  consume los motores; nunca calcula probabilidades ni EV.
+- **Justificación:** respeta la dependencia PE → Smart Bets → Dashboard; permite
+  probar la lógica de presentación sin navegador; aditivo (no cablea rutas de
+  producción → cero regresión). El rediseño visual/responsive/a11y se hace en un
+  entorno con render.
+- **Consecuencias:** el componente queda listo para cablear a datos reales; la
+  auditoría visual y el wiring son el siguiente paso con navegador. Ver
+  `docs/DASHBOARD.md`.
+- **Estado:** **Aceptado / implementado** (Fase 7, capa de presentación).
+
 ### ADR-012 · Smart Bets Engine consume el Prediction Engine (nunca genera probs)
 - **Problema:** cómo producir recomendaciones de apuesta con valor sin acoplar ni
   duplicar el Prediction Engine, y de forma extensible a mercados/deportes/casas.
