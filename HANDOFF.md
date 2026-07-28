@@ -142,6 +142,17 @@ batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
    - Hallazgo de fuente: TML publica **`minutes` por partido** → la fatiga
      2.0 con carga por minutos es reintenable (sigue faltando la fecha
      exacta por partido).
+0b. **Auditoría UX/UI integral** (2026-07-17) — ver `UX_AUDIT_REPORT.md`.
+   14 mejoras verificadas en navegador real. Lo crítico: no existía
+   `prefers-reduced-motion` (WCAG 2.3.3); el texto tenue daba 2,6:1 de
+   contraste en 615 usos (corregido en una capa CSS → 4,54:1/5,45:1/7,76:1);
+   no había salto al contenido; 16 páginas y el manifest firmaban como
+   "World Cup Predictor" (marca previa al multi-deporte); tenis faltaba en
+   el breadcrumb; el dashboard anunciaba "tennis-1.0" con 2.0 en producción.
+   Además: cabecera fija en la tabla de 509 filas, esqueletos de carga en
+   tenis, y encabezado "Pos. ATP" para que el ranking honesto deje de
+   parecer roto. **Football solo recibió atributos ARIA y textos de marca.**
+
 1. **tennis-2.0 a producción** (2026-07-17): módulos `serveReturn`/`fatigue`,
    `engine2`, ablación, promoción. Docs con la historia completa.
 2. **Detalle de partido** `/tennis/partidos/[id]` + enlaces desde resultados.
