@@ -25,19 +25,25 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  // SEO (playbook Sofascore, QW1): URLs canónicas y OG absolutas
+  // SEO (playbook Sofascore, QW1): URLs canónicas y OG absolutas.
+  // Identidad: la casa es "Veredicto · Inteligencia Deportiva" y es
+  // multi-deporte — el Mundial es su primera competición, no su nombre.
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'World Cup Predictor 2026',
-    template: '%s | WC Predictor',
+    default: 'Veredicto · Inteligencia Deportiva',
+    template: '%s | Veredicto',
   },
-  description: 'Plataforma profesional de análisis y predicción — FIFA World Cup 2026',
-  keywords: ['mundial 2026', 'predicciones fútbol', 'análisis deportivo', 'apuestas valor'],
+  description:
+    'Predicción e inteligencia deportiva con métricas medidas: Mundial 2026, grandes ligas, NBA y tenis ATP.',
+  keywords: [
+    'predicciones deportivas', 'inteligencia deportiva', 'mundial 2026',
+    'NBA', 'tenis ATP', 'análisis de datos deportivos',
+  ],
   manifest: '/manifest.webmanifest',
-  applicationName: 'WC Predictor',
+  applicationName: 'Veredicto',
   appleWebApp: {
     capable: true,
-    title: 'WC Predictor',
+    title: 'Veredicto',
     statusBarStyle: 'black-translucent',
   },
   icons: {
@@ -69,11 +75,25 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <QueryProvider>
             <MobileNavProvider>
+              {/* Salto al contenido (WCAG 2.4.1): invisible hasta recibir
+                  foco por teclado, entonces aparece sobre la interfaz. */}
+              <a
+                href="#contenido"
+                className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
+                           focus:rounded-lg focus:border focus:border-emerald-500/40 focus:bg-zinc-900
+                           focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-300"
+              >
+                Saltar al contenido
+              </a>
               <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
                 <Sidebar />
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <Topbar />
-                  <main className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-16 lg:pb-0">
+                  <main
+                    id="contenido"
+                    tabIndex={-1}
+                    className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-16 lg:pb-0"
+                  >
                     <AutoRefresh />
                     <SyncKeepalive />
                     {children}

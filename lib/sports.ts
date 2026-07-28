@@ -8,7 +8,7 @@
  */
 import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
-import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '@/lib/tennis/constants'
+import { ATP_COMPETITION_ID, WTA_COMPETITION_ID, TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
 export type CompetitionStatus = 'activa' | 'proximamente'
@@ -69,7 +69,7 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
   // Tenis: tercer dominio (migración 053). ATP activa desde la Fase 8 (hub
   // /tennis con ranking, perfiles y motor tennis-1.0 medido). WTA sigue como
   // promesa honesta hasta que exista una fuente de datos verificable.
-  { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'activa', note: 'Motor tennis-2.0' },
+  { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'activa', note: `Motor ${TENNIS_MODEL_VERSION}` },
   { id: WTA_COMPETITION_ID, slug: 'wta', name: 'WTA Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Pendiente de fuente' },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },

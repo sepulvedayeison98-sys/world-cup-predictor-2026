@@ -21,6 +21,7 @@ function breadcrumbOf(pathname: string): [string, string] | [string] {
   }
   if (pathname.startsWith('/ligas')) return ['Competiciones', 'Ligas']
   if (pathname.startsWith('/nba')) return ['Competiciones', 'NBA']
+  if (pathname.startsWith('/tennis')) return ['Competiciones', 'ATP Tour']
   // Secciones del Mundial que conservan sus rutas (compatibilidad)
   if (pathname.startsWith('/champion')) return ['Mundial 2026', 'Campeón']
   if (pathname.startsWith('/bracket')) return ['Mundial 2026', 'Eliminatorias']

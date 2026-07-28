@@ -80,7 +80,12 @@ export default async function TennisHubPage() {
               </div>
               <RankingTable rows={hub.topRanking} compact />
               {hub.lastRankingDate && (
-                <p className="text-[11px] text-zinc-600">Última posición conocida por jugador · datos hasta {shortDate(hub.lastRankingDate)}.</p>
+                <p className="text-[11px] text-zinc-600">
+                  Última posición ATP conocida de cada jugador (datos hasta{' '}
+                  {shortDate(hub.lastRankingDate)}). La fuente registra el ranking
+                  por partido, así que puede haber posiciones repetidas: cada una
+                  viene de la última vez que ese jugador compitió.
+                </p>
               )}
             </section>
 

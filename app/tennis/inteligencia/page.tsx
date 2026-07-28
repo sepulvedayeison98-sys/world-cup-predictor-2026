@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { fetchLatestBacktest } from '@/services/tennis/queries'
 import { StatCard, shortDate } from '@/components/tennis/ui'
+import { TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export const metadata: Metadata = {
   title: 'Inteligencia Tenis | Veredicto',
@@ -60,7 +61,7 @@ export default async function TennisIntelligencePage() {
                 comparamos el motor contra la regla ingenua
                 <span className="text-zinc-300"> «gana el mejor clasificado»</span>:
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500">Motor {bt.model_version}</p>
                   <p className="mt-1 text-2xl font-bold text-lime-400 mono">{pct(base?.modelAccuracyOnSample)}</p>
@@ -69,6 +70,20 @@ export default async function TennisIntelligencePage() {
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500">Línea base (ranking)</p>
                   <p className="mt-1 text-2xl font-bold text-zinc-300 mono">{pct(base?.accuracy)}</p>
                 </div>
+                {/* Diferencia explícita: dos cifras casi idénticas no dejan ver
+                    quién gana. El signo + la flecha no dependen solo del color. */}
+                {base?.modelAccuracyOnSample != null && base?.accuracy != null && (
+                  <div className="col-span-2 border-t border-zinc-800 pt-3 sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-500">Diferencia</p>
+                    <p className={`mt-1 text-2xl font-bold mono ${beatsRanking ? 'text-lime-400' : 'text-amber-400'}`}>
+                      {beatsRanking ? '▲ +' : '▼ '}
+                      {Math.abs((base.modelAccuracyOnSample - base.accuracy) * 100).toFixed(2)} pp
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {beatsRanking ? 'a favor del motor' : 'a favor del ranking'}
+                    </p>
+                  </div>
+                )}
               </div>
               <p className={`mt-4 rounded-lg border px-3 py-2 text-xs ${beatsRanking ? 'border-lime-500/30 bg-lime-500/10 text-lime-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
                 {beatsRanking === null ? 'Comparación no disponible.'
@@ -98,7 +113,7 @@ export default async function TennisIntelligencePage() {
       )}
 
       <p className="text-[11px] text-zinc-600">
-        Modelo <span className="mono">{bt?.model_version ?? 'tennis-1.0'}</span> · fuente TML-Database
+        Modelo <span className="mono">{bt?.model_version ?? TENNIS_MODEL_VERSION}</span> · fuente TML-Database
         (CC BY-NC-SA). Sin cuotas de tenis todavía: ROI/yield no se calculan (no se
         fabrican). Métricas persistidas en <span className="mono">tennis_backtests</span>.
       </p>

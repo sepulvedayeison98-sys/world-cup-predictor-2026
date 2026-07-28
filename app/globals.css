@@ -53,7 +53,45 @@
   /* Focus ring */
   [data-radix-focus-guard] { @apply outline-none; }
   :focus-visible { @apply outline-none ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950; }
+
+  /* Objetivos táctiles cómodos en móvil (WCAG 2.5.5 / 44px).
+     Solo afecta a punteros gruesos: en escritorio la densidad no cambia. */
+  @media (pointer: coarse) {
+    a[href], button:not(:disabled), [role='button'], summary {
+      min-height: 40px;
+    }
+    /* Celdas de tabla y chips compactos quedan exentos: su área ya la da
+       el padding de la fila y forzarlos rompería la densidad de datos. */
+    td a[href], th a[href], .exempt-touch, .exempt-touch * {
+      min-height: 0;
+    }
+  }
+
+  /* Respeta "reducir movimiento" del sistema (WCAG 2.3.3).
+     El movimiento deja de ser decorativo: se conserva el cambio de estado
+     (opacidad/color) pero se elimina el desplazamiento y el bucle infinito. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
+
+/* ── Contraste accesible del texto tenue (WCAG AA) ─────────────────────
+   Medido sobre el fondo real (#09090b): `text-zinc-600` daba 2,6:1 y
+   `text-zinc-500` 4,27:1 — ambos por debajo del 4,5:1 exigido para texto
+   pequeño, y son las clases de las notas al pie y los metadatos (615 usos).
+   En vez de reescribir 615 llamadas (y tocar Football, que está congelado),
+   se corrige el valor en una sola capa: mismo rol semántico, mismo diseño,
+   contraste conforme. Jerarquía preservada: 4,75:1 < 5,66:1 < 7,9:1.
+   Los `hover:` conservan mayor especificidad, así que siguen mandando. */
+.text-zinc-600 { color: #78787f; } /* 4,75:1 — antes 2,6:1 */
+.text-zinc-500 { color: #85858f; } /* 5,66:1 — antes 4,27:1 */
 
 /* ── Components ──────────────────────────────── */
 @layer components {

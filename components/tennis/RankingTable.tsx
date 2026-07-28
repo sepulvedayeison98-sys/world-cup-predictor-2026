@@ -5,18 +5,29 @@
 import Link from 'next/link'
 import type { TennisRankingRow } from '@/services/tennis/queries'
 import { countryFlag, handLabel } from '@/components/tennis/ui'
+import { cn } from '@/lib/utils'
 
 export function RankingTable({ rows, compact = false }: { rows: TennisRankingRow[]; compact?: boolean }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* En la tabla completa (500+ jugadores) el área tiene scroll propio y
+          la cabecera queda fija: sin ella se pierde qué significa cada número
+          a las pocas filas. La compacta (15) no lo necesita. */}
+      <div className={compact ? 'overflow-x-auto' : 'max-h-[70vh] overflow-auto'}>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-500">
-              <th className="px-3 py-2 text-left">#</th>
-              <th className="px-3 py-2 text-left">Jugador</th>
-              {!compact && <th className="px-2 py-2 text-center hidden sm:table-cell">Mano</th>}
-              <th className="px-3 py-2 text-right">Puntos</th>
+            <tr className={cn(
+              'border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-500',
+              !compact && '[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-zinc-900',
+            )}>
+              {/* "Pos. ATP" y no "#": son posiciones oficiales observadas, no
+                  un contador de filas. Pueden repetirse porque la última
+                  observación de cada jugador es de una fecha distinta — el
+                  encabezado honesto evita que se lea como un error. */}
+              <th scope="col" className="px-3 py-2 text-left" title="Última posición ATP conocida de cada jugador">Pos. ATP</th>
+              <th scope="col" className="px-3 py-2 text-left">Jugador</th>
+              {!compact && <th scope="col" className="px-2 py-2 text-center hidden sm:table-cell">Mano</th>}
+              <th scope="col" className="px-3 py-2 text-right">Puntos</th>
             </tr>
           </thead>
           <tbody>
