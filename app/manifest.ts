@@ -6,9 +6,11 @@ import type { MetadataRoute } from 'next'
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'World Cup Predictor 2026',
-    short_name: 'WC Predictor',
-    description: 'Análisis y predicciones en vivo del Mundial FIFA 2026',
+    // Identidad de la casa (multi-deporte), no la de una sola competición:
+    // es el nombre que queda en la pantalla de inicio al instalar la app.
+    name: 'Veredicto · Inteligencia Deportiva',
+    short_name: 'Veredicto',
+    description: 'Predicción e inteligencia deportiva con métricas medidas: fútbol, NBA y tenis.',
     start_url: '/dashboard',
     display: 'standalone',
     orientation: 'portrait',

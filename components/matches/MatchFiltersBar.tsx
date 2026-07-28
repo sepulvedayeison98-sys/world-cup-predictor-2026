@@ -80,6 +80,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
             onClick={() => update('date', shiftDate(dateParam, -1))}
             className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
             title="Día anterior"
+            aria-label="Día anterior"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
@@ -90,6 +91,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
               type="date"
               value={dateParam}
               onChange={(e) => update('date', e.target.value)}
+              aria-label="Fecha de los partidos"
               className="bg-transparent text-xs text-zinc-200 outline-none cursor-pointer [color-scheme:dark]"
             />
           </div>
@@ -98,6 +100,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
             onClick={() => update('date', shiftDate(dateParam, +1))}
             className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
             title="Día siguiente"
+            aria-label="Día siguiente"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -173,6 +176,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
         <select
           value={searchParams.get('group') ?? ''}
           onChange={(e) => update('group', e.target.value)}
+          aria-label="Filtrar por grupo"
           className={cn(
             'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
             'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
@@ -191,6 +195,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
         <select
           value={searchParams.get('team') ?? ''}
           onChange={(e) => update('team', e.target.value)}
+          aria-label="Filtrar por equipo"
           className={cn(
             'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
             'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
@@ -211,6 +216,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
           <select
             value={searchParams.get('confidence') ?? ''}
             onChange={(e) => update('confidence', e.target.value)}
+            aria-label="Filtrar por nivel de confianza"
             className={cn(
               'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
               'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',

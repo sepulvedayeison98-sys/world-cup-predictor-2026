@@ -481,6 +481,7 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
           <button
             onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
             disabled={pageIndex === 0}
+            aria-label="Página anterior"
             className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -514,6 +515,7 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
           <button
             onClick={() => setPageIndex((p) => Math.min((data?.total_pages ?? 1) - 1, p + 1))}
             disabled={pageIndex >= (data?.total_pages ?? 1) - 1}
+            aria-label="Página siguiente"
             className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="h-4 w-4" />
