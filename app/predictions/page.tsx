@@ -4,7 +4,7 @@ import { PredictionsTable } from '@/components/predictions/PredictionsTable'
 import { MODEL_VERSION, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Predicciones | World Cup Predictor',
+  title: 'Predicciones',
 }
 
 

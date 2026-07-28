@@ -6,7 +6,7 @@ import { fetchNbaSeasonMatches, fetchNbaTeams } from '@/services/nba.service'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Tendencias NBA | Veredicto',
+  title: 'Tendencias NBA',
   description: 'Rachas, forma reciente y especialistas: local, visitante, partidos cerrados y prórrogas.',
 }
 

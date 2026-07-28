@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { data } = await supabase.from('teams').select('name').eq('id', id).maybeSingle()
   const name = (data as any)?.name
   return name
-    ? { title: `${name} — perfil y forma | Veredicto`, description: `Récord, forma reciente, splits local/visitante y últimos partidos de ${name}, con el ELO del modelo.` }
+    ? { title: `${name} — perfil y forma`, description: `Récord, forma reciente, splits local/visitante y últimos partidos de ${name}, con el ELO del modelo.` }
     : { title: 'Equipo' }
 }
 

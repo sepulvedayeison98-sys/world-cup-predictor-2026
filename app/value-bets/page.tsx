@@ -5,7 +5,7 @@ import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat, type PendingMatchRow } from '@/components/predictions/SmartBetsTrackRecord'
 
 export const metadata: Metadata = {
-  title: 'Apuestas de Valor | World Cup Predictor',
+  title: 'Apuestas de Valor',
 }
 
 // ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)

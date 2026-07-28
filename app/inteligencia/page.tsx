@@ -8,7 +8,7 @@ import { CalibrationCurve } from '@/components/intelligence/CalibrationCurve'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Inteligencia | Veredicto',
+  title: 'Inteligencia',
   description: 'Rendimiento verificable del motor de predicción: precisión, metodología y versiones.',
 }
 

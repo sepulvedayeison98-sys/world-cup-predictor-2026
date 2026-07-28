@@ -5,7 +5,7 @@ import { TopScorersPrediction } from '@/components/scorers/TopScorersPrediction'
 import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Goleadores del Mundial | Veredicto',
+  title: 'Goleadores del Mundial',
 }
 
 

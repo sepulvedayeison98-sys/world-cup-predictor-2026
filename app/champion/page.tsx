@@ -5,7 +5,7 @@ import { ChampionProbabilityBracket } from '@/components/champion/ChampionProbab
 import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Campeón del Mundial | Veredicto',
+  title: 'Campeón del Mundial',
 }
 
 

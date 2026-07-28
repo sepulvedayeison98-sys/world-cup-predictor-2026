@@ -13,7 +13,7 @@ import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { EngineConfidencePanel, type EngineConfidenceRow } from '@/components/dashboard/EngineConfidencePanel'
 
 export const metadata: Metadata = {
-  title: 'Inicio | Veredicto — Inteligencia Deportiva',
+  title: 'Inicio',
   description: 'Predicciones y análisis con métricas verificables: Mundial 2026 y las 5 grandes ligas europeas.',
 }
 

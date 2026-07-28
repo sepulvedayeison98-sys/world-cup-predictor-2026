@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { MODEL_VERSION } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Información | World Cup Predictor',
+  title: 'Información',
 }
 
 export default function SettingsPage() {
@@ -17,7 +17,7 @@ export default function SettingsPage() {
 
       <div className="max-w-2xl space-y-4">
         <div className="card p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-white">World Cup Predictor 2026</h2>
+          <h2 className="text-sm font-semibold text-white">Veredicto · Inteligencia Deportiva</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
             Plataforma de análisis y predicción para el Mundial FIFA 2026.
             Las predicciones se generan con un modelo híbrido de 5 factores ponderados

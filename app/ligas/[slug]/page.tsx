@@ -20,7 +20,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  return { title: `${LEAGUE_NAMES[slug] ?? 'Liga'} | World Cup Predictor` }
+  return { title: `${LEAGUE_NAMES[slug] ?? 'Liga'}` }
 }
 
 type Outcome = 'home' | 'draw' | 'away'

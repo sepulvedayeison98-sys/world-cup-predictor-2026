@@ -8,7 +8,7 @@ import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWid
 import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
 
 export const metadata: Metadata = {
-  title: 'Mundial 2026 | Veredicto',
+  title: 'Mundial 2026',
 }
 
 export const revalidate = 120

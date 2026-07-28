@@ -7,7 +7,7 @@ import { NBA_COMPETITION_ID, NBA_MODEL_VERSION } from '@/lib/nba/constants'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Predicciones NBA | Veredicto',
+  title: 'Predicciones NBA',
   description: 'Rendimiento verificable del modelo nba-1.0: precisión, calibración por franjas y metodología.',
 }
 

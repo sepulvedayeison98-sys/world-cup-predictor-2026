@@ -8,7 +8,7 @@ import { ConferenceStandings, type NbaStandingView } from '@/components/nba/Conf
 import { NbaSchedule } from '@/components/nba/NbaSchedule'
 
 export const metadata: Metadata = {
-  title: 'NBA | Veredicto',
+  title: 'NBA',
   description: 'Clasificación por conferencia, calendario y predicciones del motor para la NBA.',
 }
 

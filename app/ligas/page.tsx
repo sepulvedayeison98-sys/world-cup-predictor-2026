@@ -5,7 +5,7 @@ import { computeLeagueStandings } from '@/lib/leagueStandings'
 import { LeagueTabs, type LeagueTabData } from '@/components/leagues/LeagueTabs'
 
 export const metadata: Metadata = {
-  title: 'Ligas | World Cup Predictor',
+  title: 'Ligas',
 }
 
 // ISR real: cliente sin cookies() — ver lib/supabase/static.ts

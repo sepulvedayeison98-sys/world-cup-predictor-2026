@@ -5,7 +5,7 @@ import { StatCard, shortDate } from '@/components/tennis/ui'
 import { TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export const metadata: Metadata = {
-  title: 'Inteligencia Tenis | Veredicto',
+  title: 'Inteligencia Tenis',
   description: 'Métricas medidas del motor tennis: precisión, Brier y log-loss del backtest walk-forward, comparadas con la línea base de ranking.',
 }
 

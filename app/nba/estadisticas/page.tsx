@@ -5,7 +5,7 @@ import { computeNbaLeagueStats, computeNbaSeasonStats } from '@/lib/nba/stats'
 import { fetchNbaSeasonMatches, fetchNbaTeams } from '@/services/nba.service'
 
 export const metadata: Metadata = {
-  title: 'Estadísticas NBA | Veredicto',
+  title: 'Estadísticas NBA',
   description: 'Estadísticas reales de la liga: anotación, ventaja de local, prórrogas y perfil por cuarto.',
 }
 

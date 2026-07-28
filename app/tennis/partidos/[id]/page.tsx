@@ -6,7 +6,7 @@ import { SurfaceBadge, roundLabel, shortDate, countryFlag, handLabel } from '@/c
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Partido ATP | Veredicto',
+  title: 'Partido ATP',
   description: 'Detalle de un partido real del circuito ATP: resultado, forma reciente y cara a cara.',
 }
 

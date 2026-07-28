@@ -5,7 +5,7 @@ import { PlayersFiltersBar } from '@/components/players/PlayersFiltersBar'
 import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Jugadores | World Cup Predictor',
+  title: 'Jugadores',
 }
 
 

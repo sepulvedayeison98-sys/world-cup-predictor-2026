@@ -8,7 +8,7 @@ import { SurfaceBadge, countryFlag } from '@/components/tennis/ui'
 import { SURFACE_LABELS, type Surface } from '@/lib/tennis/constants'
 
 export const metadata: Metadata = {
-  title: 'Cara a cara ATP | Veredicto',
+  title: 'Cara a cara ATP',
   description: 'Historial cabeza a cabeza entre dos tenistas del circuito ATP, con datos reales por superficie.',
 }
 

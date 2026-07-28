@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: 'Veredicto · Inteligencia Deportiva',
+    // La plantilla añade la marca UNA vez: las páginas declaran solo su
+    // nombre ("Ranking ATP"), nunca el sufijo, o saldría duplicado.
     template: '%s | Veredicto',
   },
   description:

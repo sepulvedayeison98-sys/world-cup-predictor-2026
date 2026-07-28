@@ -5,7 +5,7 @@ import { TournamentBracket } from '@/components/bracket/TournamentBracket'
 import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Cuadro Eliminatorio | WC Predictor 2026',
+  title: 'Cuadro Eliminatorio',
 }
 
 

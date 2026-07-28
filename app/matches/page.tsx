@@ -5,7 +5,7 @@ import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { PHASE_LABELS, COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Partidos | World Cup Predictor',
+  title: 'Partidos',
 }
 
 // ISR: cacheado y revalidado cada 60s (sin cookies → renderizado estático)

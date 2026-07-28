@@ -4,7 +4,7 @@ import { GroupCard } from '@/components/groups/GroupCard'
 import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Grupos | World Cup Predictor',
+  title: 'Grupos',
 }
 
 

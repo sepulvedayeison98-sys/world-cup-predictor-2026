@@ -5,7 +5,7 @@ import { RankingTable } from '@/components/tennis/RankingTable'
 import { shortDate } from '@/components/tennis/ui'
 
 export const metadata: Metadata = {
-  title: 'Ranking ATP | Veredicto',
+  title: 'Ranking ATP',
   description: 'Clasificación ATP completa a la fecha más reciente, con datos reales de cada jugador.',
 }
 

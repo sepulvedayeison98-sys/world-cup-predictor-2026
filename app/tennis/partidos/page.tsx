@@ -6,7 +6,7 @@ import { SURFACE_LABELS, type Surface } from '@/lib/tennis/constants'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Resultados ATP | Veredicto',
+  title: 'Resultados ATP',
   description: 'Navegador de resultados reales del circuito ATP, filtrable por superficie.',
 }
 

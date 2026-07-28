@@ -7,7 +7,7 @@ import { StatCard, shortDate } from '@/components/tennis/ui'
 import { TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export const metadata: Metadata = {
-  title: 'Tenis ATP | Veredicto',
+  title: 'Tenis ATP',
   description: 'Ranking ATP, resultados reales y motor de predicción con métricas medidas por backtest walk-forward.',
 }
 

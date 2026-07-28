@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const supabase = createStaticSupabaseClient()
   const { data } = await supabase.from('players').select('name').eq('id', id).single()
-  return { title: data ? `${data.name} | WC Predictor` : 'Jugador | WC Predictor' }
+  return { title: data ? `${data.name}` : 'Jugador' }
 }
 
 

@@ -6,7 +6,7 @@ import { fetchNbaSeasonMatches, fetchNbaTeams } from '@/services/nba.service'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Rankings NBA | Veredicto',
+  title: 'Rankings NBA',
   description: 'Ranking de las 30 franquicias por ELO del modelo, ofensiva, defensa y diferencial.',
 }
 

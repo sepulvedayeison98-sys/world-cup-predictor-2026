@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const supabase = createStaticSupabaseClient()
   const { data } = await supabase.from('teams').select('name').eq('id', id)
     .eq('competition_id', NBA_COMPETITION_ID).maybeSingle()
-  return { title: `${(data as any)?.name ?? 'Equipo'} | NBA | Veredicto` }
+  return { title: `${(data as any)?.name ?? 'Equipo'} · NBA` }
 }
 
 /**

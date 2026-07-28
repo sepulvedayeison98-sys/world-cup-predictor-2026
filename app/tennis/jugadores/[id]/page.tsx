@@ -18,9 +18,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const profile = await fetchTennisPlayer(id)
-  if (!profile) return { title: 'Jugador | Veredicto' }
+  if (!profile) return { title: 'Jugador' }
   return {
-    title: `${profile.player.name} | Tenis · Veredicto`,
+    title: `${profile.player.name} · Tenis`,
     description: `Perfil de ${profile.player.name}: Win%, Hold%, Break%, aces y forma reciente — todo derivado de partidos reales.`,
   }
 }
