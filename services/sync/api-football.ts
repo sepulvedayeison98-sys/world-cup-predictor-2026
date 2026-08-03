@@ -213,6 +213,23 @@ export async function validateLeague(
   }
 }
 
+/**
+ * Sonda de cobertura para una liga ARBITRARIA (no necesariamente de
+ * TARGET_LEAGUES). Sirve para responder, antes de escribir una línea de
+ * integración, la única pregunta que importa: ¿la fuente y el plan
+ * contratado cubren esta liga en esta temporada? Data First — si la
+ * respuesta es no, no se integra.
+ */
+export async function probeLeague(
+  apiFootballId: number, season: number,
+): Promise<LeagueValidation & { available: boolean }> {
+  const v = await validateLeague(
+    { key: `probe_${apiFootballId}`, apiFootballId, name: `liga ${apiFootballId}`, country: '?' } as any,
+    season,
+  )
+  return { ...v, available: v.teams.count > 0 && v.fixtures.count > 0 }
+}
+
 // ─── Validación completa (lo que expone /api/sync/leagues) ───────────────────
 
 export interface LeaguesValidationReport {
