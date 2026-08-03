@@ -65,7 +65,12 @@ export interface LeagueIngestResult {
   matchesUpserted: number
 }
 
-export async function ingestLeagues(season: number): Promise<{
+/**
+ * Ingesta de ligas. `onlyKeys` acota la corrida a ciertas ligas: cada liga
+ * cuesta 2 requests de la cuota diaria (100/día en el plan Free), así que
+ * reingestar UNA sola (p. ej. al añadirla) debe costar 2 y no 12.
+ */
+export async function ingestLeagues(season: number, onlyKeys?: string[]): Promise<{
   ok: boolean
   season: number
   leagues: LeagueIngestResult[]
@@ -73,8 +78,14 @@ export async function ingestLeagues(season: number): Promise<{
 }> {
   const supabase = createAdminClient()
   const results: LeagueIngestResult[] = []
+  const selected = onlyKeys?.length
+    ? TARGET_LEAGUES.filter((l) => onlyKeys.includes(l.key))
+    : TARGET_LEAGUES
+  if (selected.length === 0) {
+    throw new Error(`Ninguna liga coincide con: ${onlyKeys?.join(',')}`)
+  }
 
-  for (const league of TARGET_LEAGUES) {
+  for (const league of selected) {
     const competitionId = LEAGUE_COMPETITION_IDS[league.key]
     if (!competitionId) throw new Error(`Liga sin competition_id: ${league.key}`)
 
@@ -170,6 +181,6 @@ export async function ingestLeagues(season: number): Promise<{
     ok: results.every((r) => r.teamsUpserted > 0 && r.matchesUpserted > 0),
     season,
     leagues: results,
-    requestsUsed: TARGET_LEAGUES.length * 2,
+    requestsUsed: selected.length * 2,
   }
 }

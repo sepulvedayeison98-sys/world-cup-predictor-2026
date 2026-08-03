@@ -27,7 +27,11 @@ export async function GET(req: NextRequest) {
     if (!Number.isFinite(season) || season < 2022) {
       return NextResponse.json({ error: 'season inválida (mínimo 2022)' }, { status: 400 })
     }
-    const result = await ingestLeagues(season)
+    // ?league=liga_betplay[,otra] — acota la corrida y con ella el gasto de
+    // cuota (2 requests por liga). Sin el parámetro se ingestan todas.
+    const only = (req.nextUrl.searchParams.get('league') ?? '')
+      .split(',').map((s) => s.trim()).filter(Boolean)
+    const result = await ingestLeagues(season, only)
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('[GET /api/sync/leagues/ingest]', err)
