@@ -59,6 +59,7 @@ UNION ALL SELECT '051 índice único match_events (anti-duplicado)', EXISTS(SELE
 UNION ALL SELECT '052 feature store (prediction_features)', EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='prediction_features') AND (SELECT rowsecurity FROM pg_tables WHERE tablename='prediction_features') AND EXISTS(SELECT 1 FROM pg_policies WHERE tablename='prediction_features')
 UNION ALL SELECT '053 dominio tennis (9 tablas + ATP/WTA)', (SELECT count(*)=9 FROM information_schema.tables WHERE table_name LIKE 'tennis_%') AND (SELECT bool_and(rowsecurity) FROM pg_tables WHERE tablename LIKE 'tennis_%') AND (SELECT count(*)=2 FROM competitions WHERE sport_id=3)
 UNION ALL SELECT '054 unicidad partidos tennis (tournament_id, external_id)', EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='uq_tennis_matches_tournament_external')
+UNION ALL SELECT '055 Liga BetPlay (Primera A Colombia)', EXISTS(SELECT 1 FROM competitions WHERE id='23900000-0000-4000-8000-000000000239' AND sport_id=1)
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

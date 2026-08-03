@@ -31,19 +31,21 @@ export const PHASE_LABELS: Record<string, string> = {
   league:        'Liga',
 }
 
-// Competiciones de ligas (Fase 4, migraciones 043/045). Los UUID codifican
-// el id de liga de API-Football (39 = Premier, 140 = La Liga, 135 = Serie A,
-// 78 = Bundesliga, 61 = Ligue 1).
+// Competiciones de ligas (Fase 4, migraciones 043/045; BetPlay en la 055).
+// Los UUID codifican el id de liga de API-Football (39 = Premier, 140 = La
+// Liga, 135 = Serie A, 78 = Bundesliga, 61 = Ligue 1, 239 = Primera A).
 export const LEAGUE_COMPETITION_IDS: Record<string, string> = {
   premier_league: '39000000-0000-4000-8000-000000000039',
   la_liga:        '14000000-0000-4000-8000-000000000140',
   serie_a:        '13500000-0000-4000-8000-000000000135',
   bundesliga:     '78000000-0000-4000-8000-000000000078',
   ligue_1:        '61000000-0000-4000-8000-000000000061',
+  liga_betplay:   '23900000-0000-4000-8000-000000000239',
 }
 
 // Slugs de URL de cada liga (/ligas/[slug]) y su nombre visible.
 export const LEAGUE_SLUGS: Record<string, string> = {
+  'liga-betplay':   LEAGUE_COMPETITION_IDS.liga_betplay,
   'premier-league': LEAGUE_COMPETITION_IDS.premier_league,
   'la-liga':        LEAGUE_COMPETITION_IDS.la_liga,
   'serie-a':        LEAGUE_COMPETITION_IDS.serie_a,
@@ -51,8 +53,11 @@ export const LEAGUE_SLUGS: Record<string, string> = {
   'ligue-1':        LEAGUE_COMPETITION_IDS.ligue_1,
 }
 
-// Q4: orden editorial de las ligas (relevancia para la audiencia), no alfabético.
+// Q4: orden editorial de las ligas (relevancia para la audiencia), no
+// alfabético. BetPlay va primera: es la liga local de la audiencia
+// (plataforma en español, zona horaria de Bogotá).
 export const LEAGUE_DISPLAY_ORDER = [
+  LEAGUE_COMPETITION_IDS.liga_betplay,
   LEAGUE_COMPETITION_IDS.premier_league,
   LEAGUE_COMPETITION_IDS.la_liga,
   LEAGUE_COMPETITION_IDS.serie_a,
@@ -61,6 +66,7 @@ export const LEAGUE_DISPLAY_ORDER = [
 ]
 
 export const LEAGUE_NAMES: Record<string, string> = {
+  'liga-betplay':   'Liga BetPlay',
   'premier-league': 'Premier League',
   'la-liga':        'La Liga',
   'serie-a':        'Serie A',

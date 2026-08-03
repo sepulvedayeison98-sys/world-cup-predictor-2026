@@ -11,14 +11,17 @@ import { COMPETITION_ID, LEAGUE_SLUGS } from '../lib/constants'
 import { NBA_COMPETITION_ID } from '../lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '../lib/tennis/constants'
 
-test('aislamiento: la lista de fútbol incluye Mundial y las 5 ligas, nunca la NBA', () => {
+test('aislamiento: la lista de fútbol incluye Mundial y todas las ligas, nunca NBA ni tenis', () => {
   const futbol = competitionIdsOfSport('futbol')
   assert.ok(futbol.includes(COMPETITION_ID), 'debe incluir el Mundial')
   for (const id of Object.values(LEAGUE_SLUGS)) {
     assert.ok(futbol.includes(id), `debe incluir la liga ${id}`)
   }
   assert.ok(!futbol.includes(NBA_COMPETITION_ID), 'JAMÁS debe incluir la NBA')
-  assert.equal(futbol.length, 6, 'Mundial + 5 grandes ligas')
+  assert.ok(!futbol.includes(ATP_COMPETITION_ID), 'JAMÁS debe incluir el tenis')
+  // Mundial + las ligas registradas (hoy 6: 5 europeas + BetPlay). Se deriva
+  // del registro para que agregar una liga no rompa el test por un número fijo.
+  assert.equal(futbol.length, 1 + Object.keys(LEAGUE_SLUGS).length)
 })
 
 test('aislamiento: la lista de baloncesto es exactamente la NBA', () => {

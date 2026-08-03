@@ -10,7 +10,7 @@
  * correr las veces que haga falta; consume 2 requests de cuota por liga.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
-import { TARGET_LEAGUES, fetchLeagueTeams, fetchLeagueFixtures } from './api-football'
+import { TARGET_LEAGUES, fetchLeagueTeams, fetchLeagueFixtures, seasonForLeague } from './api-football'
 import { LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 
 const LEAGUE_COUNTRY: Record<string, string> = {
@@ -19,6 +19,12 @@ const LEAGUE_COUNTRY: Record<string, string> = {
   serie_a: 'Italia',
   bundesliga: 'Alemania',
   ligue_1: 'Francia',
+  liga_betplay: 'Colombia',
+}
+
+/** Confederación por liga: no todas son UEFA (Colombia es CONMEBOL). */
+const LEAGUE_CONFEDERATION: Record<string, string> = {
+  liga_betplay: 'CONMEBOL',
 }
 
 /** Estados de API-Football → nuestro enum match_status. */
@@ -72,8 +78,12 @@ export async function ingestLeagues(season: number): Promise<{
     const competitionId = LEAGUE_COMPETITION_IDS[league.key]
     if (!competitionId) throw new Error(`Liga sin competition_id: ${league.key}`)
 
+    // Cada liga pide SU temporada: las europeas usan el año de inicio de la
+    // campaña ago-may; las de año calendario (Colombia) el año literal.
+    const leagueSeason = seasonForLeague(league, season)
+
     // ── Equipos ──────────────────────────────────────────────
-    const apiTeams = await fetchLeagueTeams(league.apiFootballId, season)
+    const apiTeams = await fetchLeagueTeams(league.apiFootballId, leagueSeason)
     if (apiTeams.length === 0) throw new Error(`API-Football devolvió 0 equipos para ${league.name}`)
 
     // Códigos ya asignados en corridas anteriores: se conservan para
@@ -92,7 +102,7 @@ export async function ingestLeagues(season: number): Promise<{
       short_name: t.name,
       code: codeByApiId.get(t.id) ?? toCode(t.name, t.code, used),
       logo_url: t.logo,
-      confederation: 'UEFA',
+      confederation: LEAGUE_CONFEDERATION[league.key] ?? 'UEFA',
     }))
     const { error: teamsErr } = await (supabase.from('teams') as any)
       .upsert(teamRows, { onConflict: 'competition_id,api_football_id' })
@@ -106,7 +116,7 @@ export async function ingestLeagues(season: number): Promise<{
     const teamUuid = new Map((dbTeams ?? []).map((t: any) => [t.api_football_id, t.id]))
 
     // ── Calendario ───────────────────────────────────────────
-    const fixtures = await fetchLeagueFixtures(league.apiFootballId, season)
+    const fixtures = await fetchLeagueFixtures(league.apiFootballId, leagueSeason)
     const country = LEAGUE_COUNTRY[league.key] ?? league.country
 
     const matchRows = fixtures

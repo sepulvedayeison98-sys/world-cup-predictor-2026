@@ -21,12 +21,34 @@
 // IDs oficiales de liga en API-Football. Opción A aprobada (Premier +
 // La Liga); etapa 5 completa las 5 grandes ligas europeas.
 export const TARGET_LEAGUES = [
-  { key: 'premier_league', apiFootballId: 39, name: 'Premier League', country: 'England' },
-  { key: 'la_liga', apiFootballId: 140, name: 'La Liga', country: 'Spain' },
-  { key: 'serie_a', apiFootballId: 135, name: 'Serie A', country: 'Italy' },
-  { key: 'bundesliga', apiFootballId: 78, name: 'Bundesliga', country: 'Germany' },
-  { key: 'ligue_1', apiFootballId: 61, name: 'Ligue 1', country: 'France' },
+  { key: 'premier_league', apiFootballId: 39, name: 'Premier League', country: 'England', seasonFormat: 'european' },
+  { key: 'la_liga', apiFootballId: 140, name: 'La Liga', country: 'Spain', seasonFormat: 'european' },
+  { key: 'serie_a', apiFootballId: 135, name: 'Serie A', country: 'Italy', seasonFormat: 'european' },
+  { key: 'bundesliga', apiFootballId: 78, name: 'Bundesliga', country: 'Germany', seasonFormat: 'european' },
+  { key: 'ligue_1', apiFootballId: 61, name: 'Ligue 1', country: 'France', seasonFormat: 'european' },
+  // Primera A de Colombia. Su temporada es el AÑO CALENDARIO (ene-dic) con
+  // dos torneos (Apertura y Clausura) más cuadrangulares y finales: NO es
+  // el formato europeo agosto-mayo. Por eso lleva seasonFormat propio.
+  { key: 'liga_betplay', apiFootballId: 239, name: 'Liga BetPlay', country: 'Colombia', seasonFormat: 'calendar' },
 ] as const
+
+/**
+ * Temporada a pedir a la API para una liga concreta.
+ *
+ * En API-Football el número de temporada es el año de INICIO de la campaña.
+ * Para las ligas europeas eso significa que la 2024-25 se pide como 2024;
+ * para las de año calendario (Colombia) el año es literal. Ambas coinciden
+ * numéricamente cuando se ingesta un año ya cerrado, pero la semántica es
+ * distinta y conviene que el código la exprese en vez de que sea una
+ * coincidencia afortunada.
+ */
+export function seasonForLeague(
+  league: { seasonFormat?: string }, baseSeason: number, now: Date = new Date(),
+): number {
+  if (league.seasonFormat !== 'calendar') return baseSeason
+  // Año calendario: nunca por delante del año en curso (la API no tiene futuro).
+  return Math.min(baseSeason, now.getUTCFullYear())
+}
 
 /**
  * Temporada de fútbol en el formato de API-Football: el AÑO DE INICIO de la
