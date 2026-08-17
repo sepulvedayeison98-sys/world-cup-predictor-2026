@@ -19,7 +19,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronLeft, ChevronRight, ExternalLink,
 } from 'lucide-react'
-import { cn, formatProbability } from '@/lib/utils'
+import { cn, formatProbability, getConfidenceLabel } from '@/lib/utils'
 import { matchesService } from '@/services/matches.service'
 import { Flag } from '@/components/ui/Flag'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
@@ -132,42 +132,88 @@ function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: st
 
 /** Tarjeta de partido para móvil (playbook Sofascore, mejora 1). Toda la
  *  tarjeta es un enlace al detalle; sin scroll horizontal. */
+/** El equipo al que más probabilidad le da el modelo. Empate cuenta como
+ *  "resultado favorito" propio, no se le asigna a ninguno de los dos. */
+function favoredSide(p: NonNullable<MatchRow['prediction']>, m: MatchRow) {
+  if (p.draw_probability >= p.home_win_probability && p.draw_probability >= p.away_win_probability) {
+    return { label: 'Empate', prob: p.draw_probability }
+  }
+  return p.home_win_probability >= p.away_win_probability
+    ? { label: m.home_team?.short_name ?? m.home_team?.name ?? 'Local', prob: p.home_win_probability }
+    : { label: m.away_team?.short_name ?? m.away_team?.name ?? 'Visitante', prob: p.away_win_probability }
+}
+
 function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: string }) {
   const p = m.prediction
   const showScore = m.status === 'finished' || m.status === 'live'
+  const favored = p ? favoredSide(p, m) : null
   return (
-    <li className={cn(m.status === 'live' && 'bg-red-500/5')}>
-      <Link href={`/matches/${m.id}`} className="block px-4 py-3 active:bg-zinc-800/40 transition-colors">
+    <li>
+      <Link
+        href={`/matches/${m.id}`}
+        className={cn(
+          'group block rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-3.5',
+          'transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:shadow-lg active:translate-y-0',
+          m.status === 'live' && 'border-red-500/30 bg-red-500/[0.03]',
+        )}
+      >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] text-zinc-500 mono">
-            {competitionName ? `${competitionName} · ` : ''}
-            {formatColDate(m.kickoff_time)} · {formatColTime(m.kickoff_time)}
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500">
+            {competitionName && (
+              <span className="rounded border border-zinc-700/80 bg-zinc-800/80 px-1.5 py-0.5 font-medium text-zinc-400">
+                {competitionName}
+              </span>
+            )}
+            <span className="mono">{formatColDate(m.kickoff_time)} · {formatColTime(m.kickoff_time)}</span>
           </span>
           <StatusBadge status={m.status} kickoffTime={m.kickoff_time} />
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
-            <TeamMark team={m.home_team} /> {m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}
+        <div className="mt-2.5 flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-zinc-100">
+            <TeamMark team={m.home_team} />
+            <span className="truncate">{m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}</span>
           </span>
           {showScore ? (
-            <span className="mono text-base font-black text-white">{m.home_score ?? '—'}<span className="mx-1 text-zinc-600">–</span>{m.away_score ?? '—'}</span>
+            <span className="mono shrink-0 text-lg font-black text-white">{m.home_score ?? '—'}<span className="mx-1 text-zinc-600">–</span>{m.away_score ?? '—'}</span>
           ) : (
-            <span className="text-xs font-bold text-zinc-600">VS</span>
+            <span className="shrink-0 text-xs font-bold text-zinc-600">VS</span>
           )}
-          <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
-            {m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code} <TeamMark team={m.away_team} />
+          <span className="flex min-w-0 items-center justify-end gap-2 text-sm font-bold text-zinc-100">
+            <span className="truncate">{m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}</span>
+            <TeamMark team={m.away_team} />
           </span>
         </div>
 
-        {p ? (
+        {p && favored ? (
           <>
-            <ProbBar1X2 className="mt-2.5" home={p.home_win_probability} draw={p.draw_probability} away={p.away_win_probability}
+            <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              Predicción del modelo
+            </p>
+            <ProbBar1X2 className="mt-1.5" home={p.home_win_probability} draw={p.draw_probability} away={p.away_win_probability}
               variant="full"
               homeLabel={m.home_team?.code ?? m.home_team?.short_name}
               awayLabel={m.away_team?.code ?? m.away_team?.short_name} />
-            <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500">est. <span className="mono font-bold text-zinc-300">{p.predicted_home_score}–{p.predicted_away_score}</span></span>
+            <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px]">
+              <span className="text-zinc-400">
+                Favorito: <span className="font-semibold text-zinc-200">{favored.label}</span>
+                <span className="mono text-zinc-500"> · {Math.round(favored.prob * 100)}%</span>
+              </span>
+              <span className="text-zinc-500">
+                est. <span className="mono font-bold text-zinc-300">{p.predicted_home_score}–{p.predicted_away_score}</span>
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold',
+                  p.confidence_level >= 4 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400'
+                    : p.confidence_level === 3 ? 'border-amber-500/25 bg-amber-500/10 text-amber-400'
+                    : 'border-zinc-700 bg-zinc-800/80 text-zinc-400',
+                )}
+              >
+                Confianza {getConfidenceLabel(p.confidence_level).toLowerCase()}
+              </span>
               <span className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span key={i} className={i < p.confidence_level ? 'text-amber-400' : 'text-zinc-700'} style={{ fontSize: 11 }}>★</span>
@@ -177,11 +223,11 @@ function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: stri
             </div>
           </>
         ) : (
-          <p className="mt-2 text-[11px] text-zinc-600">Sin análisis del modelo aún</p>
+          <p className="mt-2.5 text-[11px] text-zinc-600">Sin análisis del modelo aún</p>
         )}
 
         {p && coldStartNote(warmupOf(m)) && (
-          <p className="mt-1.5 text-[10px] leading-snug text-amber-400/80">
+          <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[10px] leading-snug text-amber-400/80">
             {coldStartNote(warmupOf(m))}
           </p>
         )}
@@ -464,13 +510,13 @@ export function MatchesTable({
       </div>
 
       {/* ── MÓVIL: tarjetas (sin scroll horizontal) ── */}
-      <ul className="divide-y divide-zinc-800/60 md:hidden">
+      <ul className="flex flex-col gap-2.5 p-3 md:hidden">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <li key={i} className="px-4 py-3"><div className="h-16 animate-pulse rounded bg-zinc-800" /></li>
+            <li key={i}><div className="h-28 animate-pulse rounded-2xl border border-zinc-800/80 bg-zinc-900" /></li>
           ))
         ) : (data?.data ?? []).length === 0 ? (
-          <li className="px-4 py-12 text-center"><p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p></li>
+          <li className="rounded-2xl border border-zinc-800/80 bg-zinc-900 px-4 py-12 text-center"><p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p></li>
         ) : (
           (data?.data ?? []).map((m) => (
             <MatchCard

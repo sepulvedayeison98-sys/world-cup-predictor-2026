@@ -27,8 +27,6 @@ export interface JornadaView {
   matches: JornadaMatchView[]
 }
 
-const PICK_LABEL: Record<string, string> = { home: 'Local', draw: 'Empate', away: 'Visita' }
-
 function TeamCell({ team, align }: { team: JornadaMatchView['home']; align: 'left' | 'right' }) {
   return (
     <div className={cn('flex items-center gap-2 min-w-0', align === 'right' && 'flex-row-reverse')}>
@@ -39,6 +37,15 @@ function TeamCell({ team, align }: { team: JornadaMatchView['home']; align: 'lef
       <span className="truncate text-sm font-medium text-zinc-200">{team.name}</span>
     </div>
   )
+}
+
+/** A quién favorece el modelo, en el mismo lenguaje que el resto de la app
+ *  ("favorito", no "pick"): quien más probabilidad tiene de las tres. */
+function favoriteOf(p: NonNullable<JornadaMatchView['prediction']>, m: JornadaMatchView) {
+  const top = p.pick === 'home' ? { name: m.home.name, prob: p.home }
+    : p.pick === 'away' ? { name: m.away.name, prob: p.away }
+    : { name: 'Empate', prob: p.draw }
+  return top
 }
 
 export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaView[]; initialRound: number }) {
@@ -89,11 +96,22 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
           const p = m.prediction
           return (
             // Todo partido es clicable: abre la vista de detalle completa
-            <li key={m.id}>
+            <li key={m.id} className="group relative">
               <Link
                 href={`/matches/${m.id}`}
                 className="block px-4 py-3 transition-colors hover:bg-zinc-800/40 focus-visible:bg-zinc-800/40 focus-visible:outline-none"
               >
+              {/* Filo de color: victoria/derrota del favorito, sutil, solo
+                  visible en partidos ya resueltos — profundidad sin ruido. */}
+              {played && p?.correct != null && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute inset-y-0 left-0 w-0.5',
+                    p.correct ? 'bg-emerald-500/60' : 'bg-red-500/40',
+                  )}
+                />
+              )}
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <TeamCell team={m.home} align="right" />
                 <div className="text-center">
@@ -121,10 +139,10 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
                   <span className="tabular-nums">
                     {Math.round(p.home * 100)}·{Math.round(p.draw * 100)}·{Math.round(p.away * 100)}%
                   </span>
-                  <span className="flex items-center gap-1">
-                    Pick: {PICK_LABEL[p.pick]}
-                    {p.correct === true && <Check className="h-3.5 w-3.5 text-emerald-400" />}
-                    {p.correct === false && <X className="h-3.5 w-3.5 text-red-400" />}
+                  <span className="flex items-center gap-1 font-medium text-zinc-400">
+                    Favorito: {favoriteOf(p, m).name} · {Math.round(favoriteOf(p, m).prob * 100)}%
+                    {p.correct === true && <Check className="h-3.5 w-3.5 text-emerald-400" aria-label="Acertó" />}
+                    {p.correct === false && <X className="h-3.5 w-3.5 text-red-400" aria-label="Falló" />}
                   </span>
                 </div>
               )}

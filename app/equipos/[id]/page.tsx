@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MapPin, Users, Calendar } from 'lucide-react'
+import { ArrowLeft, MapPin, Users, Calendar, Trophy, Target, Flame, ShieldHalf, Scale, Gauge } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { computeFootballTeamStats, type FbMatch } from '@/lib/footballTeamStats'
 import { competitionHref, sportOfCompetition } from '@/lib/sports'
 import { COMPETITIONS_NAV } from '@/lib/sports'
 import { Flag } from '@/components/ui/Flag'
+import { TeamStatCard } from '@/components/teams/TeamStatCard'
 import { formatColDate } from '@/lib/datetime'
 import { predictionWarmup, coldStartNote } from '@/lib/predictionQuality'
 import { cn } from '@/lib/utils'
@@ -100,14 +101,12 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     )}>{r}</span>
   )
 
-  const kpis = [
-    { label: 'Récord (G-E-P)', value: `${stats.won}-${stats.drawn}-${stats.lost}`, color: 'text-emerald-400' },
-    { label: 'Puntos por partido', value: stats.ppg.toFixed(2), color: 'text-white' },
-    { label: 'Goles a favor / p', value: stats.gfpg.toFixed(1), color: 'text-white' },
-    { label: 'Goles en contra / p', value: stats.gapg.toFixed(1), color: 'text-white' },
-    { label: 'Diferencia', value: `${stats.goal_diff > 0 ? '+' : ''}${stats.goal_diff}`, color: stats.goal_diff > 0 ? 'text-emerald-400' : stats.goal_diff < 0 ? 'text-red-400' : 'text-zinc-300' },
-    { label: 'ELO del modelo', value: String(t.elo_rating), color: 'text-white' },
-  ]
+  // Barras de contexto: SIEMPRE un ratio real ya calculado (victorias sobre
+  // jugados, puntos sobre el máximo de 3 por partido). Nunca una tendencia
+  // simulada — donde no hay una base sólida para el ratio, la tarjeta se
+  // queda sin barra (goles, diferencia, ELO).
+  const winRatio = stats.played > 0 ? stats.won / stats.played : 0
+  const pointsRatio = stats.ppg / 3
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
@@ -167,12 +166,23 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {kpis.map((k) => (
-              <div key={k.label} className="kpi-card">
-                <p className="text-[11px] text-zinc-500">{k.label}</p>
-                <p className={cn('text-2xl font-bold mono', k.color)}>{k.value}</p>
-              </div>
-            ))}
+            <TeamStatCard
+              icon={Trophy} label="Récord (G-E-P)" accent="emerald"
+              value={`${stats.won}-${stats.drawn}-${stats.lost}`}
+              contextRatio={winRatio} contextLabel={`${Math.round(winRatio * 100)}% de victorias`}
+            />
+            <TeamStatCard
+              icon={Target} label="Puntos por partido" accent="emerald"
+              value={stats.ppg.toFixed(2)}
+              contextRatio={pointsRatio} contextLabel={`sobre 3,00 posibles`}
+            />
+            <TeamStatCard icon={Flame} label="Goles a favor / p" accent="amber" value={stats.gfpg.toFixed(1)} />
+            <TeamStatCard icon={ShieldHalf} label="Goles en contra / p" accent="sky" value={stats.gapg.toFixed(1)} />
+            <TeamStatCard
+              icon={Scale} label="Diferencia" value={`${stats.goal_diff > 0 ? '+' : ''}${stats.goal_diff}`}
+              accent={stats.goal_diff > 0 ? 'emerald' : stats.goal_diff < 0 ? 'red' : 'zinc'}
+            />
+            <TeamStatCard icon={Gauge} label="ELO del modelo" value={String(t.elo_rating)} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
