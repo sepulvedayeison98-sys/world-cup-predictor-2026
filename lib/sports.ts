@@ -31,6 +31,16 @@ export interface CompetitionEntry {
   status: CompetitionStatus
   /** Nota corta de estado que ve el usuario (momento vital) */
   note?: string
+  /**
+   * Escudo de la competición, servido desde `public/competiciones/`.
+   *
+   * Local y no enlazado a la CDN del proveedor por tres razones: la
+   * navegación no debe depender de que un tercero esté en pie, no hace falta
+   * declarar dominios remotos en `next.config`, y son ~100 KB que se cachean
+   * de una vez. Ausente = no hay escudo disponible de una fuente que
+   * podamos usar, y quien lo pinte cae a su icono (ver `CompetitionLogo`).
+   */
+  logo?: string
 }
 
 export interface SportEntry {
@@ -44,6 +54,31 @@ export const SPORTS: SportEntry[] = [
   { slug: 'baloncesto', name: 'Baloncesto', status: 'activa' },
   { slug: 'tenis', name: 'Tenis', status: 'activa' },
 ]
+
+/**
+ * Escudos disponibles, por slug. Los archivos viven en
+ * `public/competiciones/` y se descargaron una vez de la CDN de
+ * API-Football (fútbol) y de ESPN (NBA).
+ *
+ * Es una lista explícita y no un `/competiciones/${slug}.png` derivado a
+ * propósito: así, añadir una competición al registro sin su archivo cae al
+ * icono en vez de pedir una imagen que no existe y dejar un hueco roto.
+ *
+ * Sin entrada para ATP ni WTA: ninguna de nuestras fuentes publica un
+ * escudo de los circuitos que podamos servir. Lo que ESPN ofrece es su
+ * propio icono de marca, y poner el logo de ESPN en nuestra navegación
+ * diría algo que no es cierto. Se quedan con su icono.
+ */
+const COMPETITION_LOGOS: Record<string, string> = {
+  'premier-league': '/competiciones/premier-league.png',
+  'la-liga': '/competiciones/la-liga.png',
+  'serie-a': '/competiciones/serie-a.png',
+  'bundesliga': '/competiciones/bundesliga.png',
+  'ligue-1': '/competiciones/ligue-1.png',
+  'liga-betplay': '/competiciones/liga-betplay.png',
+  'copa-libertadores': '/competiciones/copa-libertadores.png',
+  'nba': '/competiciones/nba.png',
+}
 
 export const COMPETITIONS_NAV: CompetitionEntry[] = [
   {
@@ -66,6 +101,7 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     href: `/ligas/${slug}`,
     status: 'activa' as CompetitionStatus,
     note: slug === 'liga-betplay' ? 'Temporada 2026' : 'Temporada 2026-27',
+    logo: COMPETITION_LOGOS[slug],
   })),
   {
     id: NBA_COMPETITION_ID,
@@ -75,6 +111,7 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     href: '/nba',
     status: 'activa',
     note: 'Temporada 2024-25',
+    logo: COMPETITION_LOGOS.nba,
   },
   // Tenis: tercer dominio (migración 053). ATP activa desde la Fase 8 (hub
   // /tennis con ranking, perfiles y motor tennis-1.0 medido). WTA sigue como
@@ -93,6 +130,7 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     href: '/copa-libertadores',
     status: 'activa',
     note: 'Octavos de final',
+    logo: COMPETITION_LOGOS['copa-libertadores'],
   },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },

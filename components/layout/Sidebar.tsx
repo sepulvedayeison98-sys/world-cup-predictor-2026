@@ -11,15 +11,13 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Globe,
   BrainCircuit,
   Activity,
-  Dribbble,
-  CircleDot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MODEL_VERSION } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV } from '@/lib/sports'
+import { CompetitionLogo } from '@/components/ui/CompetitionLogo'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
 /**
@@ -57,17 +55,21 @@ export function Sidebar() {
     setOpen(false)
   }, [pathname, setOpen])
 
-  const navItem = (href: string, label: string, Icon: any, active: boolean) => (
+  // `leading` es un nodo y no un componente de icono porque las competiciones
+  // ya no pintan un icono: pintan su escudo. Todo lo demás sigue igual.
+  const navItem = (href: string, label: string, leading: React.ReactNode, active: boolean) => (
     <Link
       href={href}
       title={collapsed ? label : undefined}
       onClick={() => setOpen(false)}
       className={cn('nav-item', active && 'nav-item-active', collapsed && 'lg:justify-center lg:px-2')}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      {leading}
       <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
     </Link>
   )
+
+  const icon = (Icon: any) => <Icon className="h-4 w-4 shrink-0" />
 
   return (
     <>
@@ -106,15 +108,18 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-2 px-2">
           <ul className="flex flex-col gap-0.5">
-            <li>{navItem('/dashboard', 'Inicio', LayoutDashboard, pathname === '/dashboard' || pathname === '/')}</li>
+            <li>{navItem('/dashboard', 'Inicio', icon(LayoutDashboard), pathname === '/dashboard' || pathname === '/')}</li>
           </ul>
 
           <SectionLabel collapsed={collapsed}>Competiciones</SectionLabel>
           <ul className="flex flex-col gap-0.5">
             {ACTIVE_COMPETITIONS.map((c) => {
-              const Icon = c.sport === 'baloncesto' ? Dribbble : c.sport === 'tenis' ? CircleDot : Globe
               const active = pathname === c.href || pathname.startsWith(c.href + '/')
-              return <li key={c.slug}>{navItem(c.href, c.name, Icon, active)}</li>
+              return (
+                <li key={c.slug}>
+                  {navItem(c.href, c.name, <CompetitionLogo competition={c} size={18} />, active)}
+                </li>
+              )
             })}
           </ul>
           {UPCOMING.length > 0 && (
@@ -142,13 +147,13 @@ export function Sidebar() {
           <ul className="flex flex-col gap-0.5">
             {ANALYSIS_ITEMS.map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
-              return <li key={href}>{navItem(href, label, Icon, active)}</li>
+              return <li key={href}>{navItem(href, label, icon(Icon), active)}</li>
             })}
           </ul>
 
           <div className="mt-4 border-t border-zinc-800 pt-2">
             <ul className="flex flex-col gap-0.5">
-              <li>{navItem('/settings', 'Configuración', Settings, pathname.startsWith('/settings'))}</li>
+              <li>{navItem('/settings', 'Configuración', icon(Settings), pathname.startsWith('/settings'))}</li>
             </ul>
           </div>
         </nav>

@@ -7,6 +7,7 @@ import { MyTeamsStrip } from '@/components/dashboard/MyTeamsStrip'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import { MODEL_VERSION, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
+import { CompetitionLogo } from '@/components/ui/CompetitionLogo'
 import { fetchTennisDashboardStrip } from '@/services/tennis/queries'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { EngineConfidencePanel, type EngineConfidenceRow } from '@/components/dashboard/EngineConfidencePanel'
@@ -346,7 +347,11 @@ export default async function HomePage() {
               href={c.href}
               className="group rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 transition-colors hover:border-zinc-700"
             >
-              <p className="truncate text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors">{c.name}</p>
+              {/* El escudo va ENCIMA y no al lado: en la rejilla de seis
+                  columnas, ponerlo en línea le robaba ancho al nombre y
+                  "Premier League" pasaba a "Premier Lea…". */}
+              <CompetitionLogo competition={c} size={24} />
+              <p className="mt-2 truncate text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors">{c.name}</p>
               <p className="mt-1 text-[11px] leading-snug text-zinc-500">
                 {c.note}
               </p>
