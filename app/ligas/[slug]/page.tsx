@@ -145,9 +145,9 @@ export default async function LeagueDetailPage({ params }: Props) {
           <p className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
             La Primera A se juega en dos torneos por año (Apertura y Clausura) más
             cuadrangulares y finales. Esta tabla es el <strong>acumulado del año
-            calendario</strong> —todos los partidos de 2024—, no la clasificación
-            oficial de un torneo: por eso los equipos que llegaron más lejos
-            aparecen con más partidos jugados.
+            calendario</strong> —todos los partidos de {comp.season}—, no la
+            clasificación oficial de un torneo: por eso los equipos que llegan
+            más lejos aparecen con más partidos jugados.
           </p>
         )}
       </div>
