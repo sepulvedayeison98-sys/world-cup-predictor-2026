@@ -35,7 +35,7 @@ export interface LeagueCalibrationResult {
  * curso cada liga implica cientos de partidos (jugados + próximos) y las seis
  * juntas superan el límite de 60 s de la función serverless.
  */
-export async function calibrateLeagues(onlyKeys?: string[]): Promise<{
+export async function calibrateLeagues(onlyKeys?: string[], withSmartBets = false): Promise<{
   ok: boolean
   leagues: LeagueCalibrationResult[]
 }> {
@@ -159,8 +159,14 @@ export async function calibrateLeagues(onlyKeys?: string[]): Promise<{
     metadata: { model_version: LEAGUE_MODEL_VERSION, leagues: results },
   })
 
-  // Best-effort: congela/resuelve Smart Bets de las ligas (nunca rompe la calibración)
-  await syncSmartBetTracking()
+  // Smart Bets: DESACOPLADO a propósito (2026-08). Iba aquí como
+  // "best-effort", pero al pasar a una competición por temporada la lista
+  // blanca de fútbol creció de 7 a 13 competiciones y esta llamada pasó a
+  // costar ~160 s medidos — ella sola agotaba el límite de 60 s de la
+  // función y hacía fallar con 504 toda la calibración (que en sí tarda
+  // ~2,4 s). Tiene su propio endpoint: GET /api/sync/smart-bets.
+  // Se puede seguir encadenando con ?withBets=1 cuando haya presupuesto.
+  if (withSmartBets) await syncSmartBetTracking()
 
   return { ok: results.length > 0, leagues: results }
 }

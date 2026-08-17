@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
     // partidos por liga, jugados y próximos).
     const only = (req.nextUrl.searchParams.get('league') ?? '')
       .split(',').map((s) => s.trim()).filter(Boolean)
-    const result = await calibrateLeagues(only)
+    // Smart Bets va desacoplado (tiene su propio endpoint y cuesta ~160 s):
+    // se encadena solo si se pide explícitamente con ?withBets=1.
+    const withBets = req.nextUrl.searchParams.get('withBets') === '1'
+    const result = await calibrateLeagues(only, withBets)
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('[GET /api/sync/leagues/calibrate]', err)
