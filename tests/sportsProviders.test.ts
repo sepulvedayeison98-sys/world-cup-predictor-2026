@@ -236,6 +236,72 @@ test('runChain nunca lanza: convierte cualquier excepción en un resultado', asy
   if (r.status === 'error') assert.equal(r.retryable, false)
 })
 
+// ─── Reintentos sobre cuerpos válidos pero con error dentro ─────────────────
+
+test('un error detectado en el CUERPO entra en el bucle de reintentos', async () => {
+  // Regresión de un fallo real. api-sports responde 200 con `errors`
+  // poblado al agotar la ráfaga por minuto. La comprobación vivía DESPUÉS
+  // del await, así que el error nacía fuera del bucle y no se reintentaba
+  // nunca: el backoff de rate_limit era código muerto y la ingesta perdía
+  // 86 de 570 jugadores de una liga. `validate` corre dentro del bucle.
+  const { requestJson } = await import('../services/sports/core/http')
+
+  let calls = 0
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = (async () => {
+    calls++
+    return new Response(JSON.stringify({ ok: calls }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await requestJson<{ ok: number }>('https://ejemplo.test/x', {
+      provider: 'api-football',
+      endpoint: '/x',
+      retries: 2,
+      // Falla las dos primeras veces con un error reintentable.
+      validate: (raw) => {
+        if ((raw as { ok: number }).ok < 3) {
+          throw new ProviderError({
+            kind: 'rate_limit', provider: 'api-football', endpoint: '/x',
+          })
+        }
+      },
+    })
+    assert.equal(result.body.ok, 3)
+    assert.equal(calls, 3, 'debe haber reintentado dos veces')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('un error NO reintentable del cuerpo se propaga al primer intento', async () => {
+  const { requestJson } = await import('../services/sports/core/http')
+  let calls = 0
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = (async () => {
+    calls++
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+  }) as typeof fetch
+
+  try {
+    await assert.rejects(
+      () => requestJson('https://ejemplo.test/x', {
+        provider: 'api-football', endpoint: '/x', retries: 3,
+        // Una clave inválida no mejora por insistir.
+        validate: () => {
+          throw new ProviderError({ kind: 'auth', provider: 'api-football', endpoint: '/x' })
+        },
+      }),
+      (e: unknown) => isProviderError(e) && e.kind === 'auth',
+    )
+    assert.equal(calls, 1, 'un fallo de credenciales no se reintenta')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('supports lee las capacidades declaradas', () => {
   const p = fakeProvider('espn', ['teams', 'standings'])
   assert.equal(supports(p, 'teams'), true)

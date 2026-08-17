@@ -325,13 +325,10 @@ Tres cosas que solo aparecieron al correrlo de verdad:
   `ON CONFLICT (team_id, api_football_id)` y Postgres no empareja esa cláusula
   con un índice parcial. Fallaba con "no unique or exclusion constraint
   matching the ON CONFLICT specification".
-- **La cuota que se agota es la de POR MINUTO, no la diaria.** Saltó con la
-  diaria casi intacta. Acotar la concurrencia no basta —cuatro peticiones de
-  200 ms dan 1.200 por minuto—, así que hay un limitador de ritmo
-  (`core/rateLimit.ts`) configurado a 240/min y ajustable con
-  `FOOTBALL_API_RPM`. El backoff de reintento para `rate_limit` sube a 2 s,
-  4 s y 8 s: con 400 ms el reintento cae dentro de la misma ráfaga y gasta
-  otra petición para que la rechacen igual.
+- **La cuota que se agota es la de POR MINUTO, no la diaria** — saltó con la
+  diaria en 61 de 7.500. Perseguirla destapó dos fallos propios, uno de
+  ellos serio: se estaban cacheando las respuestas de error. Está en §14,
+  porque la lección vale para cualquier proveedor que se añada después.
 - **La fuente omite jugadores de la plantilla.** 11 de 31 lesionados de La
   Liga y 19 de 179 fichas de un once no aparecían en `/players/squads`
   (lesionados de larga duración, canteranos convocados, fichajes recién
@@ -347,7 +344,62 @@ las ligas: La Liga publica 31 partes, Premier League y Liga BetPlay ninguno.
 No es un fallo de la ingesta — es que la fuente aún no los tiene. Se verá
 crecer conforme avance la temporada.
 
-## 14. Lo que todavía no hace
+## 14. El fallo que costó tres diagnósticos
+
+Merece quedar escrito porque las dos primeras explicaciones eran razonables
+y las dos estaban mal.
+
+**Síntoma.** La ingesta de plantillas perdía siempre los mismos equipos, con
+las mismas cifras exactas —585, 484, 494, 576— corrida tras corrida. El error
+era `{"rateLimit":"Too many requests…"}` con la cuota **diaria intacta** (61
+de 7.500).
+
+**Lo que se descartó, midiendo:**
+
+| Hipótesis | Prueba | Resultado |
+|---|---|---|
+| Volumen por minuto | 60 peticiones seguidas | 0 rechazos |
+| Concurrencia | 8 a la vez, tres rondas | 0 rechazos |
+| Ráfaga acumulada | 45 s de pausa entre ligas | seguía fallando |
+| Equipos concretos rotos | los 3 que fallaban, uno a uno | los 3 responden |
+
+La pista buena fue el **determinismo**. Un límite de ráfaga produce fallos
+que se mueven; estos caían siempre en los mismos equipos y devolvían la misma
+cifra al milímetro. Eso no es un límite: es algo guardado.
+
+**Las dos causas reales**, y la segunda escondía a la primera:
+
+1. **El reintento no se ejecutaba nunca.** api-sports responde **200 con
+   `errors` poblado**, así que la comprobación vivía después del `await`,
+   fuera del bucle de reintentos. El backoff de `rate_limit` era código
+   muerto. Se arregla con el callback `validate` de `core/http.ts`, que corre
+   **dentro** del bucle. Tiene test de regresión.
+
+2. **La caché de datos de Next estaba guardando las respuestas de error.**
+   Para Next, un 200 es un 200: cacheó el rechazo puntual y lo sirvió durante
+   las seis horas del TTL. De ahí el determinismo perfecto, y de ahí que el
+   mismo código ejecutado fuera de Next trajera las seis ligas completas.
+   **Cachear una API que reporta errores en cuerpos 200 es cachear sus
+   fallos.** api-football ya no usa la caché HTTP; el ahorro de llamadas lo
+   da el `memo` de la capa de servicios, que sí distingue error de dato
+   porque vive por encima de `validate`.
+
+**Lo que quedó montado**, tres capas que se cubren entre ellas:
+
+- Sin caché HTTP en api-football — elimina la causa que envenenaba.
+- Reintento con backoff de 2/4/8 s para `rate_limit` — reacciona al rechazo.
+- `core/rateLimit.ts` a 30/min (`FOOTBALL_API_RPM`) más 45 s entre ligas en
+  el workflow — freno de mano. El techo real no está caracterizado, así que
+  el número es conservador, no medido.
+
+**Verificado**: seis ligas por HTTP contra el build de producción, 3.652
+jugadores, 0 problemas.
+
+Lección transferible para el siguiente proveedor que se añada: **si una API
+señala errores dentro de cuerpos 200, no la pongas detrás de una caché por
+URL**, y comprueba el cuerpo dentro del bucle de reintentos, no después.
+
+## 15. Lo que todavía no hace
 
 - **El resto de procesos de ingesta siguen en `services/sync/`** con sus
   clientes propios. Migrarlos uno a uno, empezando por el de menos riesgo.

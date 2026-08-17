@@ -41,8 +41,15 @@ type UntypedClient = any
 /** Margen bajo los 60 s de Vercel para cerrar la respuesta con calma. */
 const TIME_BUDGET_MS = 45_000
 
-/** Peticiones en paralelo. Suficiente para 20 equipos en pocos segundos sin
- *  disparar el rate limit por minuto de API-Football. */
+/**
+ * Peticiones en paralelo.
+ *
+ * Cuatro. Se probó bajarlo a uno mientras se perseguía un fallo que parecía
+ * de ráfaga, pero la causa era otra —respuestas de error cacheadas, ver el
+ * cliente de api-football— y con ella resuelta la concurrencia no da
+ * problemas. Se deja en 4 porque una liga baja de ~15 s a ~6 s y el
+ * presupuesto de tiempo de la función es corto.
+ */
 const CONCURRENCY = 4
 
 function deadline(): () => boolean {

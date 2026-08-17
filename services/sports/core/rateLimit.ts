@@ -12,9 +12,16 @@
  * peticiones simultáneas que tardan 200 ms dan 1.200 por minuto. Lo que hay
  * que limitar es el ritmo, no cuántas van a la vez.
  *
- * Reintentar tampoco arregla nada por sí solo — cada reintento consume otra
- * petición de la cuota diaria para volver a ser rechazado. Es más barato
- * esperar antes de salir que disculparse después.
+ * Es más barato esperar antes de salir que disculparse después.
+ *
+ * ── Alcance, dicho claro ──────────────────────────────────────────────────
+ * El contador vive EN MEMORIA DEL PROCESO. En Vercel conviven varias
+ * instancias de la función y cada una lleva su propia cuenta, así que esto
+ * es un freno de mano, no una garantía: reduce las ráfagas, no las elimina.
+ * Quien de verdad cierra el agujero es el reintento con backoff de
+ * `core/http.ts`, que reacciona al rechazo cuando llega. Los dos juntos —
+ * uno que previene y otro que se recupera— son lo que hace que la ingesta
+ * termine completa.
  *
  * Módulo NEUTRO.
  */

@@ -24,15 +24,20 @@ const DEFAULT_HOST = 'v3.football.api-sports.io'
 /**
  * Techo de peticiones por minuto que nos imponemos.
  *
- * La cuota que se agota primero NO es la diaria (7.500 en Pro) sino la de
- * por minuto: la ingesta de plantillas la disparó con la diaria casi intacta.
- * 240/min deja margen de sobra bajo el límite del plan y hace que el trabajo
- * más pesado de la casa —120 peticiones para las seis ligas— no la roce
- * siquiera. Ajustable con `FOOTBALL_API_RPM` si el plan cambia.
+ * La cuota que se agota primero no es la diaria (7.500 en Pro) sino la de
+ * POR MINUTO: la primera ingesta de plantillas la disparó con la diaria en
+ * 61 de 7.500. El valor exacto del techo no está caracterizado —60
+ * peticiones seguidas pasan y 8 simultáneas en frío también—, así que 30 es
+ * una elección conservadora, no una medida. Ajustable con
+ * `FOOTBALL_API_RPM`.
+ *
+ * Lo que este freno NO cubre: el contador vive en memoria del proceso y en
+ * Vercel cada instancia lleva el suyo. La red que sí atrapa el rechazo
+ * cuando llega es el reintento con backoff de `core/http.ts`.
  */
 const REQUESTS_PER_MINUTE = ((): number => {
   const env = Number(process.env.FOOTBALL_API_RPM)
-  return Number.isFinite(env) && env > 0 ? env : 240
+  return Number.isFinite(env) && env > 0 ? env : 30
 })()
 
 configureLimit(API_FOOTBALL, REQUESTS_PER_MINUTE)
@@ -71,13 +76,28 @@ function classify(message: string): 'rate_limit' | 'auth' | 'upstream' {
 /**
  * Pide un endpoint y devuelve el array `response` ya desenvuelto.
  *
- * `revalidate` en segundos: quien llama decide, porque el TTL correcto
- * depende del dato (una plantilla no caduca como un marcador).
+ * ── Por qué este proveedor NO usa la caché de datos de Next ──────────────
+ * api-sports señala sus errores con **HTTP 200 y el campo `errors` poblado**.
+ * Para la caché de Next eso es una respuesta perfectamente buena, así que la
+ * guardaba y la volvía a servir durante todo el TTL.
+ *
+ * El efecto fue difícil de leer y conviene dejarlo escrito: la ingesta
+ * fallaba SIEMPRE en los mismos equipos y con las mismas cifras exactas
+ * —585, 484, 494, 576— corrida tras corrida. Parecía un problema del
+ * proveedor con ciertos equipos. No lo era: un rechazo puntual por ráfaga se
+ * había quedado cacheado seis horas y se replicaba en cada corrida. El mismo
+ * código, ejecutado fuera de Next, traía las seis ligas completas.
+ *
+ * Cachear la respuesta de una API que reporta errores en cuerpos 200 es
+ * cachear sus fallos. El parámetro `revalidate` se mantiene por firma pero
+ * se ignora a propósito; el ahorro de llamadas lo da el `memo` de la capa de
+ * servicios, que sí distingue error de dato porque vive por encima de
+ * `validate`.
  */
 export async function apiFootball<T>(
   path: string,
   params: Record<string, string | number | undefined> = {},
-  revalidate = 0,
+  _revalidate = 0,
 ): Promise<{ data: T[]; provenance: Provenance; paging: { current: number; total: number } }> {
   const { host, headers } = config()
   const url = `https://${host}${path}${qs(params)}`
@@ -91,19 +111,27 @@ export async function apiFootball<T>(
     provider: API_FOOTBALL,
     endpoint: path,
     headers,
-    revalidate,
+    // Sin caché HTTP: ver la nota de arriba. Un 200 con `errors` es un
+    // fallo que la caché no sabe distinguir de un acierto.
+    revalidate: 0,
     timeoutMs: 12_000,
+    // Va como `validate` y no después del await A PROPÓSITO: api-sports
+    // devuelve 200 con `errors` poblado al agotar la ráfaga por minuto.
+    // Comprobándolo aquí, el rechazo entra en el bucle de reintentos y
+    // espera 2/4/8 s antes de volver; comprobándolo fuera, fallaba al
+    // primer intento y el backoff no llegaba a ejecutarse nunca.
+    validate: (raw) => {
+      const envelope = raw as ApiFootballEnvelope<T>
+      const errs = envelope?.errors
+      const messages = Array.isArray(errs) ? errs : Object.values(errs ?? {})
+      if (messages.length === 0) return
+      const text = messages.join('; ')
+      throw new ProviderError({
+        kind: classify(text), provider: API_FOOTBALL, endpoint: path,
+        message: `${path}: ${text}`,
+      })
+    },
   })
-
-  const errs = body.errors
-  const messages = Array.isArray(errs) ? errs : Object.values(errs ?? {})
-  if (messages.length > 0) {
-    const text = messages.join('; ')
-    throw new ProviderError({
-      kind: classify(text), provider: API_FOOTBALL, endpoint: path,
-      message: `${path}: ${text}`,
-    })
-  }
 
   return {
     data: body.response ?? [],

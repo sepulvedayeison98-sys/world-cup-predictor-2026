@@ -25,6 +25,19 @@ export interface RequestOptions {
   /** Segundos de revalidación del caché de datos de Next. `0` = sin caché. */
   revalidate?: number
   signal?: AbortSignal
+  /**
+   * Comprobación del CUERPO, ejecutada DENTRO del bucle de reintentos.
+   *
+   * Existe por api-sports, que responde **200 con el campo `errors`
+   * poblado** cuando agota la cuota. Si esa comprobación se hace fuera —que
+   * es lo natural, ya con el JSON en la mano— el error nace fuera del bucle
+   * y NUNCA se reintenta: el backoff para `rate_limit` queda de adorno. Con
+   * el callback aquí dentro, un rechazo por ráfaga espera y vuelve a
+   * intentarlo como cualquier otro fallo reintentable.
+   *
+   * Debe lanzar `ProviderError` si el cuerpo no es válido; si no, no hacer nada.
+   */
+  validate?: (body: unknown) => void
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -101,6 +114,9 @@ export async function requestJson<T>(
           cause,
         })
       }
+
+      // Dentro del try: lo que lance se clasifica y, si procede, se reintenta.
+      opts.validate?.(body)
 
       return {
         body,

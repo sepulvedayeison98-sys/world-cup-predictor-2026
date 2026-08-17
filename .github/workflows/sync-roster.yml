@@ -1,0 +1,144 @@
+name: Sync plantillas, lesiones y alineaciones
+
+# Mantiene al día players / injuries / lineups de las seis ligas de fútbol.
+#
+# ── Por qué aquí y no en vercel.json ──────────────────────────────────────
+# vercel.json ya declara cuatro crons y el plan Hobby topa en dos. Además,
+# cada invocación de Vercel muere a los 60 s, y las plantillas son 120
+# peticiones. GitHub Actions no tiene ninguno de los dos techos: puede
+# encadenar seis llamadas de una liga cada una, y cada llamada cabe de sobra
+# en su propio minuto. Es el mismo sitio donde ya viven los syncs de ligas,
+# NBA y cuotas.
+#
+# ── Tres cadencias, porque los datos cambian a ritmos distintos ───────────
+#   plantillas  · lunes 04:00 UTC   — solo se mueven en mercado de fichajes
+#   lesiones    · diario 05:00 UTC  — los partes médicos salen a diario
+#   alineaciones· cada 2 h          — se publican ~1 h antes del pitido
+#
+# ── Orden ─────────────────────────────────────────────────────────────────
+# `squads` va antes que `injuries` y `lineups`: las dos referencian
+# jugadores. El lunes se ejecutan las dos primeras en la misma corrida, en
+# ese orden. (Aun así la ingesta se defiende sola: si aparece un jugador que
+# no está en plantilla, crea su ficha mínima con lo que trae el parte.)
+#
+# ── Coste ─────────────────────────────────────────────────────────────────
+# API-Football Pro, 7.500 peticiones/día. Semana completa ≈ 120 (plantillas)
+# + 42 (lesiones) + ~200-400 (alineaciones, solo días con partido). Muy
+# lejos del techo. La ingesta se autolimita a 240 peticiones/minuto para no
+# rozar el límite por minuto de la suscripción, que es el que se agota
+# antes que el diario.
+#
+# Requiere el secret CRON_SECRET.
+
+on:
+  schedule:
+    # Plantillas + lesiones, lunes temprano.
+    - cron: "0 4 * * 1"
+    # Lesiones, todos los días.
+    - cron: "0 5 * * *"
+    # Alineaciones, cada dos horas. La mayoría de corridas no encuentra
+    # ningún partido en ventana y no gasta ni una petición.
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      entity:
+        description: "Qué sincronizar a mano"
+        required: true
+        default: all
+        type: choice
+        options: [all, squads, injuries, lineups]
+
+env:
+  APP_URL: 'https://world-cup-predictor-2026-flax.vercel.app'
+
+jobs:
+  roster:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decidir qué toca en esta corrida
+        id: plan
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          MANUAL: ${{ github.event.inputs.entity }}
+        run: |
+          set -euo pipefail
+          # Ejecución manual: manda lo que se haya elegido en el desplegable.
+          if [ -n "${MANUAL:-}" ]; then
+            case "$MANUAL" in
+              all)      echo "squads=1"  >> "$GITHUB_OUTPUT"
+                        echo "injuries=1" >> "$GITHUB_OUTPUT"
+                        echo "lineups=1"  >> "$GITHUB_OUTPUT" ;;
+              squads)   echo "squads=1"   >> "$GITHUB_OUTPUT" ;;
+              injuries) echo "injuries=1" >> "$GITHUB_OUTPUT" ;;
+              lineups)  echo "lineups=1"  >> "$GITHUB_OUTPUT" ;;
+            esac
+            exit 0
+          fi
+          # Programada: cada cron dispara lo suyo. El de las 04:00 del lunes
+          # hace plantillas Y lesiones, en ese orden.
+          case "$SCHEDULE" in
+            "0 4 * * 1")   echo "squads=1" >> "$GITHUB_OUTPUT"
+                           echo "injuries=1" >> "$GITHUB_OUTPUT" ;;
+            "0 5 * * *")   echo "injuries=1" >> "$GITHUB_OUTPUT" ;;
+            "0 */2 * * *") echo "lineups=1" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Plantillas (una llamada por liga)
+        if: steps.plan.outputs.squads == '1'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          AUTH="Authorization: Bearer $CRON_SECRET"
+          fallos=0
+          primera=1
+          # Liga a liga: 20 equipos son ~20 peticiones y unos 6 s. Pedirlas
+          # todas de golpe agotaría el presupuesto de tiempo de la función y
+          # volvería con truncated:true.
+          #
+          # Los 45 s entre ligas son margen contra el techo POR MINUTO de la
+          # suscripción, que existe y salta con la cuota diaria casi intacta.
+          # Sin pausa, seis ligas son 120 peticiones en minuto y medio. El
+          # freno que lleva la app va en memoria del proceso y en Vercel cada
+          # instancia tiene el suyo, así que espaciar aquí es lo único que
+          # actúa entre llamadas. Coste: ~4 min en un job semanal.
+          for L in premier_league la_liga serie_a bundesliga ligue_1 liga_betplay; do
+            [ "$primera" -eq 1 ] && primera=0 || sleep 45
+            echo "── $L"
+            curl -fsS --retry 2 --retry-delay 30 --retry-all-errors --max-time 120 \
+              "$APP_URL/api/sync/roster?entity=squads&league=$L" -H "$AUTH" \
+              || { echo "::warning::Plantillas de $L fallaron tras reintentos."; fallos=$((fallos+1)); }
+            echo
+          done
+          # Que una liga falle no debe tumbar el resto de la corrida, pero sí
+          # tiene que verse en el resumen del workflow.
+          [ "$fallos" -eq 0 ] || echo "::warning::$fallos liga(s) sin plantilla actualizada."
+
+      - name: Lesiones (las seis ligas en una llamada)
+        if: steps.plan.outputs.injuries == '1'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 120 \
+            "$APP_URL/api/sync/roster?entity=injuries" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            || { echo "::warning::Sync de lesiones fallo tras reintentos."; exit 0; }
+
+      - name: Alineaciones (partidos a menos de 3 h del pitido)
+        if: steps.plan.outputs.lineups == '1'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          # Ventana estrecha a propósito: cada partido cuesta una petición y
+          # antes del anuncio oficial la fuente responde "todavía no". Con
+          # ±3 h se cubre el anuncio (≈1 h antes) y el once definitivo tras
+          # el pitido inicial, sin repasar toda la jornada cada dos horas.
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 120 \
+            "$APP_URL/api/sync/roster?entity=lineups&windowHours=3&maxMatches=30" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            || { echo "::warning::Sync de alineaciones fallo tras reintentos."; exit 0; }
