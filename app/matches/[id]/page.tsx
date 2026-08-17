@@ -284,21 +284,63 @@ export default async function MatchDetailPage({ params }: Props) {
   }
 
   // Head-to-head (playbook Sofascore, mejora 10): enfrentamientos previos
-  // entre los dos equipos en la MISMA competición (regla de oro). Excluye
-  // el partido actual. Vacío → el componente no se renderiza.
-  const { data: h2hRaw } = await supabase
-    .from('matches')
-    .select('id, home_team_id, away_team_id, home_score, away_score, kickoff_time, status')
-    .eq('competition_id', m.competition_id)
-    .eq('status', 'finished')
-    .or(
-      `and(home_team_id.eq.${m.home_team_id},away_team_id.eq.${m.away_team_id}),` +
-      `and(home_team_id.eq.${m.away_team_id},away_team_id.eq.${m.home_team_id})`,
-    )
-    .neq('id', m.id)
-    .order('kickoff_time', { ascending: false })
-    .limit(20)
-  const h2h = computeH2H((h2hRaw ?? []) as H2HMatch[], m.home_team_id, m.away_team_id)
+  // entre los dos equipos. Un club de liga tiene un UUID de equipo DISTINTO
+  // por temporada (cada temporada es su propio competition_id), así que
+  // limitarse a la competición actual deja el H2H vacío en toda temporada
+  // recién empezada aunque haya años de cruces reales en la BD. Se enlaza
+  // por api_football_id (identidad estable del club, mismo patrón que el
+  // backfill de estadio/fundación) para juntar el UUID de esta temporada
+  // con los de temporadas anteriores. Selecciones del Mundial no tienen
+  // api_football_id → cae al criterio anterior (misma competición).
+  const homeApiId = m.home_team?.api_football_id ?? null
+  const awayApiId = m.away_team?.api_football_id ?? null
+
+  let h2h: ReturnType<typeof computeH2H>
+  if (homeApiId != null && awayApiId != null) {
+    const { data: equivTeams } = await supabase
+      .from('teams')
+      .select('id, api_football_id')
+      .in('api_football_id', [homeApiId, awayApiId])
+    const homeIds = (equivTeams ?? []).filter((t: any) => t.api_football_id === homeApiId).map((t: any) => t.id as string)
+    const awayIds = (equivTeams ?? []).filter((t: any) => t.api_football_id === awayApiId).map((t: any) => t.id as string)
+    const homeIdSet = new Set(homeIds)
+
+    const { data: h2hRaw } = await supabase
+      .from('matches')
+      .select('id, home_team_id, away_team_id, home_score, away_score, kickoff_time, status')
+      .eq('status', 'finished')
+      .or(
+        `and(home_team_id.in.(${homeIds.join(',')}),away_team_id.in.(${awayIds.join(',')})),` +
+        `and(home_team_id.in.(${awayIds.join(',')}),away_team_id.in.(${homeIds.join(',')}))`,
+      )
+      .neq('id', m.id)
+      .order('kickoff_time', { ascending: false })
+      .limit(20)
+
+    // Normaliza cada cruce histórico al UUID del partido en pantalla, para
+    // que computeH2H (que compara por id exacto) reconozca al mismo club
+    // aunque el partido guardado use el UUID de otra temporada.
+    const normalized: H2HMatch[] = ((h2hRaw ?? []) as any[]).map((r) => ({
+      ...r,
+      home_team_id: homeIdSet.has(r.home_team_id) ? m.home_team_id : m.away_team_id,
+      away_team_id: homeIdSet.has(r.home_team_id) ? m.away_team_id : m.home_team_id,
+    }))
+    h2h = computeH2H(normalized, m.home_team_id, m.away_team_id)
+  } else {
+    const { data: h2hRaw } = await supabase
+      .from('matches')
+      .select('id, home_team_id, away_team_id, home_score, away_score, kickoff_time, status')
+      .eq('competition_id', m.competition_id)
+      .eq('status', 'finished')
+      .or(
+        `and(home_team_id.eq.${m.home_team_id},away_team_id.eq.${m.away_team_id}),` +
+        `and(home_team_id.eq.${m.away_team_id},away_team_id.eq.${m.home_team_id})`,
+      )
+      .neq('id', m.id)
+      .order('kickoff_time', { ascending: false })
+      .limit(20)
+    h2h = computeH2H((h2hRaw ?? []) as H2HMatch[], m.home_team_id, m.away_team_id)
+  }
 
   // Movimiento del mercado (playbook Sofascore, mejora 7): solo pre-partido,
   // Pinnacle. Vacío mientras el sync no haya acumulado historia → el panel
