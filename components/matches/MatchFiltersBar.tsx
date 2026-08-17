@@ -1,8 +1,8 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback } from 'react'
-import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, CalendarRange } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Competition { id: string; name: string }
@@ -31,6 +31,7 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   // Al acotar por competición, el selector de equipos muestra solo los suyos:
   // 116 clubes de seis ligas en una sola lista no es una lista, es un muro.
@@ -44,6 +45,7 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
   // Q2: sin fecha en la URL, cae en la fecha por defecto del servidor
   // (hoy si hay partidos; si no, la próxima fecha con actividad)
   const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr
+  const rangeParam = searchParams.get('range') // '7d' → ventana de 7 días, ignora dateParam
 
   const shiftDate = (base: string, days: number) => {
     const d = new Date(`${base}T12:00:00`)
@@ -67,13 +69,33 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
     [router, pathname, searchParams]
   )
 
+  // Un día concreto y una ventana de varios días son modos distintos: elegir
+  // uno limpia el otro para que la URL nunca diga las dos cosas a la vez.
+  const setSingleDate = (date: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('date', date)
+    params.delete('range')
+    params.delete('page')
+    router.push(`${pathname}?${params.toString()}`)
+  }
+  const setRange = (range: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('range', range)
+    params.delete('date')
+    params.delete('page')
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   const hasFilters =
     searchParams.has('q') ||
     searchParams.has('status') ||
     searchParams.has('competition') ||
     searchParams.has('team') ||
     searchParams.has('confidence') ||
+    searchParams.has('range') ||
     (searchParams.has('date') && searchParams.get('date') !== todayStr)
+
+  const hasAdvancedFilters = Boolean(competitionParam || searchParams.get('team') || searchParams.get('confidence'))
 
   const clearAll = () => router.push(pathname)
 
@@ -81,10 +103,13 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
     <div className="card p-3">
       <div className="flex flex-wrap items-center gap-2">
 
-        {/* Date navigation */}
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-1 py-0.5">
+        {/* Date navigation — inactivo visualmente en modo ventana (range) */}
+        <div className={cn(
+          'flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-1 py-0.5',
+          rangeParam && 'opacity-50',
+        )}>
           <button
-            onClick={() => update('date', shiftDate(dateParam, -1))}
+            onClick={() => setSingleDate(shiftDate(dateParam, -1))}
             className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
             title="Día anterior"
             aria-label="Día anterior"
@@ -97,14 +122,14 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
             <input
               type="date"
               value={dateParam}
-              onChange={(e) => update('date', e.target.value)}
+              onChange={(e) => setSingleDate(e.target.value)}
               aria-label="Fecha de los partidos"
               className="bg-transparent text-xs text-zinc-200 outline-none cursor-pointer [color-scheme:dark]"
             />
           </div>
 
           <button
-            onClick={() => update('date', shiftDate(dateParam, +1))}
+            onClick={() => setSingleDate(shiftDate(dateParam, +1))}
             className="rounded p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
             title="Día siguiente"
             aria-label="Día siguiente"
@@ -122,10 +147,10 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
           ].map(({ label, date }) => (
             <button
               key={date}
-              onClick={() => update('date', date)}
+              onClick={() => setSingleDate(date)}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
-                dateParam === date
+                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors active:scale-95',
+                !rangeParam && dateParam === date
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-300'
               )}
@@ -133,6 +158,18 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
               {label}
             </button>
           ))}
+          <button
+            onClick={() => setRange('7d')}
+            className={cn(
+              'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors active:scale-95',
+              rangeParam === '7d'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-300'
+            )}
+          >
+            <CalendarRange className="h-3 w-3" />
+            Próximos 7 días
+          </button>
         </div>
 
         {/* Divider */}
@@ -164,7 +201,7 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
                 key={opt.value}
                 onClick={() => update('status', active ? '' : opt.value)}
                 className={cn(
-                  'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
+                  'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors active:scale-95',
                   active
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-300'
@@ -179,72 +216,28 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
           })}
         </div>
 
-        {/* Competition */}
-        <select
-          value={competitionParam}
-          onChange={(e) => {
-            // Cambiar de liga invalida el equipo elegido: era de la otra.
-            const params = new URLSearchParams(searchParams.toString())
-            if (e.target.value) params.set('competition', e.target.value)
-            else params.delete('competition')
-            params.delete('team')
-            params.delete('page')
-            router.push(`${pathname}?${params.toString()}`)
-          }}
-          aria-label="Filtrar por competición"
+        {/* Filtros avanzados: detrás de un panel desplegable — competición,
+            equipo y confianza no son de uso diario, y mostrarlos siempre
+            saturaba la barra con tres selects más. */}
+        <button
+          onClick={() => setAdvancedOpen((v) => !v)}
+          aria-expanded={advancedOpen}
           className={cn(
-            'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
-            'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
-            'transition-colors cursor-pointer'
+            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors active:scale-95',
+            hasAdvancedFilters
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-300'
           )}
         >
-          <option value="">Todas las ligas</option>
-          {competitions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Team */}
-        <select
-          value={searchParams.get('team') ?? ''}
-          onChange={(e) => update('team', e.target.value)}
-          aria-label="Filtrar por equipo"
-          className={cn(
-            'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
-            'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
-            'transition-colors cursor-pointer min-w-[120px]'
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filtros avanzados
+          {hasAdvancedFilters && (
+            <span className="mono text-[10px]">
+              ({[competitionParam, searchParams.get('team'), searchParams.get('confidence')].filter(Boolean).length})
+            </span>
           )}
-        >
-          <option value="">Todos los equipos</option>
-          {visibleTeams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.short_name || t.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Confidence */}
-        <div className="flex items-center gap-1.5">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-500" />
-          <select
-            value={searchParams.get('confidence') ?? ''}
-            onChange={(e) => update('confidence', e.target.value)}
-            aria-label="Filtrar por nivel de confianza"
-            className={cn(
-              'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
-              'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
-              'transition-colors cursor-pointer'
-            )}
-          >
-            {CONFIDENCE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+          <ChevronDown className={cn('h-3 w-3 transition-transform', advancedOpen && 'rotate-180')} />
+        </button>
 
         {/* Clear */}
         {hasFilters && (
@@ -257,6 +250,74 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
           </button>
         )}
       </div>
+
+      {advancedOpen && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-3">
+          {/* Competition */}
+          <select
+            value={competitionParam}
+            onChange={(e) => {
+              // Cambiar de liga invalida el equipo elegido: era de la otra.
+              const params = new URLSearchParams(searchParams.toString())
+              if (e.target.value) params.set('competition', e.target.value)
+              else params.delete('competition')
+              params.delete('team')
+              params.delete('page')
+              router.push(`${pathname}?${params.toString()}`)
+            }}
+            aria-label="Filtrar por competición"
+            className={cn(
+              'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
+              'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
+              'transition-colors cursor-pointer'
+            )}
+          >
+            <option value="">Todas las ligas</option>
+            {competitions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Team */}
+          <select
+            value={searchParams.get('team') ?? ''}
+            onChange={(e) => update('team', e.target.value)}
+            aria-label="Filtrar por equipo"
+            className={cn(
+              'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
+              'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
+              'transition-colors cursor-pointer min-w-[120px]'
+            )}
+          >
+            <option value="">Todos los equipos</option>
+            {visibleTeams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.short_name || t.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Confidence */}
+          <select
+            value={searchParams.get('confidence') ?? ''}
+            onChange={(e) => update('confidence', e.target.value)}
+            aria-label="Filtrar por nivel de confianza"
+            className={cn(
+              'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
+              'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
+              'transition-colors cursor-pointer'
+            )}
+          >
+            {CONFIDENCE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                Confianza: {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   )
 }

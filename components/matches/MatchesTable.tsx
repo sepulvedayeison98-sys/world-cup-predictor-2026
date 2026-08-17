@@ -132,6 +132,13 @@ function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: st
 
 /** Tarjeta de partido para móvil (playbook Sofascore, mejora 1). Toda la
  *  tarjeta es un enlace al detalle; sin scroll horizontal. */
+/** `shiftDays('2026-08-17', 6)` → `'2026-08-23'`. Fecha local, sin husos. */
+function shiftDays(base: string, days: number): string {
+  const d = new Date(`${base}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return d.toLocaleDateString('en-CA')
+}
+
 /** El equipo al que más probabilidad le da el modelo. Empate cuenta como
  *  "resultado favorito" propio, no se le asigna a ninguno de los dos. */
 function favoredSide(p: NonNullable<MatchRow['prediction']>, m: MatchRow) {
@@ -448,9 +455,14 @@ export function MatchesTable({
   // partidos, o la próxima fecha con actividad (Q2 — nunca abre vacía)
   const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
   const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr
+  const rangeParam = searchParams.get('range') // '7d' → ventana desde hoy, ignora dateParam
   // Convertir a ISO UTC para que Supabase filtre correctamente según zona horaria del usuario
-  const date_from = new Date(`${dateParam}T00:00:00`).toISOString()
-  const date_to   = new Date(`${dateParam}T23:59:59`).toISOString()
+  const date_from = rangeParam === '7d'
+    ? new Date(`${todayStr}T00:00:00`).toISOString()
+    : new Date(`${dateParam}T00:00:00`).toISOString()
+  const date_to = rangeParam === '7d'
+    ? new Date(`${shiftDays(todayStr, 6)}T23:59:59`).toISOString()
+    : new Date(`${dateParam}T23:59:59`).toISOString()
 
   const filters = {
     search: searchParams.get('q') ?? undefined,
@@ -465,7 +477,7 @@ export function MatchesTable({
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['matches', filters, dateParam, pageIndex],
+    queryKey: ['matches', filters, dateParam, rangeParam, pageIndex],
     queryFn: () => matchesService.getMatchesWithPredictions(filters, pageIndex + 1, PAGE_SIZE),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
@@ -484,7 +496,7 @@ export function MatchesTable({
   const hasOtherFilters = Boolean(
     filters.search || filters.competition_id || filters.team_id || filters.min_confidence
   )
-  const isToday = dateParam === todayStr
+  const isToday = !rangeParam && dateParam === todayStr
   const emptyMessage =
     hasOtherFilters
       ? 'No hay partidos que coincidan con los filtros actuales.'
@@ -492,9 +504,11 @@ export function MatchesTable({
         ? 'No hay partidos en vivo en este momento.'
         : activeStatus === 'finished'
           ? 'No hay partidos finalizados en esta fecha.'
-          : isToday
-            ? 'No hay partidos programados para hoy.'
-            : `No hay partidos programados para el ${new Date(`${dateParam}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long' })}.`
+          : rangeParam === '7d'
+            ? 'No hay partidos programados en los próximos 7 días.'
+            : isToday
+              ? 'No hay partidos programados para hoy.'
+              : `No hay partidos programados para el ${new Date(`${dateParam}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long' })}.`
 
   const table = useReactTable({
     data: (data?.data ?? []) as MatchRow[],
