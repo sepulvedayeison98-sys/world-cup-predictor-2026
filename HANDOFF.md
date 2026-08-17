@@ -297,6 +297,18 @@ las seis a ciegas en bucle **agota la cuota diaria** (ya pasó).
    regresión** — comprobado el 2026-08-17 corriendo la misma suite contra el
    commit anterior: fallan idénticos. Antes de culpar a un cambio por un
    fallo de E2E, correr la línea base.
+9. **`ingestLeagues` usa UN `competition_id` fijo por liga** (`LEAGUE_COMPETITION_IDS[key]`,
+   el de la temporada **activa**). Las temporadas archivadas (2024-25, etc.)
+   viven bajo un `competition_id` **distinto** del mismo `api_football_id`.
+   Llamar a `/api/sync/leagues/ingest?season=2024` para "rellenar" una
+   temporada vieja NO apunta ahí: escribe equipos de 2024 **dentro** de la
+   competición 2026-27 y revienta el `upsert` de partidos por choque de
+   `match_number`. Pasó en vivo el 2026-08-17: 4 equipos de más (Wolves,
+   Southampton, Leicester, West Ham, 0 partidos) quedaron un momento en la
+   Premier 2026-27 antes de revertirse — sin impacto visible, detectado y
+   borrado en el mismo turno. Para completar datos de temporadas archivadas,
+   **nunca re-correr la ingesta**: hacer un `UPDATE` acotado por
+   `api_football_id` (estadio/fundación no cambian de temporada a temporada).
 
 ---
 
