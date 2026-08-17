@@ -19,7 +19,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const result = await calibrateLeagues()
+    // ?league=premier_league[,otra] — acota la corrida para no exceder el
+    // límite de 60 s de la función (la temporada en curso trae cientos de
+    // partidos por liga, jugados y próximos).
+    const only = (req.nextUrl.searchParams.get('league') ?? '')
+      .split(',').map((s) => s.trim()).filter(Boolean)
+    const result = await calibrateLeagues(only)
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('[GET /api/sync/leagues/calibrate]', err)

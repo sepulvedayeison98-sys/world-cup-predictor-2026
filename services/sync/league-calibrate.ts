@@ -30,14 +30,23 @@ export interface LeagueCalibrationResult {
   metrics: LeagueBacktestMetrics
 }
 
-export async function calibrateLeagues(): Promise<{
+/**
+ * Calibra el motor por liga. `onlyKeys` acota la corrida: con la temporada en
+ * curso cada liga implica cientos de partidos (jugados + próximos) y las seis
+ * juntas superan el límite de 60 s de la función serverless.
+ */
+export async function calibrateLeagues(onlyKeys?: string[]): Promise<{
   ok: boolean
   leagues: LeagueCalibrationResult[]
 }> {
   const supabase = createAdminClient()
   const results: LeagueCalibrationResult[] = []
 
-  for (const [key, competitionId] of Object.entries(LEAGUE_COMPETITION_IDS)) {
+  const entries = Object.entries(LEAGUE_COMPETITION_IDS)
+    .filter(([key]) => !onlyKeys?.length || onlyKeys.includes(key))
+  if (entries.length === 0) throw new Error(`Ninguna liga coincide con: ${onlyKeys?.join(',')}`)
+
+  for (const [key, competitionId] of entries) {
     const { data: matches, error: mErr } = await supabase
       .from('matches')
       .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
