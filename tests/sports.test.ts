@@ -6,7 +6,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { competitionIdsOfSport, sportOfCompetition, ACTIVE_COMPETITIONS } from '../lib/sports'
+import { competitionIdsOfSport, sportOfCompetition, COMPETITIONS_NAV } from '../lib/sports'
 import { COMPETITION_ID, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS } from '../lib/constants'
 import { NBA_COMPETITION_ID } from '../lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '../lib/tennis/constants'
@@ -54,9 +54,11 @@ test('las listas por deporte particionan las competiciones sin solaparse', () =>
   for (const id of basket) assert.ok(!futbol.has(id), 'sin solape fútbol/baloncesto')
   for (const id of tenis) assert.ok(!futbol.has(id), 'sin solape fútbol/tenis')
   for (const id of tenis) assert.ok(!basket.has(id), 'sin solape baloncesto/tenis')
-  // ...y que juntas cubran lo activo más el histórico de ligas por temporada.
+  // ...y que juntas cubran TODO lo que tiene datos: competiciones activas o
+  // históricas del registro (no las 'proximamente', que aún no existen) más
+  // las temporadas anteriores de cada liga.
   const total = futbol.size + basket.size + tenis.size
-  const activasConId = ACTIVE_COMPETITIONS.filter((c) => c.id).length
-  const historicasDeLiga = ALL_LEAGUE_COMPETITION_IDS.length - Object.keys(LEAGUE_SLUGS).length
-  assert.equal(total, activasConId + historicasDeLiga)
+  const conDatos = COMPETITIONS_NAV.filter((c) => c.id && c.status !== 'proximamente').length
+  const temporadasHistoricasDeLiga = ALL_LEAGUE_COMPETITION_IDS.length - Object.keys(LEAGUE_SLUGS).length
+  assert.equal(total, conDatos + temporadasHistoricasDeLiga)
 })

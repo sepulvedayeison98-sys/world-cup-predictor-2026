@@ -3,10 +3,9 @@ import Link from 'next/link'
 import { ArrowRight, Activity, AlertTriangle } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
-import { FinalCountdown } from '@/components/dashboard/FinalCountdown'
 import { MyTeamsStrip } from '@/components/dashboard/MyTeamsStrip'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
-import { MODEL_VERSION, COMPETITION_ID, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, WC_FINAL_DATE } from '@/lib/constants'
+import { MODEL_VERSION, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
 import { fetchTennisDashboardStrip } from '@/services/tennis/queries'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
@@ -14,7 +13,7 @@ import { EngineConfidencePanel, type EngineConfidenceRow } from '@/components/da
 
 export const metadata: Metadata = {
   title: 'Inicio',
-  description: 'Predicciones y análisis con métricas verificables: Mundial 2026 y las 5 grandes ligas europeas.',
+  description: 'Predicciones y análisis con métricas verificables: ligas de fútbol, NBA y tenis ATP.',
 }
 
 // ISR 60s: el inicio se cachea y los datos vivos se refrescan solos
@@ -33,9 +32,11 @@ function fmtDate(iso: string, opts: Intl.DateTimeFormatOptions): string {
 }
 
 /**
- * Inicio global (auditoría F3): responde en orden — ¿qué pasa hoy?,
- * ¿qué dice el motor?, ¿puedo confiar? El Mundial ya no es el universo:
- * es la primera tarjeta de un panel multi-competición.
+ * Inicio global: responde en orden — ¿qué pasa hoy?, ¿qué dice el motor?,
+ * ¿puedo confiar? Centrado en las competiciones EN CURSO (ligas de fútbol,
+ * NBA, tenis). El Mundial 2026 terminó y pasó a histórico: sus métricas
+ * siguen verificables en /inteligencia y /mundial/balance, pero ya no
+ * ocupan el inicio.
  */
 export default async function HomePage() {
   const supabase = createStaticSupabaseClient()
@@ -47,7 +48,6 @@ export default async function HomePage() {
 
   const [
     { data: upcoming },
-    { data: wcPreds },
     { data: ligaPreds },
     { data: nbaPreds },
     { data: preds30d },
@@ -55,8 +55,6 @@ export default async function HomePage() {
     { data: lastFinished },
     { data: lastRecalib },
     { count: liveCount },
-    { data: nextWcMatch },
-    { data: finalRow },
     tennis,
   ] = await Promise.all([
     // Próximos partidos: cualquier competición, próximas 48 h (o en vivo)
@@ -73,17 +71,11 @@ export default async function HomePage() {
       .lte('kickoff_time', in48h)
       .order('kickoff_time', { ascending: true })
       .limit(6),
-    // Confianza: Mundial
-    supabase
-      .from('predictions')
-      .select('was_correct, match:matches!inner(competition_id)')
-      .eq('match.competition_id', COMPETITION_ID)
-      .not('was_correct', 'is', null),
     // Confianza: ligas (backtest liga-1.0)
     supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
-      .in('match.competition_id', LEAGUE_DISPLAY_ORDER)
+      .in('match.competition_id', ALL_LEAGUE_COMPETITION_IDS)
       .not('was_correct', 'is', null),
     // Confianza: NBA (motor nba-1.0)
     supabase
@@ -132,27 +124,6 @@ export default async function HomePage() {
       .from('matches')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'live'),
-    supabase
-      .from('matches')
-      .select('phase, kickoff_time')
-      .eq('competition_id', COMPETITION_ID)
-      .in('status', ['scheduled', 'live'])
-      .order('kickoff_time', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-    // La final del Mundial (la fila la crea el sync cuando se definen los
-    // finalistas — mientras tanto el hero cuenta a la fecha oficial)
-    supabase
-      .from('matches')
-      .select(`
-        id, kickoff_time, status,
-        home_team:teams!matches_home_team_id_fkey(name, code),
-        away_team:teams!matches_away_team_id_fkey(name, code),
-        predictions(home_win_probability, draw_probability, away_win_probability)
-      `)
-      .eq('competition_id', COMPETITION_ID)
-      .eq('phase', 'final')
-      .maybeSingle(),
     // Tenis: franja del dominio (top del ranking + medición del motor)
     fetchTennisDashboardStrip('ATP').catch(() => ({ top: [], backtest: null })),
   ])
@@ -163,7 +134,6 @@ export default async function HomePage() {
     const c = r.filter((p) => p.was_correct === true).length
     return { correct: c, total: r.length, pct: r.length ? (c / r.length) * 100 : null }
   }
-  const wc = acc(wcPreds)
   const ligas = acc(ligaPreds)
   const nba = acc(nbaPreds)
   const d30 = acc(preds30d)
@@ -172,12 +142,7 @@ export default async function HomePage() {
   const tennisBt = tennis.backtest
   const confidenceRows: EngineConfidenceRow[] = [
     {
-      sport: 'mundial', label: 'Mundial 2026', accuracy: wc.pct, accent: true,
-      detail: wc.total ? `${wc.correct}/${wc.total} · azar 33%` : 'sin partidos resueltos',
-      href: '/mundial/balance',
-    },
-    {
-      sport: 'ligas', label: '5 grandes ligas', accuracy: ligas.pct,
+      sport: 'ligas', label: 'Ligas de fútbol', accuracy: ligas.pct, accent: true,
       detail: ligas.total ? `${ligas.correct}/${ligas.total} · azar 33%` : 'sin backtest cargado',
       href: '/inteligencia',
     },
@@ -225,33 +190,10 @@ export default async function HomePage() {
   }
 
   // ── Estado de competiciones ────────────────────────────────
-  const wcPhaseLabel = nextWcMatch
-    ? (PHASE_LABELS[(nextWcMatch as any).phase] ?? 'En juego')
-    : 'Torneo finalizado'
   const upcomingComps = COMPETITIONS_NAV.filter((c) => c.status === 'proximamente')
 
   // ── Smart Bet destacada ────────────────────────────────────
   const bet = (topBet?.[0] ?? null) as any
-
-  // ── Hero de la final ───────────────────────────────────────
-  const f = finalRow as any
-  const finalPred = f ? (Array.isArray(f.predictions) ? f.predictions[0] : f.predictions) : null
-  const finalMatch = f && f.status !== 'finished'
-    ? {
-        id: f.id as string,
-        kickoff_time: f.kickoff_time as string,
-        home_team: f.home_team ?? null,
-        away_team: f.away_team ?? null,
-        prediction: finalPred
-          ? {
-              home: Number(finalPred.home_win_probability),
-              draw: Number(finalPred.draw_probability),
-              away: Number(finalPred.away_win_probability),
-            }
-          : null,
-      }
-    : null
-  const finalPlayed = f?.status === 'finished'
 
   // ── Chips de fecha (zona horaria del producto: Bogotá) ─────
   const bogotaDay = (offsetDays: number) =>
@@ -270,9 +212,6 @@ export default async function HomePage() {
         activeCompetitions={ACTIVE_COMPETITIONS.length}
         liveCount={liveCount ?? 0}
       />
-
-      {/* ── LA FINAL (hasta que se juegue) ───────────────────── */}
-      {!finalPlayed && <FinalCountdown match={finalMatch} fallbackDate={WC_FINAL_DATE} />}
 
       {/* ── MIS EQUIPOS (favoritos del navegador; oculto si no hay) ── */}
       <MyTeamsStrip />
@@ -334,9 +273,8 @@ export default async function HomePage() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-8 text-center">
             <p className="text-sm font-medium text-zinc-300">No hay partidos de fútbol en las próximas 48 horas</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-zinc-500">
-              El Mundial 2026 concluyó y las ligas europeas 2026-27 arrancan a
-              mediados de agosto. Mientras tanto, el tenis ATP sigue activo y el
-              backtest de las 5 grandes ligas está disponible.
+              No hay encuentros en la ventana de 48 horas. El tenis ATP sigue
+              activo y el backtest completo de las ligas está disponible.
             </p>
             <div className="mt-3 flex items-center justify-center gap-4">
               <Link href="/tennis" className="text-xs font-semibold text-lime-400 hover:text-lime-300">
@@ -403,7 +341,7 @@ export default async function HomePage() {
             >
               <p className="truncate text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors">{c.name}</p>
               <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-                {c.slug === 'mundial-2026' ? wcPhaseLabel : c.note}
+                {c.note}
               </p>
             </Link>
           ))}

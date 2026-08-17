@@ -11,7 +11,14 @@ import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID, TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
 export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
-export type CompetitionStatus = 'activa' | 'proximamente'
+/**
+ * 'activa'        → se está jugando: va en la navegación principal.
+ * 'proximamente'  → prometida, sin datos todavía: se muestra como promesa.
+ * 'historica'     → terminada: sus datos y métricas se CONSERVAN (son el
+ *                   historial verificable del motor) pero deja de ocupar la
+ *                   navegación principal. No se borra nada.
+ */
+export type CompetitionStatus = 'activa' | 'proximamente' | 'historica'
 
 export interface CompetitionEntry {
   /** competition_id en la BD (null si aún no existe) */
@@ -45,8 +52,11 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     name: 'Mundial 2026',
     sport: 'futbol',
     href: '/mundial',
-    status: 'activa',
-    note: 'Final: 19 de julio',
+    // Terminado el 19 de julio de 2026. Pasa a histórico: la plataforma se
+    // centra en las ligas en curso, pero sus 91 predicciones resueltas
+    // siguen contando como historial del motor (ver /mundial/balance).
+    status: 'historica',
+    note: 'Torneo finalizado',
   },
   ...Object.entries(LEAGUE_SLUGS).map(([slug, id]) => ({
     id,
@@ -78,6 +88,9 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
 
 export const ACTIVE_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'activa')
 
+/** Competiciones terminadas: fuera de la navegación, dentro del historial. */
+export const HISTORIC_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'historica')
+
 /** Hub de una competición a partir de su competition_id de la BD. */
 export function competitionHref(competitionId: string): string {
   return COMPETITIONS_NAV.find((c) => c.id === competitionId)?.href ?? '/ligas'
@@ -95,8 +108,12 @@ export function sportOfCompetition(competitionId: string): SportSlug {
  * de baloncesto, y viceversa.
  */
 export function competitionIdsOfSport(sport: SportSlug): string[] {
-  const ids = ACTIVE_COMPETITIONS
-    .filter((c) => c.sport === sport && c.id !== null)
+  // Incluye las ACTIVAS y las HISTÓRICAS: esta lista responde "¿qué
+  // competiciones son de este deporte?" (barrera de seguridad), no "¿cuáles
+  // se muestran en la navegación" — eso es ACTIVE_COMPETITIONS. Un torneo
+  // terminado sigue siendo fútbol y sus datos deben poder resolverse.
+  const ids = COMPETITIONS_NAV
+    .filter((c) => c.sport === sport && c.id !== null && c.status !== 'proximamente')
     .map((c) => c.id as string)
   // Las ligas tienen una competición POR TEMPORADA: la lista blanca debe
   // reconocer también las campañas anteriores, o los procesos transversales

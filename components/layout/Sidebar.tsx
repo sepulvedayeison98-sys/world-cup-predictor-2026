@@ -11,7 +11,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Trophy,
   Globe,
   BrainCircuit,
   Activity,
@@ -35,6 +34,7 @@ const ANALYSIS_ITEMS = [
 ]
 
 const UPCOMING = COMPETITIONS_NAV.filter((c) => c.status === 'proximamente')
+const HISTORIC = COMPETITIONS_NAV.filter((c) => c.status === 'historica')
 
 function SectionLabel({ children, collapsed }: { children: React.ReactNode; collapsed: boolean }) {
   return (
@@ -112,7 +112,7 @@ export function Sidebar() {
           <SectionLabel collapsed={collapsed}>Competiciones</SectionLabel>
           <ul className="flex flex-col gap-0.5">
             {ACTIVE_COMPETITIONS.map((c) => {
-              const Icon = c.sport === 'baloncesto' ? Dribbble : c.sport === 'tenis' ? CircleDot : c.slug === 'mundial-2026' ? Trophy : Globe
+              const Icon = c.sport === 'baloncesto' ? Dribbble : c.sport === 'tenis' ? CircleDot : Globe
               const active = pathname === c.href || pathname.startsWith(c.href + '/')
               return <li key={c.slug}>{navItem(c.href, c.name, Icon, active)}</li>
             })}
@@ -120,6 +120,21 @@ export function Sidebar() {
           {UPCOMING.length > 0 && (
             <p className={cn('px-3 pt-1.5 text-[10px] leading-relaxed text-zinc-600', collapsed && 'lg:hidden')}>
               Pronto: {UPCOMING.map((c) => c.name).join(' · ')}
+            </p>
+          )}
+          {/* Competiciones terminadas: fuera de la navegación principal, pero
+              alcanzables — sus métricas siguen siendo historial del motor. */}
+          {HISTORIC.length > 0 && (
+            <p className={cn('px-3 pt-1 text-[10px] leading-relaxed text-zinc-600', collapsed && 'lg:hidden')}>
+              Histórico:{' '}
+              {HISTORIC.map((c, i) => (
+                <span key={c.slug}>
+                  {i > 0 && ' · '}
+                  <Link href={c.href} className="hover:text-zinc-400 underline decoration-zinc-700 underline-offset-2">
+                    {c.name}
+                  </Link>
+                </span>
+              ))}
             </p>
           )}
 
