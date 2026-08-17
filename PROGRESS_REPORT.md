@@ -24,6 +24,56 @@ verificaciones de migración contra la BD viva.
 
 ---
 
+## Actualización 2026-08-17 · Smart Bets: el tracking cabe en la función
+
+El endpoint `/api/sync/smart-bets` no podía completarse: **449 s medidos**
+contra el tope de 60 s de Vercel Hobby. La causa no era el motor sino el
+acceso a datos — el servicio recorría los partidos programados uno a uno y
+lanzaba ~5 consultas en cada vuelta (el partido, sus lesiones, sus cuotas y
+la forma reciente de los dos equipos): **~9.470 consultas secuenciales**.
+
+Escondido debajo había un defecto de datos: el `select` de partidos
+programados no paginaba, así que PostgREST lo truncaba en 1.000 filas y
+**894 de los 1.894 partidos jamás recibían snapshot** — en silencio, sin
+error. Es la quinta vez que muerde el tope de 1.000 (trampa §8.1 del
+HANDOFF).
+
+**Qué cambió**
+
+- Lectura en lote: el número de consultas ahora depende de las
+  **competiciones**, no de los partidos. Lesiones y cuotas se piden
+  troceadas por `.in(...)`; los picks se escriben en upserts de 200.
+- La forma reciente se calcula **una vez por equipo** en lugar de una vez
+  por partido: un equipo tiene decenas de partidos programados y su forma
+  es la misma en todos. `lib/teamForm.ts` gana `fetchCompetitionForms` /
+  `groupFormsByTeam` junto al `fetchTeamForm` de siempre, que sigue
+  sirviendo al detalle de partido.
+- `fetchAllRows` en las dos consultas que se truncaban, con orden estable
+  para paginar sin repetir ni perder filas.
+- Acotado por parámetro (`?league=` / `?competition=`), como ya hacía la
+  calibración de ligas, y tiempos por paso en la respuesta.
+- `resolveCompetitionScope` centraliza la lista blanca de fútbol: lo que se
+  pida se **intersecta** contra ella, así que pasar a mano la competición de
+  la NBA falla en vez de colarse al pipeline de goles y córners.
+- Un lote de upsert que falle ya no se pierde en silencio: se cuenta y se
+  reporta como `picksFailed`.
+
+**Medición** (contra la BD de producción, solo lectura, 2026-08-17)
+
+| Ruta | Consultas | Tiempo | Partidos cubiertos |
+|---|---|---|---|
+| Anterior | ~9.470 | 449 s extrapolados (237 s truncada) | 1.000 de 1.894 |
+| Nueva | **19** | **2,3 s** | **1.894 de 1.894** |
+
+La escritura de picks no se pudo medir de extremo a extremo en el contenedor
+(sin clave de service role a mano); queda como verificación pendiente al
+correr el endpoint en producción.
+
+**Gates**: type-check ✅ · 166/166 tests ✅ (11 nuevos) · lint 0 errores ✅ ·
+build ✅.
+
+---
+
 ## Actualización 2026-07-10 (4) · Fixes reportados (perfil de equipo + H2H)
 
 Dos reportes del usuario tras el despliegue:

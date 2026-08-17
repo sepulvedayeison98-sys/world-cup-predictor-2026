@@ -1,6 +1,6 @@
 # HANDOFF — Veredicto · Inteligencia Deportiva
 
-> Documento de traspaso. **Última actualización: 2026-08-04.**
+> Documento de traspaso. **Última actualización: 2026-08-17.**
 > Pensado para retomar el proyecto en una sesión nueva sin leer el historial.
 >
 > Complementos: `CLAUDE.md` (reglas del repo) · `CLAUDE_CONTEXT.md` (contexto largo)
@@ -36,12 +36,16 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
 
 ---
 
-## 2. Estado actual (verificado contra la BD el 2026-08-04)
+## 2. Estado actual
+
+> Verificado contra la BD el 2026-08-04; partidos y equipos recontados el
+> 2026-08-17.
 
 Producción: `https://world-cup-predictor-2026-flax.vercel.app`
 Rama de trabajo: `claude/page-data-refresh-63yioa` (se mantiene en FF-sync con
-`main`; ambas apuntan al mismo commit tras cada entrega).
-Último commit: `510bf9b`.
+`main`; ambas apuntan al mismo commit tras cada entrega). Ojo: alguna sesión
+remota puede abrirla con sufijo (`…-vbibxn`) — es la misma rama de trabajo con
+otro nombre en el remoto, conviene consolidar al entregar.
 
 ### Métricas del motor (reales, sin truncar)
 
@@ -58,7 +62,8 @@ Rama de trabajo: `claude/page-data-refresh-63yioa` (se mantiene en FF-sync con
   (Premier, La Liga, Serie A, Bundesliga, Ligue 1 en **2026-27**; Liga BetPlay
   en **2026**) + sus seis temporadas 2024-25/2024 como histórico + Mundial 2026
   y Amistosos, ambos ya inactivos.
-- **1.820 partidos próximos, todos con predicción.**
+- **1.894 partidos programados** (recontado contra la BD el 2026-08-17), todos
+  con predicción.
 - **NBA:** temporada 2024-25 (la actual está bloqueada, ver §6).
 - **Tenis:** 581 jugadores · 5.676 partidos · 11 corridas de backtest.
 
@@ -149,8 +154,10 @@ Estables. Football está **congelado** salvo correcciones críticas.
 - Supabase project: `jruanwjjsygcmmvwxexh` · Vercel: `world-cup-predictor-2026`
   (equipo `kodrefe-s-projects`, **plan Hobby** → funciones máx. **60 s**).
 - **El contenedor efímero borra `.env.local` y `node_modules` sin avisar.** Ya
-  pasó tres veces. Si falta: `npm ci` y recuperar las claves de Supabase con el
-  token de gestión (`/v1/projects/{ref}/api-keys?reveal=true`).
+  pasó cuatro veces. Si falta: `npm ci` y recuperar las claves de Supabase con
+  el token de gestión (`/v1/projects/{ref}/api-keys?reveal=true`). Las públicas
+  (URL + anon) bastan para que `npm run build` pase; la de service role solo
+  hace falta para escribir desde los `/api/sync/*`.
 
 ---
 
@@ -187,7 +194,7 @@ GET /api/sync/leagues?probe=<apiFootballId>&seasons=2025,2026   # sonda de cober
 GET /api/sync/leagues/ingest?season=2026&league=liga_betplay    # 2 req por liga
 GET /api/sync/leagues/calibrate?league=premier_league           # acotar o da 504
 GET /api/tennis/sync?step=backtest&variant=tennis-2.0           # variants 1.0/1.1/1.2
-GET /api/sync/smart-bets                                        # ~160 s (ver §8)
+GET /api/sync/smart-bets[?league=premier_league,la_liga]        # lectura en lote
 ```
 
 **Regla de oro:** acotar siempre por liga. Cada liga cuesta 2 peticiones; correr
@@ -197,14 +204,20 @@ las seis a ciegas en bucle **agota la cuota diaria** (ya pasó).
 
 ## 8. Trampas conocidas (no repetir)
 
-1. **Tope de 1.000 filas de PostgREST.** Ha mordido **cuatro veces**, la última
-   falseando las precisiones del dashboard (mostraba `518/1000` cuando lo real
-   era `1.039/2.058`). Si ves un número redondo terminado en `/1000`, es esto.
+1. **Tope de 1.000 filas de PostgREST.** Ha mordido **cinco veces**; la
+   penúltima falseando las precisiones del dashboard (mostraba `518/1000`
+   cuando lo real era `1.039/2.058`) y la última dejando **894 de 1.894**
+   partidos programados sin snapshot de Smart Bets, en silencio. Si ves un
+   número redondo terminado en `/1000`, es esto.
    → Usar `count: 'exact', head: true` o `fetchAllRows`.
 2. **Límite de 60 s en Vercel Hobby.** No ampliable. Toda operación masiva debe
    ser acotable por parámetro.
-3. **`syncSmartBetTracking` tarda ~160 s** → desacoplado de la calibración; su
-   endpoint propio **fallará solo** hasta que se optimice. *(Pendiente real.)*
+3. **Acceso por fila en bucle.** `syncSmartBetTracking` lanzaba ~5 consultas
+   por partido programado (~9.470 en total): **449 s medidos**, imposible
+   dentro de los 60 s. Resuelto en 2026-08 leyendo en lote — el número de
+   consultas ahora depende de las **competiciones**, no de los partidos
+   (19 consultas · 2,3 s medidos). Si un proceso nuevo recorre partidos uno a
+   uno, este es el patrón a evitar.
 4. **React inserta `<!-- -->`** entre texto estático y dinámico (`ATP #<!-- -->5`).
    Ha causado **dos falsas alarmas** en smokes. Limpiar comentarios antes del match.
 5. **`tsx` en scripts sueltos no admite top-level await** → envolver en `main()`.
@@ -212,27 +225,40 @@ las seis a ciegas en bucle **agota la cuota diaria** (ya pasó).
    commit se fue directo a `main` por un checkout olvidado.
 7. **Ranking de tenis**: `tennis_rankings` **no** es foto semanal, son
    observaciones por partido. "La última fecha" ≠ "el ranking actual".
+8. **Los smokes E2E asumen temporada empezada.** Cuatro de ellos van a la
+   tabla de posiciones de la Premier, clican el primer equipo y esperan
+   récord, forma y timeline. En 2026-27 la Premier, la Serie A, la
+   Bundesliga y la Ligue 1 tienen **0 partidos finalizados**: la tabla sale
+   vacía, no hay nada que clicar y los cuatro fallan. **No es una
+   regresión** — comprobado el 2026-08-17 corriendo la misma suite contra el
+   commit anterior: fallan idénticos. Antes de culpar a un cambio por un
+   fallo de E2E, correr la línea base.
 
 ---
 
 ## 9. Pendientes priorizados
 
 ### Sin bloqueo (se puede hacer ya)
-1. **Optimizar `syncSmartBetTracking`** (~160 s → debe caber en 60 s). El más
-   urgente: hoy ese endpoint no puede completarse.
-2. **Borrar `TournamentPathTracker`** — componente huérfano (0 usos).
-3. **`is_active` en BD**: NBA y ATP están en `false` aunque el registro los
+1. **Borrar `TournamentPathTracker`** — componente huérfano (0 usos).
+2. **`is_active` en BD**: NBA y ATP están en `false` aunque el registro los
    trata como activos. Cosmético (la nav usa `lib/sports.ts`), pero conviene
    alinear.
-4. **Validación anti-overfitting de tenis-2.0**: ingestar 2020-2023 a la BD y
+3. **Validación anti-overfitting de tenis-2.0**: ingestar 2020-2023 a la BD y
    re-validar con split temporal real.
-5. **Revisar los 343 usos de `text-[10px]`** (bajo el mínimo recomendado).
-6. **`axe-core` en CI** para que la accesibilidad no vuelva a degradarse.
+4. **Revisar los 343 usos de `text-[10px]`** (bajo el mínimo recomendado).
+5. **`axe-core` en CI** para que la accesibilidad no vuelva a degradarse.
+6. **Arreglar los 4 smokes E2E que asumen temporada empezada** (trampa §8.8):
+   deberían saltarse solos, o apuntar a una temporada con partidos jugados,
+   en vez de fallar cada vez que arranca una campaña nueva.
+7. **Correr `/api/sync/smart-bets` en producción** y confirmar el tiempo real
+   de extremo a extremo. La optimización se midió del lado de LECTURA (19
+   consultas, 2,3 s); la escritura de picks no se pudo medir en el contenedor
+   por no tener a mano la clave de service role.
 
 ### Requieren decisión o compra
-7. **api-basketball Pro** → NBA temporada actual.
-8. **Fuente de cuotas de tenis** → Fase 9 (Smart Bets tenis; el schema ya existe).
-9. **¿Borrar el Mundial de verdad?** Hoy está archivado (datos intactos). Si se
+8. **api-basketball Pro** → NBA temporada actual.
+9. **Fuente de cuotas de tenis** → Fase 9 (Smart Bets tenis; el schema ya existe).
+10. **¿Borrar el Mundial de verdad?** Hoy está archivado (datos intactos). Si se
    borra se pierden 91 predicciones resueltas al 83,5 % — el mejor historial
    del motor. **Recomendación: no borrarlo.**
 

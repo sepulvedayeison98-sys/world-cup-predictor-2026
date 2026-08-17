@@ -22,3 +22,14 @@ export async function fetchAllRows<T = any>(
   }
   return out
 }
+
+/**
+ * Parte una lista en lotes. El caso de uso es el filtro `.in(...)`: PostgREST
+ * lo manda en la URL, así que unos cientos de UUID la revientan. Trocear
+ * también acota el tamaño de cada upsert.
+ */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
