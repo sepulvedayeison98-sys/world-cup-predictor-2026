@@ -286,3 +286,85 @@ export async function validateLeaguesSetup(seasonOverride?: number): Promise<Lea
     requestsUsed: TARGET_LEAGUES.length * 2, // /teams + /fixtures por liga
   }
 }
+
+// ─── Estadísticas de partido (boxscore) ──────────────────────────────────────
+
+/** Una estadística cruda tal como la devuelve la API: tipo + valor. */
+interface StatisticEntry {
+  team: { id: number; name: string }
+  statistics: Array<{ type: string; value: number | string | null }>
+}
+
+/** Boxscore de un equipo en un partido, ya normalizado a nuestras columnas. */
+export interface FixtureTeamStats {
+  apiTeamId: number
+  possession: number | null
+  shots: number | null
+  shots_on_target: number | null
+  corners: number | null
+  fouls: number | null
+  yellow_cards: number | null
+  red_cards: number | null
+  offsides: number | null
+  passes: number | null
+  pass_accuracy: number | null
+  xg: number | null
+  saves: number | null
+}
+
+/**
+ * Nombres que usa API-Football → nuestras columnas. Lo que la fuente NO
+ * entrega (big_chances, big_chances_missed) se queda en NULL: Data First,
+ * no se estima.
+ */
+const STAT_MAP: Record<string, keyof Omit<FixtureTeamStats, 'apiTeamId'>> = {
+  'Ball Possession':  'possession',
+  'Total Shots':      'shots',
+  'Shots on Goal':    'shots_on_target',
+  'Corner Kicks':     'corners',
+  'Fouls':            'fouls',
+  'Yellow Cards':     'yellow_cards',
+  'Red Cards':        'red_cards',
+  'Offsides':         'offsides',
+  'Total passes':     'passes',
+  'Passes %':         'pass_accuracy',
+  'expected_goals':   'xg',
+  'Goalkeeper Saves': 'saves',
+}
+
+/**
+ * "52%" → 52 · "1.85" → 1.85 · null/""/"—" → null. Nunca devuelve NaN.
+ *
+ * El texto vacío se descarta ANTES de convertir: `Number('')` es 0, y un 0
+ * guardado donde no hubo dato no es un vacío, es una mentira que además
+ * arrastra las medias de equipo hacia abajo.
+ */
+function parseStatValue(raw: number | string | null): number | null {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  const texto = raw.replace('%', '').trim()
+  if (texto === '') return null
+  const n = Number(texto)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Boxscore de un partido: una entrada por equipo. Cuesta UNA petición de
+ * cuota por partido — quien la llame debe acotar cuántos partidos procesa.
+ */
+export async function fetchFixtureStatistics(fixtureId: number): Promise<FixtureTeamStats[]> {
+  const res = await apiFootballFetch<StatisticEntry>('/fixtures/statistics', { fixture: fixtureId })
+  return res.response.map((entry) => {
+    const out: FixtureTeamStats = {
+      apiTeamId: entry.team.id,
+      possession: null, shots: null, shots_on_target: null, corners: null,
+      fouls: null, yellow_cards: null, red_cards: null, offsides: null,
+      passes: null, pass_accuracy: null, xg: null, saves: null,
+    }
+    for (const s of entry.statistics ?? []) {
+      const col = STAT_MAP[s.type]
+      if (col) out[col] = parseStatValue(s.value)
+    }
+    return out
+  })
+}

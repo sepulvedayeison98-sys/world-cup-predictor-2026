@@ -25,7 +25,7 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
 1. **Data First** — si la fuente no lo da, no existe en la UI. Nada se estima
    ni se rellena; lo bloqueado se declara abiertamente.
 2. **Medido, no prometido** — ningún cambio del motor se promueve sin backtest
-   comparativo que lo justifique. **Los rechazos se documentan** (hay tres).
+   comparativo que lo justifique. **Los rechazos se documentan** (hay cuatro).
 3. **Aislamiento de dominios** — barreras ESLint en las cuatro direcciones
    (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
    módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
@@ -197,7 +197,9 @@ de pruebas limpio.
 | **NBA temporada actual** | `api-basketball` sigue en plan **Free** (2022-2024) | Contratar **api-basketball aparte** — el Pro de fútbol **NO** lo cubre (verificado) |
 | **Cuotas de tenis / Smart Bets tenis** | api-sports no cubre tenis | Comprar fuente (API-Tennis, Sportradar, Tennis-Data) |
 | **WTA / Challenger / ITF** | Sin fuente verificable | Encontrar fuente |
-| Lesiones, clima, minutos, "indoor" | La fuente no los trae | — |
+| **Ocasiones claras (big chances)** | `fixtures/statistics` no las entrega | Otra fuente (Opta/StatsBomb) |
+| Clima, minutos, "indoor" | La fuente no los trae | — |
+| **Lesiones y cuotas de liga** | Nunca se ingirieron; los endpoints existen | `injuries` y `odds` de API-Football (plan Pro ya cubre) |
 
 ---
 
@@ -224,6 +226,8 @@ GET /api/sync/leagues/ingest?season=2026&league=liga_betplay    # 2 req por liga
 GET /api/sync/leagues/calibrate?league=premier_league           # acotar o da 504
 GET /api/tennis/sync?step=backtest&variant=tennis-2.0           # variants 1.0/1.1/1.2
 GET /api/sync/smart-bets[?league=premier_league,la_liga]        # lectura en lote
+GET /api/sync/leagues/stats?pending=1                           # cuántos boxscores faltan (gratis)
+GET /api/sync/leagues/stats?league=premier_league&limit=40       # 1 petición POR PARTIDO
 ```
 
 **Regla de oro:** acotar siempre por liga. Cada liga cuesta 2 peticiones; correr
