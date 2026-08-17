@@ -7,7 +7,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { competitionIdsOfSport, sportOfCompetition, COMPETITIONS_NAV } from '../lib/sports'
-import { COMPETITION_ID, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS } from '../lib/constants'
+import { COMPETITION_ID, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS, LIBERTADORES_COMPETITION_ID } from '../lib/constants'
 import { NBA_COMPETITION_ID } from '../lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '../lib/tennis/constants'
 
@@ -19,11 +19,13 @@ test('aislamiento: la lista de fútbol incluye Mundial y todas las ligas, nunca 
   }
   assert.ok(!futbol.includes(NBA_COMPETITION_ID), 'JAMÁS debe incluir la NBA')
   assert.ok(!futbol.includes(ATP_COMPETITION_ID), 'JAMÁS debe incluir el tenis')
-  // Mundial + TODAS las competiciones de liga (una por liga y temporada): la
-  // lista blanca debe cubrir también las campañas históricas, o los procesos
-  // transversales dejarían de ver esos partidos al cambiar de temporada.
-  // Se deriva del registro: añadir una liga o temporada no rompe el test.
-  assert.equal(futbol.length, 1 + ALL_LEAGUE_COMPETITION_IDS.length)
+  // Mundial + Copa Libertadores + TODAS las competiciones de liga (una por
+  // liga y temporada): la lista blanca debe cubrir también las campañas
+  // históricas, o los procesos transversales dejarían de ver esos partidos
+  // al cambiar de temporada. Se deriva del registro: añadir una liga o
+  // temporada no rompe el test.
+  assert.ok(futbol.includes(LIBERTADORES_COMPETITION_ID), 'debe incluir Copa Libertadores')
+  assert.equal(futbol.length, 2 + ALL_LEAGUE_COMPETITION_IDS.length)
   for (const id of ALL_LEAGUE_COMPETITION_IDS) {
     assert.ok(futbol.includes(id), `debe incluir la competición de liga ${id}`)
   }

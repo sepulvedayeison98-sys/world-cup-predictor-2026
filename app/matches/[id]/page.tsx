@@ -342,6 +342,46 @@ export default async function MatchDetailPage({ params }: Props) {
     h2h = computeH2H((h2hRaw ?? []) as H2HMatch[], m.home_team_id, m.away_team_id)
   }
 
+  // Agregado ida/vuelta (Copa Libertadores y similares: octavos a semis se
+  // juegan a doble partido, la final a partido único). Se busca el otro
+  // partido real entre los mismos dos equipos en la misma fase — sin tabla
+  // nueva, sin marcar nada a mano. null en cualquier competición sin ida/vuelta.
+  const TWO_LEGGED_PHASES = new Set(['round_of_16', 'quarter_final', 'semi_final'])
+  let aggregate: { pending: boolean; homeGoals: number | null; awayGoals: number | null; firstLegLabel: string } | null = null
+  if (TWO_LEGGED_PHASES.has(m.phase)) {
+    const { data: otherLegRaw } = await supabase
+      .from('matches')
+      .select('home_team_id, away_team_id, home_score, away_score, kickoff_time, status')
+      .eq('competition_id', m.competition_id)
+      .eq('phase', m.phase)
+      .eq('home_team_id', m.away_team_id)
+      .eq('away_team_id', m.home_team_id)
+      .neq('id', m.id)
+      .maybeSingle()
+
+    if (otherLegRaw) {
+      const other = otherLegRaw as any
+      // Orientados a la identidad fija de cada club (home/away puede invertirse
+      // entre ida y vuelta), no a "local/visitante" de este partido en concreto.
+      const goalsOf = (leg: any, teamId: string): number | null =>
+        leg.status === 'finished' && leg.home_score != null
+          ? (leg.home_team_id === teamId ? leg.home_score : leg.away_score)
+          : null
+      const homeTotal = goalsOf(m, m.home_team_id)
+      const awayTotal = goalsOf(m, m.away_team_id)
+      const otherHomeTotal = goalsOf(other, m.home_team_id)
+      const otherAwayTotal = goalsOf(other, m.away_team_id)
+      const otherIsFirstLeg = new Date(other.kickoff_time) < new Date(m.kickoff_time)
+
+      if (otherHomeTotal != null && otherIsFirstLeg) {
+        const firstLegLabel = `Ida: ${m.home_team?.short_name ?? m.home_team?.name} ${otherHomeTotal}-${otherAwayTotal} ${m.away_team?.short_name ?? m.away_team?.name}`
+        aggregate = homeTotal != null
+          ? { pending: false, homeGoals: homeTotal + otherHomeTotal, awayGoals: (awayTotal as number) + (otherAwayTotal as number), firstLegLabel }
+          : { pending: true, homeGoals: null, awayGoals: null, firstLegLabel }
+      }
+    }
+  }
+
   // Movimiento del mercado (playbook Sofascore, mejora 7): solo pre-partido,
   // Pinnacle. Vacío mientras el sync no haya acumulado historia → el panel
   // se auto-oculta.
@@ -386,7 +426,7 @@ export default async function MatchDetailPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <LiveMatchRefresh status={m.status} kickoffTime={m.kickoff_time} />
-      <MatchHeader match={m} competition={competitionCtx} prediction={savedPrediction} />
+      <MatchHeader match={m} competition={competitionCtx} prediction={savedPrediction} aggregate={aggregate} />
 
       {/* Veredicto post-partido (solo finalizados) */}
       {m.status === 'finished' && <VerdictPanel matchId={m.id} />}

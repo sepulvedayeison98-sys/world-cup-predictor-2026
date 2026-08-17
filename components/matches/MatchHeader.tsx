@@ -13,6 +13,10 @@ interface Props {
   competition?: { name: string; href: string } | null
   /** Predicción del motor: muestra el pick y su estado en finalizados */
   prediction?: any | null
+  /** Eliminatoria a doble partido (Copa Libertadores, etc.): agregado real
+   *  del otro partido de la llave, o el resultado de ida si la vuelta
+   *  todavía no se jugó. null en cualquier competición a partido único. */
+  aggregate?: { pending: boolean; homeGoals: number | null; awayGoals: number | null; firstLegLabel: string } | null
 }
 
 /**
@@ -46,7 +50,7 @@ function TeamCredential({ team }: { team: any }) {
   )
 }
 
-export function MatchHeader({ match, competition, prediction }: Props) {
+export function MatchHeader({ match, competition, prediction, aggregate }: Props) {
   const kickoff = new Date(match.kickoff_time)
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
@@ -184,6 +188,24 @@ export function MatchHeader({ match, competition, prediction }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Agregado ida/vuelta: solo eliminatorias a doble partido */}
+        {aggregate && (
+          <div className="mt-5 flex justify-center">
+            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 text-xs">
+              {aggregate.pending ? (
+                <span className="text-zinc-400">{aggregate.firstLegLabel}</span>
+              ) : (
+                <>
+                  <span className="text-zinc-500">Agregado:</span>
+                  <span className="font-bold mono text-white">{aggregate.homeGoals} — {aggregate.awayGoals}</span>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-500">{aggregate.firstLegLabel}</span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Pick del motor: qué dijo antes del partido y cómo le fue */}
         {pick && (

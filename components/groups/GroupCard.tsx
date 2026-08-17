@@ -6,9 +6,15 @@ import { Flag } from '@/components/ui/Flag'
 
 interface Props {
   group: any
+  /** Mundial: top 2 clasifica directo, el 3ro puede colarse como "mejor
+   *  tercero" (ámbar). Copa Libertadores no tiene esa regla — solo top 2. */
+  bestThirdAdvances?: boolean
+  /** false cuando la fase de grupos ya terminó y no hay proyección Monte
+   *  Carlo calculada — mostrar 0% ahí sería un dato fabricado, no real. */
+  showQualification?: boolean
 }
 
-export function GroupCard({ group }: Props) {
+export function GroupCard({ group, bestThirdAdvances = true, showQualification = true }: Props) {
   const standings = [...(group.group_standings ?? [])].sort((a: any, b: any) => {
     if (b.points !== a.points) return b.points - a.points
     if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
@@ -49,13 +55,15 @@ export function GroupCard({ group }: Props) {
               <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">GC</th>
               <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-600">DG</th>
               <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">PTS</th>
-              <th className="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Clasif.</th>
+              {showQualification && (
+                <th className="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Clasif.</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {standings.map((s: any, idx: number) => {
               const isDirectQ = idx < 2      // top 2: clasificación directa (verde)
-              const isMaybeQ  = idx === 2    // 3ro: posible clasificación como mejor tercero (ámbar)
+              const isMaybeQ  = bestThirdAdvances && idx === 2    // 3ro: posible clasificación como mejor tercero (ámbar)
               const gd = s.goal_difference ?? (s.goals_for - s.goals_against)
               return (
                 <tr
@@ -108,15 +116,17 @@ export function GroupCard({ group }: Props) {
                   <td className="px-2 py-2 text-center">
                     <span className="text-sm font-black mono text-white">{s.points}</span>
                   </td>
-                  <td className="px-2 py-2 text-right">
-                    <span className={cn(
-                      'text-[10px] font-semibold mono',
-                      s.qualification_probability >= 70 ? 'text-emerald-400' :
-                      s.qualification_probability >= 40 ? 'text-amber-400' : 'text-red-400'
-                    )}>
-                      {s.qualification_probability?.toFixed(0) ?? '—'}%
-                    </span>
-                  </td>
+                  {showQualification && (
+                    <td className="px-2 py-2 text-right">
+                      <span className={cn(
+                        'text-[10px] font-semibold mono',
+                        s.qualification_probability >= 70 ? 'text-emerald-400' :
+                        s.qualification_probability >= 40 ? 'text-amber-400' : 'text-red-400'
+                      )}>
+                        {s.qualification_probability?.toFixed(0) ?? '—'}%
+                      </span>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -139,16 +149,18 @@ export function GroupCard({ group }: Props) {
                     <span className="text-[10px] text-zinc-700">Sin partidos</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-right">
-                  <span className="text-[10px] text-zinc-600">Líder:</span>
-                  <span className={cn(
-                    'text-[10px] font-semibold mono',
-                    s.top_spot_probability >= 50 ? 'text-emerald-400' :
-                    s.top_spot_probability >= 25 ? 'text-amber-400' : 'text-zinc-600'
-                  )}>
-                    {s.top_spot_probability?.toFixed(0) ?? 0}%
-                  </span>
-                </div>
+                {showQualification && (
+                  <div className="flex items-center gap-1 text-right">
+                    <span className="text-[10px] text-zinc-600">Líder:</span>
+                    <span className={cn(
+                      'text-[10px] font-semibold mono',
+                      s.top_spot_probability >= 50 ? 'text-emerald-400' :
+                      s.top_spot_probability >= 25 ? 'text-amber-400' : 'text-zinc-600'
+                    )}>
+                      {s.top_spot_probability?.toFixed(0) ?? 0}%
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -156,9 +168,9 @@ export function GroupCard({ group }: Props) {
       )}
 
       <div className="px-3 py-1.5 text-[10px] text-zinc-700 border-t border-zinc-800/50">
-        <span className="text-emerald-700">▌</span> Clasificación directa &nbsp;·&nbsp;
-        <span className="text-amber-700">▌</span> Posible mejor 3ro &nbsp;·&nbsp;
-        Clasif. = % de clasificación
+        <span className="text-emerald-700">▌</span> Clasificación directa
+        {bestThirdAdvances && <> &nbsp;·&nbsp; <span className="text-amber-700">▌</span> Posible mejor 3ro</>}
+        {showQualification && <> &nbsp;·&nbsp; Clasif. = % de clasificación</>}
       </div>
     </div>
   )

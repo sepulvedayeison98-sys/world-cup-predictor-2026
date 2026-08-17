@@ -6,7 +6,7 @@
  * crece este registro y la UI (selector, hubs, buscador) lo refleja.
  * Agregar un deporte/competición = agregar una entrada aquí + su hub.
  */
-import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
+import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS, LIBERTADORES_COMPETITION_ID } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID, TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
@@ -81,9 +81,21 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
   // promesa honesta hasta que exista una fuente de datos verificable.
   { id: ATP_COMPETITION_ID, slug: 'atp', name: 'ATP Tour', sport: 'tenis', href: '/tennis', status: 'activa', note: `Motor ${TENNIS_MODEL_VERSION}` },
   { id: WTA_COMPETITION_ID, slug: 'wta', name: 'WTA Tour', sport: 'tenis', href: '/tennis', status: 'proximamente', note: 'Pendiente de fuente' },
+  // Copa Libertadores 2026: grupos + eliminación directa a doble partido
+  // (octavos en curso, ver services/sync/libertadores-ingest.ts). No es una
+  // liga round-robin — comparte esquema con el Mundial (groups/group_standings),
+  // no leagueEngine.ts.
+  {
+    id: LIBERTADORES_COMPETITION_ID,
+    slug: 'copa-libertadores',
+    name: 'Copa Libertadores',
+    sport: 'futbol',
+    href: '/copa-libertadores',
+    status: 'activa',
+    note: 'Octavos de final',
+  },
   // Próximas paradas del roadmap — visibles como promesa, no como enlace
   { id: null, slug: 'champions-league', name: 'Champions League', sport: 'futbol', href: '#', status: 'proximamente' },
-  { id: null, slug: 'copa-libertadores', name: 'Copa Libertadores', sport: 'futbol', href: '#', status: 'proximamente' },
 ]
 
 export const ACTIVE_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'activa')

@@ -208,6 +208,55 @@ export async function fetchLeagueFixtures(leagueId: number, season: number): Pro
   }))
 }
 
+// ─── Tabla de grupos (competiciones tipo copa: Copa Libertadores, etc.) ──────
+
+interface StandingsRow {
+  rank: number
+  group: string // "Group A"
+  team: { id: number; name: string }
+  points: number
+  all: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } }
+}
+interface StandingsResponse {
+  league: { standings: StandingsRow[][] }
+}
+
+export interface ApiFootballGroupStanding {
+  groupName: string // "Group A"
+  teamApiId: number
+  rank: number
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goalsFor: number
+  goalsAgainst: number
+  points: number
+}
+
+/**
+ * Tabla de grupos de una copa (Copa Libertadores, Champions League…).
+ * API-Football devuelve un array de arrays (uno por grupo); aplana a filas.
+ * Vacío para competiciones sin fase de grupos, o si ya pasó a eliminatorias
+ * puras — no es un error, es "no hay tabla que mostrar".
+ */
+export async function fetchCupStandings(leagueId: number, season: number): Promise<ApiFootballGroupStanding[]> {
+  const res = await apiFootballFetch<StandingsResponse>('/standings', { league: leagueId, season })
+  const groups = res.response[0]?.league?.standings ?? []
+  return groups.flat().map((r) => ({
+    groupName: r.group,
+    teamApiId: r.team.id,
+    rank: r.rank,
+    played: r.all.played,
+    won: r.all.win,
+    drawn: r.all.draw,
+    lost: r.all.lose,
+    goalsFor: r.all.goals.for,
+    goalsAgainst: r.all.goals.against,
+    points: r.points,
+  }))
+}
+
 // ─── Validación de una liga (equipos + calendario) ───────────────────────────
 
 export interface LeagueValidation {

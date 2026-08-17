@@ -153,6 +153,15 @@ export const LEAGUE_NAMES: Record<string, string> = {
   'ligue-1':        'Ligue 1',
 }
 
+// ─── Copa Libertadores ────────────────────────────────────────────────────
+//
+// No es una liga round-robin (leagueEngine.ts): es grupos + eliminación
+// directa a doble partido, como el Mundial — ver services/sync/libertadores-ingest.ts.
+// Mismo patrón determinista de UUID que las ligas.
+
+export const LIBERTADORES_API_ID = 13
+export const LIBERTADORES_COMPETITION_ID = '13002026-0000-4000-8000-000000000013'
+
 /**
  * Slug de URL de una liga a partir de su competition_id. Reconoce CUALQUIER
  * temporada: un partido de 2024-25 debe seguir enlazando a su liga.

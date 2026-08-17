@@ -32,7 +32,7 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
    (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
    módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
 4. **Gates antes de cada push** — `type-check`, `test`, `lint`, `build`.
-5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **058**) +
+5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **059**) +
    registrar el chequeo en `supabase/verify_migrations.sql`.
 6. **Secretos jamás en el repo ni en el chat.** `.env.local` está gitignoreado.
 
@@ -60,12 +60,28 @@ otro nombre en el remoto, conviene consolidar al entregar.
 
 ### Competiciones
 
-- **Fútbol: 14 competiciones, 6 activas.** Seis ligas en temporada en curso
+- **Fútbol: 15 competiciones, 7 activas.** Seis ligas en temporada en curso
   (Premier, La Liga, Serie A, Bundesliga, Ligue 1 en **2026-27**; Liga BetPlay
-  en **2026**) + sus seis temporadas 2024-25/2024 como histórico + Mundial 2026
-  y Amistosos, ambos ya inactivos.
+  en **2026**) + sus seis temporadas 2024-25/2024 como histórico + **Copa
+  Libertadores 2026** (nueva, 2026-08-17) + Mundial 2026 y Amistosos, ambos
+  ya inactivos.
 - **1.894 partidos programados** (recontado contra la BD el 2026-08-17), todos
   con predicción.
+- **Copa Libertadores 2026**: 32 equipos, 8 grupos, 112 partidos (96 de grupos
+  ya finalizados + 16 de octavos, ida jugada / vuelta 18-26 agosto). NO pasa
+  por `leagueEngine.ts` (round-robin de temporada): es grupos + eliminación a
+  doble partido, mismo esquema que el Mundial (`groups`/`group_standings`,
+  `matches.phase` con `round_of_16`/`quarter_final`/`semi_final`/`final`, ya
+  existían). Ingesta nueva: `services/sync/libertadores-ingest.ts` +
+  `/api/sync/libertadores/ingest?season=2026` (3 requests, idempotente).
+  Rondas de clasificación (1-3) fuera de alcance a propósito — quedaron
+  eliminadas antes de grupos, bajo interés.
+  Agregado ida/vuelta: sin tabla nueva — se calcula en `app/matches/[id]/page.tsx`
+  buscando el otro partido real de la llave (mismos equipos, misma fase,
+  home/away invertido) y se muestra en `MatchHeader`. Hub: `/copa-libertadores`
+  (grupos con `GroupCard` reutilizado — `showQualification=false` porque la
+  fase ya cerró y no hay proyección Monte Carlo real que mostrar, sería un
+  0% fabricado).
 - **NBA:** temporada 2024-25 (la actual está bloqueada, ver §6).
 - **Tenis:** 581 jugadores · 5.676 partidos · 11 corridas de backtest.
 
