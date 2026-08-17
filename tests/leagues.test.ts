@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import { computeLeagueStandings, type LeagueMatchRow, type LeagueTeamInfo } from '../lib/leagueStandings'
 import {
   runLeagueBacktest,
+  seasonSeedElo,
   eloExpectedHome,
   LEAGUE_ELO_BASE,
   LEAGUE_WARMUP_MATCHES,
@@ -178,4 +179,46 @@ test('backtest: partidos insuficientes → nada que evaluar, métricas en cero',
   assert.equal(result.metrics.accuracy, 0)
   assert.equal(result.metrics.skipped, 2)
   assert.ok(LEAGUE_WARMUP_MATCHES > 1)
+})
+
+// ── Siembra de ELO entre temporadas (experimento RECHAZADO, ver leagueEngine) ──
+// Se mantiene probado aunque no esté en producción: el día que haya un banco
+// de pruebas decente debe poder medirse sin reescribirlo.
+
+test('seasonSeedElo encoge el ELO heredado hacia la base', () => {
+  // Un equipo fuerte conserva parte de su ventaja, no toda
+  assert.equal(seasonSeedElo(1700, 0.75), 1650)
+  assert.equal(seasonSeedElo(1300, 0.75), 1350)
+  // k=1 hereda intacto; k=0 borra la herencia
+  assert.equal(seasonSeedElo(1700, 1), 1700)
+  assert.equal(seasonSeedElo(1700, 0), 1500)
+  // La base se queda en la base con cualquier k
+  assert.equal(seasonSeedElo(1500, 0.75), 1500)
+})
+
+test('la siembra solo afecta a los equipos del mapa', () => {
+  const matches = [
+    { id: 'm1', home_team_id: 'A', away_team_id: 'B', home_score: 1, away_score: 0,
+      status: 'finished', kickoff_time: '2026-01-01T00:00:00Z' },
+  ] as any[]
+
+  const sinSiembra = runLeagueBacktest(matches)
+  const conSiembra = runLeagueBacktest(matches, new Map([['A', 1650]]))
+  // Un mapa que no menciona a ningún equipo del partido no cambia nada:
+  // no se inventa pasado a quien no lo tiene.
+  const conAjeno = runLeagueBacktest(matches, new Map([['Z', 1650]]))
+
+  assert.ok((conSiembra.finalElo.get('A') ?? 0) > (sinSiembra.finalElo.get('A') ?? 0))
+  assert.deepEqual([...conAjeno.finalElo.entries()], [...sinSiembra.finalElo.entries()])
+})
+
+test('sin mapa de siembra el motor se comporta exactamente igual que antes', () => {
+  const matches = [
+    { id: 'm1', home_team_id: 'A', away_team_id: 'B', home_score: 2, away_score: 0,
+      status: 'finished', kickoff_time: '2026-01-01T00:00:00Z' },
+  ] as any[]
+  assert.deepEqual(
+    [...runLeagueBacktest(matches).finalElo.entries()].sort(),
+    [...runLeagueBacktest(matches, undefined).finalElo.entries()].sort(),
+  )
 })

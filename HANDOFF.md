@@ -139,6 +139,35 @@ la fuente tenga fechas/minutos por partido (TML sí publica `minutes`).
 ### Fútbol — `liga-1.0` · NBA — `nba-1.0`
 Estables. Football está **congelado** salvo correcciones críticas.
 
+**Siembra de ELO entre temporadas — ❌ RECHAZADA (2026-08-17).** Cuarto
+experimento rechazado. Al pasar a una competición por temporada, los equipos
+de 2026-27 arrancan todos en ELO 1500: Premier, Serie A, Bundesliga y Ligue 1
+dan **la misma predicción en sus 380/306 partidos**. Se probó heredar el ELO
+final de la temporada anterior, encogido hacia la media
+(`seasonSeedElo`, emparejando por `api_football_id`).
+
+| Variante | Precisión | Brier | Ventana temprana (Brier) |
+|---|---|---|---|
+| base (todos en 1500) | **48,21 %** | 0,6273 | 0,6167 |
+| k=0,50 | 47,02 % | 0,6262 | 0,6135 |
+| **k=0,75** (primario) | 47,62 % | **0,6257** | **0,6119** |
+| k=1,00 | 48,21 % | 0,6253 | 0,6105 |
+
+Banco: Liga BetPlay 2024 → 2026, 168 partidos evaluados, 18/20 equipos con
+ELO heredable. El Brier mejora con toda la rejilla y en la ventana temprana
+mejoran **las dos** métricas (precisión 45,00 % → 46,67 %) — el efecto va en
+la dirección esperada justo donde debía. Pero la regla pre-declarada exigía
+mejorar también la precisión de temporada completa, y no lo hace. **Se
+rechaza sin regatear la regla.**
+
+Tres limitaciones que invalidarían la promoción aunque hubiera pasado: una
+sola liga; falta 2025 en medio (herencia con un año de desfase); y el
+calentamiento de 5 partidos **excluye de la evaluación justo los partidos
+donde el arranque en frío más daña**. `seasonSeedElo` y el parámetro
+`seedElo` de `runLeagueBacktest` quedan como módulo puro y probado (igual
+que `lib/tennis/fatigue.ts`) para cuando las europeas 2026-27 den un banco
+de pruebas limpio.
+
 ---
 
 ## 5. Accesos (dónde viven; **nunca** en el repo)

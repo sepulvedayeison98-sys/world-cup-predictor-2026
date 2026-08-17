@@ -108,12 +108,51 @@ interface TeamState extends TeamSeasonAggregate {
   gaHist: number[]
 }
 
-function newTeamState(): TeamState {
+function newTeamState(elo = LEAGUE_ELO_BASE): TeamState {
   return {
     played: 0, won: 0, drawn: 0, lost: 0,
     goals_for: 0, goals_against: 0, clean_sheets: 0,
-    form: [], elo: LEAGUE_ELO_BASE, gfHist: [], gaHist: [],
+    form: [], elo, gfHist: [], gaHist: [],
   }
+}
+
+/**
+ * Encogimiento del ELO heredado de la temporada anterior hacia la media.
+ * Una campaña nueva no empieza donde terminó la anterior —hay fichajes,
+ * cambios de entrenador y un verano de por medio— pero tampoco empieza de
+ * cero: el Bayern sigue siendo el Bayern en la jornada 1.
+ *
+ * ⚠️ NO ESTÁ EN PRODUCCIÓN — experimento RECHAZADO (2026-08-17).
+ *
+ * Medido por ablación pareada sobre Liga BetPlay 2024 → 2026 (168 partidos
+ * evaluados, 18 de 20 equipos con ELO heredable), con regla de promoción
+ * declarada antes de correr el experimento:
+ *
+ *   base (todos en 1500)   precisión 48,21%   Brier 0,6273
+ *   k=0,50                 precisión 47,02%   Brier 0,6262
+ *   k=0,75 (primario)      precisión 47,62%   Brier 0,6257
+ *   k=1,00                 precisión 48,21%   Brier 0,6253
+ *
+ * El Brier mejora con TODA la rejilla de k, y en la ventana temprana mejoran
+ * las dos métricas (precisión 45,00% → 46,67%, Brier 0,6167 → 0,6119): el
+ * efecto va en la dirección esperada justo donde debía. Pero la regla exigía
+ * también mejorar la precisión de la temporada completa, y no lo hace. Se
+ * rechaza sin regatear la regla.
+ *
+ * Limitaciones que invalidarían una promoción aunque hubiera pasado: una
+ * sola liga, falta la temporada 2025 en medio (la herencia llega con un año
+ * de desfase) y el calentamiento de 5 partidos excluye de la evaluación
+ * justo los partidos donde el arranque en frío más daña.
+ *
+ * Queda como módulo puro —igual que lib/tennis/fatigue.ts— para cuando haya
+ * un banco de pruebas decente: las temporadas europeas 2026-27, cuando se
+ * jueguen, son la validación limpia que hoy no existe.
+ */
+export const LEAGUE_ELO_CARRYOVER = 0.75
+
+/** ELO de arranque de temporada a partir del ELO final de la anterior. */
+export function seasonSeedElo(previousElo: number, carryover = LEAGUE_ELO_CARRYOVER): number {
+  return Math.round(LEAGUE_ELO_BASE + carryover * (previousElo - LEAGUE_ELO_BASE))
 }
 
 function rollingAvg(hist: number[], fallback: number): number {
@@ -184,7 +223,15 @@ function predictFromStates(
 
 // ─── Backtest walk-forward ───────────────────────────────────────────────────
 
-export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestResult {
+export function runLeagueBacktest(
+  matches: LeagueEngineMatch[],
+  /**
+   * ELO de arranque por equipo (temporada anterior, ya encogido). Un equipo
+   * ausente del mapa —un recién ascendido— arranca en la base: no se le
+   * inventa un pasado en la categoría.
+   */
+  seedElo?: Map<string, number>,
+): LeagueBacktestResult {
   const finished = matches
     .filter((m) => m.status === 'finished' && m.home_score !== null && m.away_score !== null)
     .sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time) || a.id.localeCompare(b.id))
@@ -192,7 +239,7 @@ export function runLeagueBacktest(matches: LeagueEngineMatch[]): LeagueBacktestR
   const teams = new Map<string, TeamState>()
   const state = (id: string): TeamState => {
     let t = teams.get(id)
-    if (!t) { t = newTeamState(); teams.set(id, t) }
+    if (!t) { t = newTeamState(seedElo?.get(id) ?? LEAGUE_ELO_BASE); teams.set(id, t) }
     return t
   }
 
