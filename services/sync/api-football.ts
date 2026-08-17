@@ -257,6 +257,87 @@ export async function fetchCupStandings(leagueId: number, season: number): Promi
   }))
 }
 
+// ─── Plantilla y entrenador (Fase 1, entidad equipo) ─────────────────────────
+
+interface PlayerEntry {
+  player: {
+    id: number; name: string; age: number | null
+    birth: { date: string | null }
+    nationality: string | null
+    height: string | null; weight: string | null
+    photo: string | null
+  }
+  statistics: { games: { number: number | null; position: string | null } }[]
+}
+
+export interface ApiFootballPlayer {
+  apiFootballId: number
+  name: string
+  age: number | null
+  dateOfBirth: string | null
+  nationality: string | null
+  heightCm: number | null
+  weightKg: number | null
+  photoUrl: string | null
+  number: number | null
+  /** Categoría cruda de la fuente (Goalkeeper/Defender/Midfielder/Attacker):
+   *  4 valores, no los 11 de nuestro enum táctico — ver migración 059. */
+  positionRaw: string | null
+}
+
+function parseMeasurement(v: string | null): number | null {
+  if (!v) return null
+  const n = parseInt(v, 10)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Plantilla completa de un equipo (pagina sola, API-Football da ~20 por página). */
+export async function fetchTeamSquad(teamId: number, season: number): Promise<ApiFootballPlayer[]> {
+  const players: ApiFootballPlayer[] = []
+  let page = 1
+  let totalPages = 1
+  do {
+    const res = await apiFootballFetch<PlayerEntry>('/players', { team: teamId, season, page })
+    totalPages = res.paging?.total ?? 1
+    for (const p of res.response) {
+      const stats = p.statistics?.[0]?.games
+      players.push({
+        apiFootballId: p.player.id,
+        name: p.player.name,
+        age: p.player.age,
+        dateOfBirth: p.player.birth?.date ?? null,
+        nationality: p.player.nationality,
+        heightCm: parseMeasurement(p.player.height),
+        weightKg: parseMeasurement(p.player.weight),
+        photoUrl: p.player.photo,
+        number: stats?.number ?? null,
+        positionRaw: stats?.position ?? null,
+      })
+    }
+    page++
+  } while (page <= totalPages)
+  return players
+}
+
+interface CoachEntry {
+  name: string
+  career: { team: { id: number }; start: string; end: string | null }[]
+}
+
+/**
+ * Entrenador ACTUAL de un equipo: la fuente devuelve el historial completo
+ * de técnicos, no solo el vigente. "Actual" = carrera con end=null y el
+ * start más reciente entre esas (puede haber más de una fila con end=null
+ * por datos desactualizados de la fuente).
+ */
+export async function fetchCurrentCoach(teamId: number): Promise<string | null> {
+  const res = await apiFootballFetch<CoachEntry>('/coachs', { team: teamId })
+  const current = res.response
+    .flatMap((c) => c.career.filter((sp) => sp.team.id === teamId && sp.end === null).map((sp) => ({ name: c.name, start: sp.start })))
+    .sort((a, b) => b.start.localeCompare(a.start))
+  return current[0]?.name ?? null
+}
+
 // ─── Validación de una liga (equipos + calendario) ───────────────────────────
 
 export interface LeagueValidation {

@@ -63,6 +63,7 @@ UNION ALL SELECT '055 Liga BetPlay (Primera A Colombia)', EXISTS(SELECT 1 FROM c
 UNION ALL SELECT '056 una competición por temporada (2026-27)', (SELECT count(*)=6 FROM competitions WHERE season IN ('2026-27','2026') AND sport_id=1)
 UNION ALL SELECT '057 estadio y fundación del equipo', (SELECT count(*)=5 FROM information_schema.columns WHERE table_name='teams' AND column_name IN ('venue_name','venue_city','venue_capacity','venue_image_url','founded_year'))
 UNION ALL SELECT '058 Copa Libertadores 2026', EXISTS(SELECT 1 FROM competitions WHERE id='13002026-0000-4000-8000-000000000013' AND type='continental_cup' AND sport_id=1)
+UNION ALL SELECT '059 reconciliación players + plantilla', (SELECT count(*)=4 FROM information_schema.columns WHERE table_name='players' AND column_name IN ('api_football_id','position_raw','age','source'))
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

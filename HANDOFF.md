@@ -32,7 +32,7 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
    (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
    módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
 4. **Gates antes de cada push** — `type-check`, `test`, `lint`, `build`.
-5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **059**) +
+5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **060**) +
    registrar el chequeo en `supabase/verify_migrations.sql`.
 6. **Secretos jamás en el repo ni en el chat.** `.env.local` está gitignoreado.
 
@@ -82,6 +82,16 @@ otro nombre en el remoto, conviene consolidar al entregar.
   (grupos con `GroupCard` reutilizado — `showQualification=false` porque la
   fase ya cerró y no hay proyección Monte Carlo real que mostrar, sería un
   0% fabricado).
+  **Plantilla y entrenador (2026-08-17)**: 1.223 jugadores + 32 entrenadores
+  reales, `services/sync/libertadores-squad.ts` + `/api/sync/libertadores/squad`.
+  `player_position` (enum táctico de 11 valores: GK/CB/LB/RB/CDM/CM/CAM/LW/RW/ST/CF)
+  se deja NULL a propósito — la fuente solo da 4 categorías gruesas
+  (Goalkeeper/Defender/Midfielder/Attacker), guardadas tal cual en la
+  columna nueva `position_raw` en vez de inventar cuál lateral es cada
+  "Defender". De paso, migración 059 reconcilia el esquema real de
+  `players` (api_football_id/position_raw/age/source, columnas antes NOT
+  NULL ahora nullable) con el repo — existían en producción sin migración
+  que las registrara, deuda de una sesión anterior (trampa §8.9).
 - **NBA:** temporada 2024-25 (la actual está bloqueada, ver §6).
 - **Tenis:** 581 jugadores · 5.676 partidos · 11 corridas de backtest.
 
@@ -243,8 +253,8 @@ evidencia.
 | **Ocasiones claras (big chances)** | `fixtures/statistics` no las entrega | Otra fuente (Opta/StatsBomb) |
 | Clima, minutos, "indoor" | La fuente no los trae | — |
 | **Lesiones y cuotas de liga** | Nunca se ingirieron; los endpoints existen | `injuries` y `odds` de API-Football (plan Pro ya cubre) |
-| **Plantilla de clubes** | Tabla `players` vacía en las 6 ligas (0 filas) | `/players` por equipo — cuota nueva, ~700 peticiones |
-| **Entrenador de clubes** | Solo poblado para el Mundial (48/48); 0 en clubes | `/coachs` de API-Football — cuota nueva |
+| **Plantilla de clubes (6 ligas)** | `players` vacía en las 6 ligas domésticas (0 filas) | `/players` por equipo — ~700 peticiones, trivial con el plan Pro (7.500/día); solo falta correrlo |
+| **Entrenador de clubes (6 ligas)** | Solo poblado para el Mundial (48/48) y **Copa Libertadores (32/32, 2026-08-17)**; 0 en las 6 ligas | `/coachs` de API-Football — mismo patrón que Libertadores, falta correrlo |
 | **Presidente del club** | API-Football no lo trae | Otra fuente |
 | **Palmarés / títulos** | API-Football no tiene endpoint confiable de historial por equipo | Otra fuente |
 
@@ -325,6 +335,21 @@ las seis a ciegas en bucle **agota la cuota diaria** (ya pasó).
    borrado en el mismo turno. Para completar datos de temporadas archivadas,
    **nunca re-correr la ingesta**: hacer un `UPDATE` acotado por
    `api_football_id` (estadio/fundación no cambian de temporada a temporada).
+10. **`recalculate_group_standings(p_group_id)` solo hace `UPDATE`, nunca
+    `INSERT`.** Para un grupo/equipo que nunca tuvo fila en `group_standings`
+    (competición nueva), llamarla no hace nada — 0 filas afectadas, sin
+    error, tabla vacía en silencio. Pasó al ingestar Copa Libertadores el
+    2026-08-17: primera corrida dejó las 8 tablas de grupo vacías, detectado
+    al verificar contra la fuente. Hay que sembrar una fila en cero por
+    (group_id, team_id) ANTES de llamar a la función — ver
+    `services/sync/libertadores-ingest.ts`.
+11. **Esquema de `players` en producción no coincidía con el repo.** Tenía
+    `api_football_id`/`position_raw`/`age`/`source` y columnas nullable que
+    ninguna migración del repo registraba — se aplicaron en una sesión
+    anterior directo contra Supabase sin dejar el archivo. Migración 059 lo
+    reconcilia (todo `IF NOT EXISTS`, no-op contra lo que ya había). Antes
+    de asumir el esquema de una tabla por lo que dice `supabase/migrations/`,
+    conviene confirmar contra la BD real si hay sospecha de deuda así.
 
 ---
 

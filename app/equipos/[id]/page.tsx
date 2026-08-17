@@ -43,7 +43,7 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     .from('teams')
     .select(`
       id, name, short_name, code, logo_url, elo_rating, fifa_ranking, competition_id,
-      venue_name, venue_city, venue_capacity, venue_image_url, founded_year
+      venue_name, venue_city, venue_capacity, venue_image_url, founded_year, coach
     `)
     .eq('id', id)
     .maybeSingle()
@@ -69,6 +69,24 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
 
   const matches = (matchesRaw ?? []) as any[]
   const stats = computeFootballTeamStats(matches as FbMatch[], id)
+
+  // Plantilla: solo donde ya se ingestó (Copa Libertadores por ahora — ver
+  // services/sync/libertadores-squad.ts). Vacía en cualquier otro equipo,
+  // la sección entera desaparece en vez de mostrar un bloque en blanco.
+  const { data: squadRaw } = await supabase
+    .from('players')
+    .select('id, name, number, position_raw, nationality, photo_url')
+    .eq('team_id', id)
+    .order('number', { ascending: true, nullsFirst: false })
+  const squad = (squadRaw ?? []) as any[]
+  const POSITION_LABEL: Record<string, string> = {
+    Goalkeeper: 'Porteros', Defender: 'Defensas', Midfielder: 'Mediocampistas', Attacker: 'Delanteros',
+  }
+  const POSITION_ORDER = ['Goalkeeper', 'Defender', 'Midfielder', 'Attacker']
+  const squadByPosition = POSITION_ORDER
+    .map((pos) => ({ pos, label: POSITION_LABEL[pos], players: squad.filter((p) => p.position_raw === pos) }))
+    .filter((g) => g.players.length > 0)
+  const squadUnknown = squad.filter((p) => !POSITION_ORDER.includes(p.position_raw))
 
   const compName = COMPETITIONS_NAV.find((c) => c.id === t.competition_id)?.name ?? 'Fútbol'
   const backHref = competitionHref(t.competition_id)
@@ -129,7 +147,7 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
         {/* Ficha del club: solo lo que la fuente realmente trae. Un club
             recién ascendido puede no tener estadio o fundación en la
             fuente — no se rellena con nada, la fila desaparece entera. */}
-        {(t.venue_name || t.founded_year) && (
+        {(t.venue_name || t.founded_year || t.coach) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
             {t.venue_name && (
               <span className="inline-flex items-center gap-1">
@@ -147,6 +165,12 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
                 Fundado en {t.founded_year}
+              </span>
+            )}
+            {t.coach && (
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                DT: {t.coach}
               </span>
             )}
           </div>
@@ -329,6 +353,49 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
                 presenta el prior de la liga como si fuera una lectura. */}
             {avisoArranque && (
               <p className="mt-1 text-[10px] leading-snug text-amber-400/80">{avisoArranque}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Plantilla: se auto-oculta si el equipo no tiene ingesta de jugadores */}
+      {squad.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-2.5">
+            <h2 className="text-sm font-bold text-white">Plantilla</h2>
+            <p className="text-[10px] text-zinc-500">{squad.length} jugadores registrados</p>
+          </div>
+          <div className="divide-y divide-zinc-800/60">
+            {squadByPosition.map((group) => (
+              <div key={group.pos} className="px-4 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.label}</h3>
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {group.players.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 text-xs">
+                      <span className="mono w-6 shrink-0 text-right text-zinc-600">{p.number ?? '—'}</span>
+                      {p.photo_url
+                        ? /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={p.photo_url} alt="" loading="lazy" className="h-6 w-6 shrink-0 rounded-full object-cover bg-zinc-800" />
+                        : <span className="h-6 w-6 shrink-0 rounded-full bg-zinc-800" />}
+                      <span className="truncate text-zinc-300">{p.name}</span>
+                      {p.nationality && <span className="shrink-0 text-[10px] text-zinc-600">{p.nationality}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {squadUnknown.length > 0 && (
+              <div className="px-4 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Posición no disponible</h3>
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {squadUnknown.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 text-xs">
+                      <span className="mono w-6 shrink-0 text-right text-zinc-600">{p.number ?? '—'}</span>
+                      <span className="truncate text-zinc-300">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
