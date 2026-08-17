@@ -5,11 +5,11 @@ import { useCallback } from 'react'
 import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Group { id: string; name: string; letter: string }
-interface Team  { id: string; name: string; short_name: string; code: string }
+interface Competition { id: string; name: string }
+interface Team  { id: string; name: string; short_name: string; code: string; competition_id?: string }
 
 interface Props {
-  groups: Group[]
+  competitions: Competition[]
   teams: Team[]
   defaultDate?: string
 }
@@ -27,10 +27,17 @@ const CONFIDENCE_OPTIONS = [
   { value: '5', label: '⭐⭐⭐⭐⭐' },
 ]
 
-export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
+export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  // Al acotar por competición, el selector de equipos muestra solo los suyos:
+  // 116 clubes de seis ligas en una sola lista no es una lista, es un muro.
+  const competitionParam = searchParams.get('competition') ?? ''
+  const visibleTeams = competitionParam
+    ? teams.filter((t) => t.competition_id === competitionParam)
+    : teams
 
   // Fecha local en formato YYYY-MM-DD
   const todayStr = new Date().toLocaleDateString('en-CA')
@@ -63,7 +70,7 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
   const hasFilters =
     searchParams.has('q') ||
     searchParams.has('status') ||
-    searchParams.has('group') ||
+    searchParams.has('competition') ||
     searchParams.has('team') ||
     searchParams.has('confidence') ||
     (searchParams.has('date') && searchParams.get('date') !== todayStr)
@@ -172,21 +179,29 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
           })}
         </div>
 
-        {/* Group */}
+        {/* Competition */}
         <select
-          value={searchParams.get('group') ?? ''}
-          onChange={(e) => update('group', e.target.value)}
-          aria-label="Filtrar por grupo"
+          value={competitionParam}
+          onChange={(e) => {
+            // Cambiar de liga invalida el equipo elegido: era de la otra.
+            const params = new URLSearchParams(searchParams.toString())
+            if (e.target.value) params.set('competition', e.target.value)
+            else params.delete('competition')
+            params.delete('team')
+            params.delete('page')
+            router.push(`${pathname}?${params.toString()}`)
+          }}
+          aria-label="Filtrar por competición"
           className={cn(
             'rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5',
             'text-xs text-zinc-300 outline-none focus:border-emerald-500/50',
             'transition-colors cursor-pointer'
           )}
         >
-          <option value="">Todos los grupos</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              Grupo {g.letter}
+          <option value="">Todas las ligas</option>
+          {competitions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
@@ -203,9 +218,9 @@ export function MatchFiltersBar({ groups, teams, defaultDate }: Props) {
           )}
         >
           <option value="">Todos los equipos</option>
-          {teams.map((t) => (
+          {visibleTeams.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.code} — {t.short_name}
+              {t.short_name || t.name}
             </option>
           ))}
         </select>

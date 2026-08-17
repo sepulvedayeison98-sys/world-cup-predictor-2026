@@ -102,6 +102,18 @@ export function sportOfCompetition(competitionId: string): SportSlug {
 }
 
 /**
+ * IDs de las competiciones ACTIVAS de un deporte: lo que se está jugando y,
+ * por tanto, lo que las páginas deben mostrar hoy. Es la contraparte de
+ * `competitionIdsOfSport`, que además incluye las históricas porque responde
+ * a una pregunta distinta (qué ES de este deporte, no qué se muestra).
+ */
+export function activeCompetitionIdsOfSport(sport: SportSlug): string[] {
+  return ACTIVE_COMPETITIONS
+    .filter((c) => c.sport === sport && c.id !== null)
+    .map((c) => c.id as string)
+}
+
+/**
  * IDs de las competiciones activas de un deporte. Es la lista blanca que
  * deben usar los procesos transversales (Smart Bets, sync globales) para
  * no cruzar deportes: un motor de fútbol jamás debe procesar partidos

@@ -63,6 +63,31 @@ function ProbBar({ home, draw, away }: { home: number; draw: number; away: numbe
   )
 }
 
+/**
+ * Identidad visual del equipo. La agenda mezcla selecciones (bandera por
+ * código FIFA) y clubes de liga (escudo): se usa el escudo cuando la fuente
+ * lo trae y la bandera cuando no. Ninguno de los dos se inventa.
+ */
+function TeamMark({ team }: { team: any }) {
+  if (team?.logo_url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={team.logo_url} alt="" aria-hidden="true" loading="lazy" className="h-4 w-4 shrink-0 object-contain" />
+  }
+  return <Flag code={team?.code} />
+}
+
+/** Ranking FIFA para selecciones, ELO del modelo para clubes. Si no hay
+ *  ninguno de los dos, no se muestra nada (antes salía "FIFA #null"). */
+function TeamMeta({ team }: { team: any }) {
+  if (team?.fifa_ranking != null) {
+    return <span className="text-[10px] text-zinc-500">FIFA #{team.fifa_ranking}</span>
+  }
+  if (team?.elo_rating != null) {
+    return <span className="text-[10px] text-zinc-500 mono">ELO {Math.round(team.elo_rating)}</span>
+  }
+  return null
+}
+
 function Stars({ level }: { level: number }) {
   return (
     <div className="flex gap-0.5">
@@ -99,7 +124,7 @@ function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: st
 
 /** Tarjeta de partido para móvil (playbook Sofascore, mejora 1). Toda la
  *  tarjeta es un enlace al detalle; sin scroll horizontal. */
-function MatchCard({ m }: { m: MatchRow }) {
+function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: string }) {
   const p = m.prediction
   const showScore = m.status === 'finished' || m.status === 'live'
   return (
@@ -107,6 +132,7 @@ function MatchCard({ m }: { m: MatchRow }) {
       <Link href={`/matches/${m.id}`} className="block px-4 py-3 active:bg-zinc-800/40 transition-colors">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] text-zinc-500 mono">
+            {competitionName ? `${competitionName} · ` : ''}
             {formatColDate(m.kickoff_time)} · {formatColTime(m.kickoff_time)}
           </span>
           <StatusBadge status={m.status} kickoffTime={m.kickoff_time} />
@@ -114,7 +140,7 @@ function MatchCard({ m }: { m: MatchRow }) {
 
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
-            <Flag code={m.home_team?.code} /> {m.home_team?.short_name ?? m.home_team?.code}
+            <TeamMark team={m.home_team} /> {m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}
           </span>
           {showScore ? (
             <span className="mono text-base font-black text-white">{m.home_score ?? '—'}<span className="mx-1 text-zinc-600">–</span>{m.away_score ?? '—'}</span>
@@ -122,14 +148,16 @@ function MatchCard({ m }: { m: MatchRow }) {
             <span className="text-xs font-bold text-zinc-600">VS</span>
           )}
           <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
-            {m.away_team?.short_name ?? m.away_team?.code} <Flag code={m.away_team?.code} />
+            {m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code} <TeamMark team={m.away_team} />
           </span>
         </div>
 
         {p ? (
           <>
             <ProbBar1X2 className="mt-2.5" home={p.home_win_probability} draw={p.draw_probability} away={p.away_win_probability}
-              variant="full" homeLabel={m.home_team?.code} awayLabel={m.away_team?.code} />
+              variant="full"
+              homeLabel={m.home_team?.code ?? m.home_team?.short_name}
+              awayLabel={m.away_team?.code ?? m.away_team?.short_name} />
             <div className="mt-2 flex items-center justify-between text-[11px]">
               <span className="text-zinc-500">est. <span className="mono font-bold text-zinc-300">{p.predicted_home_score}–{p.predicted_away_score}</span></span>
               <span className="flex items-center gap-1">
@@ -150,8 +178,22 @@ function MatchCard({ m }: { m: MatchRow }) {
 
 // ─── Column definitions ───────────────────────────────────────
 
-function buildColumns(): ColumnDef<MatchRow, any>[] {
+function buildColumns(competitionNames: Map<string, string>): ColumnDef<MatchRow, any>[] {
   return [
+    col.display({
+      id: 'competition',
+      header: 'Liga',
+      cell: ({ row }) => {
+        const name = competitionNames.get(row.original.competition_id)
+        if (!name) return null
+        return (
+          <span className="inline-block whitespace-nowrap rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+            {name}
+          </span>
+        )
+      },
+      size: 110,
+    }),
     col.accessor('kickoff_time', {
       header: 'Fecha',
       cell: (info) => (
@@ -178,14 +220,12 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
         const m = row.original
         return (
           <div className="flex items-center gap-2 min-w-[100px]">
-            <Flag code={m.home_team?.code} />
+            <TeamMark team={m.home_team} />
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-zinc-100">
-                {m.home_team?.short_name ?? m.home_team?.code}
+                {m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}
               </span>
-              <span className="text-[10px] text-zinc-500">
-                FIFA #{m.home_team?.fifa_ranking}
-              </span>
+              <TeamMeta team={m.home_team} />
             </div>
             {m.status === 'finished' || m.status === 'live' ? (
               <span className="mono text-sm font-bold text-white">{m.home_score ?? '—'}</span>
@@ -207,13 +247,11 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
             ) : null}
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-zinc-100">
-                {m.away_team?.short_name ?? m.away_team?.code}
+                {m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}
               </span>
-              <span className="text-[10px] text-zinc-500">
-                FIFA #{m.away_team?.fifa_ranking}
-              </span>
+              <TeamMeta team={m.away_team} />
             </div>
-            <Flag code={m.away_team?.code} />
+            <TeamMark team={m.away_team} />
           </div>
         )
       },
@@ -293,7 +331,10 @@ function buildColumns(): ColumnDef<MatchRow, any>[] {
 
 // ─── Main Table Component ─────────────────────────────────────
 
-export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
+export function MatchesTable({
+  defaultDate,
+  competitions = [],
+}: { defaultDate?: string; competitions?: { id: string; name: string }[] } = {}) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([
@@ -313,7 +354,7 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
   const filters = {
     search: searchParams.get('q') ?? undefined,
     status: searchParams.get('status') ? [searchParams.get('status') as 'scheduled' | 'live' | 'finished' | 'postponed'] : undefined,
-    group_id: searchParams.get('group') ?? undefined,
+    competition_id: searchParams.get('competition') ?? undefined,
     team_id: searchParams.get('team') ?? undefined,
     min_confidence: searchParams.get('confidence')
       ? parseInt(searchParams.get('confidence')!)
@@ -329,14 +370,18 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
     placeholderData: (prev) => prev,
   })
 
-  const columns = useMemo(() => buildColumns(), [])
+  const competitionNames = useMemo(
+    () => new Map(competitions.map((c) => [c.id, c.name])),
+    [competitions],
+  )
+  const columns = useMemo(() => buildColumns(competitionNames), [competitionNames])
 
   // Mensaje de "sin resultados" contextual: deja claro que el filtro SÍ se
   // aplicó y por qué está vacío (ej. no hay partidos en vivo ahora mismo),
   // en vez de un genérico que parece un error.
   const activeStatus = filters.status?.[0]
   const hasOtherFilters = Boolean(
-    filters.search || filters.group_id || filters.team_id || filters.min_confidence
+    filters.search || filters.competition_id || filters.team_id || filters.min_confidence
   )
   const isToday = dateParam === todayStr
   const emptyMessage =
@@ -386,7 +431,7 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <p className="text-xs text-zinc-500">
           {isLoading ? '…' : `${data?.count ?? 0} partidos`}
-          {(filters.search || filters.status || filters.group_id || filters.team_id || filters.min_confidence) && ' (filtrado)'}
+          {(filters.search || filters.status || filters.competition_id || filters.team_id || filters.min_confidence) && ' (filtrado)'}
         </p>
         <p className="text-[10px] text-zinc-600">
           Página {pageIndex + 1} de {data?.total_pages ?? 1}
@@ -402,7 +447,13 @@ export function MatchesTable({ defaultDate }: { defaultDate?: string } = {}) {
         ) : (data?.data ?? []).length === 0 ? (
           <li className="px-4 py-12 text-center"><p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p></li>
         ) : (
-          (data?.data ?? []).map((m) => <MatchCard key={(m as MatchRow).id} m={m as MatchRow} />)
+          (data?.data ?? []).map((m) => (
+            <MatchCard
+              key={(m as MatchRow).id}
+              m={m as MatchRow}
+              competitionName={competitionNames.get((m as MatchRow).competition_id)}
+            />
+          ))
         )}
       </ul>
 

@@ -423,8 +423,13 @@ export interface MatchFilters {
   date_to?: string
   min_confidence?: number
   search?: string
-  /** Por defecto el Mundial 2026; se puede pasar otra para no mezclar torneos. */
+  /** Una sola competición. Tiene prioridad sobre `competition_ids`. */
   competition_id?: string
+  /**
+   * Varias competiciones a la vez. Por defecto, las ACTIVAS de fútbol: la
+   * agenda convive con seis ligas en curso, no con un solo torneo.
+   */
+  competition_ids?: string[]
 }
 
 export interface PlayerFilters {

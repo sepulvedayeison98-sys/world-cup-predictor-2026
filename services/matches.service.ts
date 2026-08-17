@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import { COMPETITION_ID } from '@/lib/constants'
+import { activeCompetitionIdsOfSport } from '@/lib/sports'
 import type { Match, MatchFilters, PaginatedResponse, MatchStatistics, Lineup } from '@/types'
 
 const PAGE_SIZE = 15
@@ -12,6 +12,26 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // paréntesis, asterisco, dos puntos, %, backslash) y acota la longitud.
 function sanitizeSearch(s: string): string {
   return s.replace(/[,()*:%\\]/g, ' ').trim().slice(0, 60)
+}
+
+/**
+ * Competiciones que ve una consulta de agenda. Sin acotar son las ACTIVAS de
+ * fútbol: el Mundial pasó a histórico y dejar aquí su id como valor por
+ * defecto vaciaba la agenda: ese torneo no tiene un solo partido programado.
+ * Regla de oro multi-competición: siempre se filtra, nunca se consulta suelto.
+ */
+function competitionScope(filters: MatchFilters): string[] {
+  const active = activeCompetitionIdsOfSport('futbol')
+  // `competition_id` llega de la URL: se acepta solo si es un UUID conocido.
+  // Un valor inventado no acota a nada — devuelve el ámbito completo en vez
+  // de una consulta con sintaxis de filtro colada dentro.
+  if (filters.competition_id && UUID_RE.test(filters.competition_id)) {
+    return active.includes(filters.competition_id) ? [filters.competition_id] : active
+  }
+  if (filters.competition_ids?.length) {
+    return filters.competition_ids.filter((id) => UUID_RE.test(id))
+  }
+  return active
 }
 
 export const matchesService = {
@@ -35,7 +55,7 @@ export const matchesService = {
         `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), ${predJoin}`,
         { count: 'exact' }
       )
-      .eq('competition_id', filters.competition_id ?? COMPETITION_ID)
+      .in('competition_id', competitionScope(filters))
       .range(from, to)
       .order('kickoff_time', { ascending: true })
 
@@ -72,7 +92,7 @@ export const matchesService = {
     let query = supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`, { count: 'exact' })
-      .eq('competition_id', filters.competition_id ?? COMPETITION_ID)
+      .in('competition_id', competitionScope(filters))
       .range(from, to)
       .order('kickoff_time', { ascending: true })
 
@@ -120,7 +140,7 @@ export const matchesService = {
     const { data, error } = await supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*), predictions(*)`)
-      .eq('competition_id', COMPETITION_ID)
+      .in('competition_id', competitionScope({}))
       .in('status', ['scheduled', 'live'])
       .gte('kickoff_time', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
       .order('kickoff_time', { ascending: true })
@@ -134,7 +154,7 @@ export const matchesService = {
     const { data, error } = await supabase
       .from('matches')
       .select(`*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`)
-      .eq('competition_id', COMPETITION_ID)
+      .in('competition_id', competitionScope({}))
       .eq('status', 'live')
       .order('kickoff_time', { ascending: true })
     if (error) throw error
