@@ -8,6 +8,7 @@ import { competitionHref, sportOfCompetition } from '@/lib/sports'
 import { COMPETITIONS_NAV } from '@/lib/sports'
 import { Flag } from '@/components/ui/Flag'
 import { TeamStatCard } from '@/components/teams/TeamStatCard'
+import { ClickableMatchRow, OpponentLink } from '@/components/teams/ClickableMatchRow'
 import { formatColDate } from '@/lib/datetime'
 import { predictionWarmup, coldStartNote } from '@/lib/predictionQuality'
 import { cn } from '@/lib/utils'
@@ -56,8 +57,8 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     .from('matches')
     .select(`
       id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time, phase, round,
-      home_team:teams!matches_home_team_id_fkey(short_name, code, logo_url),
-      away_team:teams!matches_away_team_id_fkey(short_name, code, logo_url),
+      home_team:teams!matches_home_team_id_fkey(id, short_name, code, logo_url),
+      away_team:teams!matches_away_team_id_fkey(id, short_name, code, logo_url),
       predictions(home_win_probability, draw_probability, away_win_probability,
         predicted_home_score, predicted_away_score, confidence_score)
     `)
@@ -240,15 +241,20 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
                 const res = gf > ga ? 'W' : gf < ga ? 'L' : 'D'
                 return (
                   <li key={m.id}>
-                    <Link href={`/matches/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors">
+                    <ClickableMatchRow
+                      matchId={m.id}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 active:bg-zinc-800/60 transition-colors"
+                    >
                       <span className="flex items-center gap-2 text-xs">
                         <FormPill r={res as 'W' | 'D' | 'L'} />
                         <span className="text-zinc-500">{isHome ? 'vs' : '@'}</span>
-                        <Flag code={opp?.code} />
-                        <span className="text-zinc-300">{opp?.short_name ?? opp?.code}</span>
+                        <OpponentLink teamId={opp?.id} className="flex items-center gap-2 hover:underline">
+                          <Flag code={opp?.code} />
+                          <span className="text-zinc-300">{opp?.short_name ?? opp?.code}</span>
+                        </OpponentLink>
                       </span>
                       <span className="mono text-xs font-bold text-zinc-200">{gf}–{ga}</span>
-                    </Link>
+                    </ClickableMatchRow>
                   </li>
                 )
               })}
@@ -276,20 +282,22 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
               const pct = (v: number) => `${Math.round(v * 100)}%`
               return (
                 <li key={m.id}>
-                  <Link
-                    href={`/matches/${m.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors"
+                  <ClickableMatchRow
+                    matchId={m.id}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 active:bg-zinc-800/60 transition-colors"
                   >
                     <span className="flex min-w-0 items-center gap-2 text-xs">
                       <span className="mono w-20 shrink-0 text-[10px] text-zinc-500">
                         {formatColDate(m.kickoff_time)}
                       </span>
                       <span className="text-zinc-500">{isHome ? 'vs' : '@'}</span>
-                      {opp?.logo_url
-                        ? /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={opp.logo_url} alt="" aria-hidden="true" loading="lazy" className="h-4 w-4 shrink-0 object-contain" />
-                        : <Flag code={opp?.code} />}
-                      <span className="truncate text-zinc-300">{opp?.short_name ?? opp?.code}</span>
+                      <OpponentLink teamId={opp?.id} className="flex min-w-0 items-center gap-2 hover:underline">
+                        {opp?.logo_url
+                          ? /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={opp.logo_url} alt="" aria-hidden="true" loading="lazy" className="h-4 w-4 shrink-0 object-contain" />
+                          : <Flag code={opp?.code} />}
+                        <span className="truncate text-zinc-300">{opp?.short_name ?? opp?.code}</span>
+                      </OpponentLink>
                       {m.status === 'postponed' && (
                         <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
                           Aplazado
@@ -307,7 +315,7 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
                     ) : (
                       <span className="shrink-0 text-[10px] text-zinc-600">Sin predicción</span>
                     )}
-                  </Link>
+                  </ClickableMatchRow>
                 </li>
               )
             })}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -9,8 +10,8 @@ export interface JornadaMatchView {
   id: string
   kickoff_time: string
   status: string
-  home: { name: string; logo_url: string | null }
-  away: { name: string; logo_url: string | null }
+  home: { id: string; name: string; logo_url: string | null }
+  away: { id: string; name: string; logo_url: string | null }
   home_score: number | null
   away_score: number | null
   prediction: {
@@ -29,13 +30,20 @@ export interface JornadaView {
 
 function TeamCell({ team, align }: { team: JornadaMatchView['home']; align: 'left' | 'right' }) {
   return (
-    <div className={cn('flex items-center gap-2 min-w-0', align === 'right' && 'flex-row-reverse')}>
+    <Link
+      href={`/equipos/${team.id}`}
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        'flex items-center gap-2 min-w-0 active:opacity-60',
+        align === 'right' && 'flex-row-reverse',
+      )}
+    >
       {team.logo_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={team.logo_url} alt="" className="h-5 w-5 shrink-0 object-contain" loading="lazy" />
       )}
-      <span className="truncate text-sm font-medium text-zinc-200">{team.name}</span>
-    </div>
+      <span className="truncate text-sm font-medium text-zinc-200 hover:underline">{team.name}</span>
+    </Link>
   )
 }
 
@@ -49,6 +57,7 @@ function favoriteOf(p: NonNullable<JornadaMatchView['prediction']>, m: JornadaMa
 }
 
 export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaView[]; initialRound: number }) {
+  const router = useRouter()
   const rounds = jornadas.map((j) => j.round)
   const [round, setRound] = useState(rounds.includes(initialRound) ? initialRound : rounds[0])
   const idx = rounds.indexOf(round)
@@ -95,11 +104,16 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
           const played = m.status === 'finished' && m.home_score !== null
           const p = m.prediction
           return (
-            // Todo partido es clicable: abre la vista de detalle completa
+            // Todo partido es clicable: abre la vista de detalle completa.
+            // Contenedor (no <a>): los nombres de equipo son SU PROPIO
+            // enlace al perfil, y un <a> no puede anidar otro <a>.
             <li key={m.id} className="group relative">
-              <Link
-                href={`/matches/${m.id}`}
-                className="block px-4 py-3 transition-colors hover:bg-zinc-800/40 focus-visible:bg-zinc-800/40 focus-visible:outline-none"
+              <div
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/matches/${m.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/matches/${m.id}`) }}
+                className="block cursor-pointer px-4 py-3 transition-colors hover:bg-zinc-800/40 active:bg-zinc-800/60 focus-visible:bg-zinc-800/40 focus-visible:outline-none"
               >
               {/* Filo de color: victoria/derrota del favorito, sutil, solo
                   visible en partidos ya resueltos — profundidad sin ruido. */}
@@ -146,7 +160,7 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
                   </span>
                 </div>
               )}
-              </Link>
+              </div>
             </li>
           )
         })}

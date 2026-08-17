@@ -112,16 +112,25 @@ export function MatchHeader({ match, competition, prediction }: Props) {
       <div className="px-6 py-8">
         <div className="flex items-center justify-center gap-6 md:gap-12">
 
-          {/* Home team */}
+          {/* Home team — el escudo y el nombre abren el perfil del equipo;
+              la estrella de favorito queda fuera del enlace, es su propio
+              control y no debe disparar la navegación al hacer clic. */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <TeamBadge team={match.home_team} />
+            {match.home_team?.id ? (
+              <Link href={`/equipos/${match.home_team.id}`} className="group flex flex-col items-center gap-2 transition-opacity hover:opacity-80">
+                <TeamBadge team={match.home_team} />
+                <p className="text-lg font-bold text-white group-hover:underline">{match.home_team?.name}</p>
+              </Link>
+            ) : (
+              <>
+                <TeamBadge team={match.home_team} />
+                <p className="text-lg font-bold text-white">{match.home_team?.name}</p>
+              </>
+            )}
             <div className="text-center">
-              <p className="flex items-center justify-center gap-1 text-lg font-bold text-white">
-                {match.home_team?.name}
-                {match.home_team?.id && (
-                  <FavoriteStar team={{ id: match.home_team.id, name: match.home_team.name, code: match.home_team.code }} />
-                )}
-              </p>
+              {match.home_team?.id && (
+                <FavoriteStar team={{ id: match.home_team.id, name: match.home_team.name, code: match.home_team.code }} />
+              )}
               <TeamCredential team={match.home_team} />
             </div>
           </div>
@@ -156,14 +165,21 @@ export function MatchHeader({ match, competition, prediction }: Props) {
 
           {/* Away team */}
           <div className="flex flex-col items-center gap-2 flex-1 max-w-[180px]">
-            <TeamBadge team={match.away_team} />
+            {match.away_team?.id ? (
+              <Link href={`/equipos/${match.away_team.id}`} className="group flex flex-col items-center gap-2 transition-opacity hover:opacity-80">
+                <TeamBadge team={match.away_team} />
+                <p className="text-lg font-bold text-white group-hover:underline">{match.away_team?.name}</p>
+              </Link>
+            ) : (
+              <>
+                <TeamBadge team={match.away_team} />
+                <p className="text-lg font-bold text-white">{match.away_team?.name}</p>
+              </>
+            )}
             <div className="text-center">
-              <p className="flex items-center justify-center gap-1 text-lg font-bold text-white">
-                {match.away_team?.name}
-                {match.away_team?.id && (
-                  <FavoriteStar team={{ id: match.away_team.id, name: match.away_team.name, code: match.away_team.code }} />
-                )}
-              </p>
+              {match.away_team?.id && (
+                <FavoriteStar team={{ id: match.away_team.id, name: match.away_team.name, code: match.away_team.code }} />
+              )}
               <TeamCredential team={match.away_team} />
             </div>
           </div>

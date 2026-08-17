@@ -144,16 +144,24 @@ function favoredSide(p: NonNullable<MatchRow['prediction']>, m: MatchRow) {
 }
 
 function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: string }) {
+  const router = useRouter()
   const p = m.prediction
   const showScore = m.status === 'finished' || m.status === 'live'
   const favored = p ? favoredSide(p, m) : null
   return (
     <li>
-      <Link
-        href={`/matches/${m.id}`}
+      {/* Contenedor (no <a>): la tarjeta entera navega al partido, pero el
+          nombre de cada equipo es SU PROPIO enlace al perfil — un <a> no
+          puede anidar otro <a>, por eso esto es un div con onClick en vez
+          del <Link> que envolvía toda la tarjeta antes. */}
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={() => router.push(`/matches/${m.id}`)}
+        onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/matches/${m.id}`) }}
         className={cn(
-          'group block rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-3.5',
-          'transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:shadow-lg active:translate-y-0',
+          'group block cursor-pointer rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-3.5',
+          'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-zinc-700 hover:shadow-lg active:translate-y-0 active:scale-[0.99] active:border-zinc-700',
           m.status === 'live' && 'border-red-500/30 bg-red-500/[0.03]',
         )}
       >
@@ -170,19 +178,27 @@ function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: stri
         </div>
 
         <div className="mt-2.5 flex items-center justify-between gap-2">
-          <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-zinc-100">
+          <Link
+            href={`/equipos/${m.home_team_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex min-w-0 items-center gap-2 text-sm font-bold text-zinc-100 active:opacity-60"
+          >
             <TeamMark team={m.home_team} />
-            <span className="truncate">{m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}</span>
-          </span>
+            <span className="truncate hover:underline">{m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}</span>
+          </Link>
           {showScore ? (
             <span className="mono shrink-0 text-lg font-black text-white">{m.home_score ?? '—'}<span className="mx-1 text-zinc-600">–</span>{m.away_score ?? '—'}</span>
           ) : (
             <span className="shrink-0 text-xs font-bold text-zinc-600">VS</span>
           )}
-          <span className="flex min-w-0 items-center justify-end gap-2 text-sm font-bold text-zinc-100">
-            <span className="truncate">{m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}</span>
+          <Link
+            href={`/equipos/${m.away_team_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex min-w-0 items-center justify-end gap-2 text-sm font-bold text-zinc-100 active:opacity-60"
+          >
+            <span className="truncate hover:underline">{m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}</span>
             <TeamMark team={m.away_team} />
-          </span>
+          </Link>
         </div>
 
         {p && favored ? (
@@ -231,7 +247,7 @@ function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: stri
             {coldStartNote(warmupOf(m))}
           </p>
         )}
-      </Link>
+      </div>
     </li>
   )
 }
@@ -280,13 +296,21 @@ function buildColumns(competitionNames: Map<string, string>): ColumnDef<MatchRow
         const m = row.original
         return (
           <div className="flex items-center gap-2 min-w-[100px]">
-            <TeamMark team={m.home_team} />
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-zinc-100">
-                {m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}
-              </span>
-              <TeamMeta team={m.home_team} />
-            </div>
+            {/* stopPropagation: la fila entera navega al partido (onClick del
+                <tr>); el nombre navega al equipo y no debe disparar los dos. */}
+            <Link
+              href={`/equipos/${m.home_team_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 hover:underline"
+            >
+              <TeamMark team={m.home_team} />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-zinc-100">
+                  {m.home_team?.short_name ?? m.home_team?.name ?? m.home_team?.code}
+                </span>
+                <TeamMeta team={m.home_team} />
+              </div>
+            </Link>
             {m.status === 'finished' || m.status === 'live' ? (
               <span className="mono text-sm font-bold text-white">{m.home_score ?? '—'}</span>
             ) : null}
@@ -305,13 +329,19 @@ function buildColumns(competitionNames: Map<string, string>): ColumnDef<MatchRow
             {m.status === 'finished' || m.status === 'live' ? (
               <span className="mono text-sm font-bold text-white">{m.away_score ?? '—'}</span>
             ) : null}
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-zinc-100">
-                {m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}
-              </span>
-              <TeamMeta team={m.away_team} />
-            </div>
-            <TeamMark team={m.away_team} />
+            <Link
+              href={`/equipos/${m.away_team_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 hover:underline"
+            >
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-zinc-100">
+                  {m.away_team?.short_name ?? m.away_team?.name ?? m.away_team?.code}
+                </span>
+                <TeamMeta team={m.away_team} />
+              </div>
+              <TeamMark team={m.away_team} />
+            </Link>
           </div>
         )
       },

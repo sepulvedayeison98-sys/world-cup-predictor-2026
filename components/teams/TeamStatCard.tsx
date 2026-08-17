@@ -38,7 +38,9 @@ export function TeamStatCard({ icon: Icon, label, value, accent = 'zinc', contex
     <div
       className={cn(
         'group relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-4',
-        'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+        // hover: sube y brilla en escritorio. active: el tacto no dispara
+        // hover, así que el móvil necesita su propia señal al tocar.
+        'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98] active:border-zinc-700',
         a.ring,
       )}
     >
