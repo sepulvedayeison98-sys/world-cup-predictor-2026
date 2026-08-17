@@ -1,329 +1,253 @@
 # HANDOFF — Veredicto · Inteligencia Deportiva
 
-> Documento de traspaso de sesión. Última actualización: **2026-07-17 (2ª sesión)**.
-> Para el contexto arquitectónico completo: `CLAUDE.md`, `CLAUDE_CONTEXT.md`,
-> `docs/TENNIS_ARCHITECTURE.md`. Para el histórico de entregas: `PROGRESS_REPORT.md`.
+> Documento de traspaso. **Última actualización: 2026-08-04.**
+> Pensado para retomar el proyecto en una sesión nueva sin leer el historial.
+>
+> Complementos: `CLAUDE.md` (reglas del repo) · `CLAUDE_CONTEXT.md` (contexto largo)
+> · `docs/TENNIS_ARCHITECTURE.md` (decisiones del dominio tenis, incluida la
+> ablación del motor) · `UX_AUDIT_REPORT.md` (auditoría de experiencia)
+> · `PROGRESS_REPORT.md` (bitácora de entregas).
 
 ---
 
-## 1. Objetivo
+## 1. Qué es y a dónde va
 
-Plataforma web pública multi-deporte de predicción e inteligencia deportiva
-(Next.js 15 + TypeScript + Tailwind + Supabase, sin autenticación), con tres
-dominios **estrictamente aislados**:
+Plataforma web pública de **predicción e inteligencia deportiva** (Next.js 15 +
+TypeScript + Tailwind + Supabase, sin autenticación, desplegada en Vercel).
 
-- **Fútbol** (Mundial 2026 + 5 grandes ligas) — CONGELADO, solo correcciones críticas.
-- **NBA** — completo (motor nba-1.0, hub, calibración).
-- **Tenis** — el frente activo: dominio completo con motor propio, medido con
-  backtest walk-forward honesto.
+Tres dominios **estrictamente aislados**: **Fútbol** · **NBA** · **Tenis**.
 
-Norte del proyecto (plan maestro vigente): posicionarse como producto de
-inteligencia deportiva de clase mundial (referencias: SofaScore, FlashScore,
-FotMob) con identidad propia: **predicción explicable, métricas medidas, cero
-datos fabricados**.
+El norte: competir con SofaScore/FlashScore desde una propuesta propia —
+**predicción explicable con métricas medidas y verificables**, no promesas.
 
-### Principios innegociables (aplican a TODO)
+### Reglas innegociables (aplican a todo)
 
-1. **Data First**: si la fuente no lo da, no existe en la UI. Nada se estima ni
-   se rellena; lo bloqueado se declara.
-2. **Medido, no prometido**: ningún cambio del motor se promueve sin backtest
-   comparativo pareado que lo justifique. Los rechazos se documentan.
-3. **Aislamiento de dominios**: barreras ESLint en las cuatro direcciones
-   (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Utilidades compartidas
-   → módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
-4. `npm run build` limpio antes de cada push. Migraciones numeradas
-   (siguiente: **055**) + actualizar `supabase/verify_migrations.sql`.
-5. Secretos jamás en el repo ni en el chat (`.env.local` está gitignoreado).
+1. **Data First** — si la fuente no lo da, no existe en la UI. Nada se estima
+   ni se rellena; lo bloqueado se declara abiertamente.
+2. **Medido, no prometido** — ningún cambio del motor se promueve sin backtest
+   comparativo que lo justifique. **Los rechazos se documentan** (hay tres).
+3. **Aislamiento de dominios** — barreras ESLint en las cuatro direcciones
+   (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
+   módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
+4. **Gates antes de cada push** — `type-check`, `test`, `lint`, `build`.
+5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **057**) +
+   registrar el chequeo en `supabase/verify_migrations.sql`.
+6. **Secretos jamás en el repo ni en el chat.** `.env.local` está gitignoreado.
 
 ---
 
-## 2. Estado actual (qué hay en producción)
+## 2. Estado actual (verificado contra la BD el 2026-08-04)
 
-Prod: `https://world-cup-predictor-2026-flax.vercel.app` · Rama de trabajo:
-`claude/page-data-refresh-63yioa` (se mantiene en FF-sync con `main`; ambas
-apuntan al mismo commit tras cada entrega).
+Producción: `https://world-cup-predictor-2026-flax.vercel.app`
+Rama de trabajo: `claude/page-data-refresh-63yioa` (se mantiene en FF-sync con
+`main`; ambas apuntan al mismo commit tras cada entrega).
+Último commit: `510bf9b`.
 
-### Dominio Tenis — TODO desplegado y verificado en vivo
+### Métricas del motor (reales, sin truncar)
 
-| Pieza | Estado |
+| Dominio | Predicciones resueltas | Precisión | Línea base |
+|---|---|---|---|
+| **Ligas de fútbol** | 2.058 | **50,5 %** | azar 33 % |
+| **NBA** | 1.302 | **65,3 %** | azar 50 % |
+| **Tenis ATP** (backtest) | 5.556 | **64,0 %** | azar 50 % · **bate al ranking** |
+| Mundial 2026 *(histórico)* | 91 | 83,5 % | azar 33 % |
+
+### Competiciones
+
+- **Fútbol: 14 competiciones, 6 activas.** Seis ligas en temporada en curso
+  (Premier, La Liga, Serie A, Bundesliga, Ligue 1 en **2026-27**; Liga BetPlay
+  en **2026**) + sus seis temporadas 2024-25/2024 como histórico + Mundial 2026
+  y Amistosos, ambos ya inactivos.
+- **1.820 partidos próximos, todos con predicción.**
+- **NBA:** temporada 2024-25 (la actual está bloqueada, ver §6).
+- **Tenis:** 581 jugadores · 5.676 partidos · 11 corridas de backtest.
+
+---
+
+## 3. Arquitectura
+
+### Dominios (patrón App Router, replicado por deporte)
+
+```
+lib/<dominio>/       motores y lógica pura (sin I/O)
+services/<dominio>/  acceso a datos y sincronización
+app/<dominio>/       páginas
+components/<dominio>/ componentes
+app/api/<dominio>/   endpoints
+```
+
+Barreras en `.eslintrc.json` (`no-restricted-imports`), verificadas con tests
+negativos. Punto de integración neutral: **`lib/sports.ts`**.
+
+### Modelo de temporadas (decisión clave, 2026-08)
+
+Cada par **(liga, temporada)** es su propia fila en `competitions`. Antes había
+una fila por liga con la temporada como etiqueta; al llegar 2026-27 eso habría
+mezclado dos campañas en la misma tabla (el constraint
+`(competition_id, match_number)` lo impidió — hizo su trabajo).
+
+- `LEAGUE_SEASON_COMPETITIONS` (liga → temporada → id) es la **fuente única**.
+- `LEAGUE_COMPETITION_IDS` = **la temporada en curso** (lo que consumen páginas,
+  ingesta y calibración).
+- `ALL_LEAGUE_COMPETITION_IDS` / `leagueAllCompetitionIds()` = todas las
+  temporadas (backtest y listas blancas).
+- UUID determinista: `{apiFootballId}{año}-0000-4000-8000-{apiFootballId}`.
+- Etiqueta: europeas `"2026-27"`, año calendario (Colombia) `"2026"`.
+
+**Añadir una temporada** = una entrada en `LEAGUE_SEASON_COMPETITIONS` +
+migración que inserte la fila + ingesta + calibración.
+
+### Estados de competición (`lib/sports.ts`)
+
+| Estado | Significado |
 |---|---|
-| Datos ATP 2024-2026 (TML-Database, esquema Sackmann) | ✅ 581 jugadores · 362 torneos · 5.676 partidos · 11.352 stats (cobertura saque/resto **100 %**) · 6.508 rankings observados |
-| **Motor `tennis-2.0` (PRODUCCIÓN)** | ✅ **64,00 % precisión · Brier 0,4375 · log-loss 0,6264 — BATE al ranking puro (64,26 % vs 64,19 %) por primera vez** |
-| Hub `/tennis` + `/tennis/ranking` + `/tennis/jugadores/[id]` + `/tennis/partidos` (+`[id]` detalle) + `/tennis/h2h` + `/tennis/inteligencia` | ✅ todas 200 en prod, datos reales |
-| Registro (`lib/sports.ts`) | ✅ ATP `activa` (sidebar con icono propio); WTA `proximamente` (sin fuente, declarado) |
-| **Monte Carlo de mercados** (`lib/tennis/monteCarlo.ts`) | ✅ punto→juego→set→partido con % reales de saque/resto; calibrado contra frecuencias reales (σ=0,065: 2-0 64,11 % vs 63,96 % real); UI en `/tennis/h2h` (`MarketsPanel`) |
-| **serveReturn cableado a UI** | ✅ índices 0-100 en perfil de jugador (sección "Saque y devolución") y detalle de partido |
-| **Re-validación anti-overfitting** | ✅ split temporal 2020-2026 desde CSVs TML (16.270 partidos): la ventaja Brier/log-loss del 2.0 replica out-of-sample — sin overfitting; 2.0 se mantiene. Ver `TENNIS_ARCHITECTURE.md` |
-| **Buscador global + dashboard raíz** | ✅ tenistas en `/api/search` y en el overlay; franja "Tenis · ATP" (top ranking + precisión del motor) en `/dashboard` |
-| Pruebas | ✅ **148/148** (`npm test`, +7 de Monte Carlo) · lint 0 errores · e2e del dominio tenis en `e2e/tennis.spec.ts` |
+| `activa` | Se está jugando: va en la navegación principal |
+| `proximamente` | Prometida, sin datos: se muestra como promesa, sin enlace |
+| `historica` | Terminada: **fuera de la nav, datos conservados** (Mundial 2026) |
 
-### Historial del motor de tenis (todo medido walk-forward, sin fuga)
+`competitionIdsOfSport()` incluye activas **e** históricas: responde "¿qué es
+este deporte?" (barrera de seguridad), no "¿qué se muestra".
+
+---
+
+## 4. Motores: historial completo (todo medido walk-forward)
+
+### Tenis — `tennis-2.0` en producción
 
 | Versión | Cambio | Resultado | Decisión |
 |---|---|---|---|
-| tennis-1.0 | base (ELO 1500 + factores 35/25/20/10/10) | 63,75 % / 0,4420 | superada |
-| tennis-1.1 | + siembra ELO por ranking (cold-start) | 63,95 % / 0,4400 | superada |
-| tennis-1.2 | mapeo logElo del ranking | 63,43 % / 0,4427 — **peor** | **RECHAZADA** |
-| 2.0 espec original | superficie 30 % dominante + fatiga | 62,89 % / 0,4500 — **peor** | **RECHAZADA** |
-| **tennis-2.0 final** | ancla rankingElo 40 % + superficie 15 % (respaldo jerárquico) + forma 15 % + **saque/devolución 15 %** + H2H 10 % + mercado 5 % (renormaliza) | **64,00 % / 0,4375** | **PRODUCCIÓN** |
+| 1.0 | base (ELO 1500, factores 35/25/20/10/10) | 63,75 % / 0,4420 | superada |
+| 1.1 | + siembra de ELO por ranking | 63,95 % / 0,4400 | superada |
+| 1.2 | mapeo logElo del ranking | 63,43 % — **peor** | ❌ **rechazada** |
+| 2.0 espec. original | superficie 30 % + fatiga | 62,89 % — **peor** | ❌ **rechazada** |
+| **2.0 final** | rankingElo 40 % · superficie 15 % · forma 15 % · **saque/resto 15 %** · H2H 10 % | **64,00 % / 0,4375** | ✅ **producción** |
 
-La composición final salió de una **ablación pareada** (una pasada, mismo
-estado, variantes simultáneas) con **regla de promoción pre-declarada**:
-batir a 1.1 en las 3 métricas globales Y en Brier de ventana tardía
-(≥2025-07-01). Los variants `tennis-1.0/1.1/1.2` siguen reproducibles vía
-`?step=backtest&variant=…`.
+Elegida por **ablación pareada** con regla de promoción **pre-declarada**
+(batir a 1.1 en las 3 métricas globales **y** en Brier de ventana tardía).
+Por primera vez **supera al ranking puro** (64,26 % vs 64,19 %).
+Advertencia honesta documentada: selección in-sample entre pocas variantes.
 
----
+**Fatiga excluida**: el proxy con granularidad "fecha de inicio de torneo"
+midió **dañino**. `lib/tennis/fatigue.ts` queda como módulo puro para cuando
+la fuente tenga fechas/minutos por partido (TML sí publica `minutes`).
 
-## 3. Archivos en los que se está trabajando (mapa del dominio tenis)
-
-### Motor y lógica pura (`lib/tennis/`)
-- `constants.ts` — ids, `TENNIS_MODEL_VERSION='tennis-2.0'`, `TENNIS_WEIGHTS`
-  (1.x), **`TENNIS2_WEIGHTS`** (2.0 final), `TENNIS_ENGINE_CONFIG` (mapa
-  versión→config, fuente única).
-- `engine.ts` — motor 1.x: ELO walk-forward (K=32, siembra `rankToSeedElo`),
-  `sortChronologically`, `formLog5` (exportada), `extractFactors`,
-  `predictTennisMatch`.
-- **`engine2.ts`** — motor 2.0: `TennisWalkState2` (envuelve el walk-state 1.1
-  + acumulador saque/devolución), `extractFactors2`, `predictTennisMatch2`,
-  `K_SERVE_RETURN=2.7`, `SR_MIN_MATCHES=3`.
-- `serveReturn.ts` — perfil saque/devolución 0-100 (`SR_ANCHORS` a priori);
-  **aún sin cablear a la UI** (siguiente paso).
-- `fatigue.ts` — proxy de frescura; **EXCLUIDO del motor** (medido dañino con
-  granularidad fecha-de-torneo). Queda como módulo puro para cuando la fuente
-  tenga fechas/minutos por partido.
-- `stats.ts` — stats de jugador (Win%, Hold%, Break%, superficie, forma).
-- `types.ts` — espejo tipado del schema `tennis_*`.
-
-### Servicios (`services/tennis/`)
-- `backtest.ts` — walk-forward 1.x y 2.0 (camino `useEngine2`), persiste en
-  `tennis_backtests` + `tennis_model_metrics`, baseline "gana el mejor
-  clasificado" sobre el mismo subconjunto.
-- `queries.ts` — capa de lectura anon/ISR: hub, **ranking honesto**
-  (`buildLatestRanking`: última posición conocida POR JUGADOR — ver §5),
-  perfil, resultados, H2H, detalle de partido.
-- `sackmann.ts` — ingesta TML (idempotente, paginada, dedupe).
-- `contracts.ts` — contratos de sync.
-
-### UI (`app/tennis/` + `components/tennis/`)
-- Páginas: `page.tsx` (hub), `ranking/`, `jugadores/[id]/`, `partidos/` +
-  `partidos/[id]/`, `h2h/`, `inteligencia/`.
-- Componentes: `RankingTable`, `ResultsList`, `H2HPicker`, `ui.tsx` (átomos;
-  acento lima `#a3e635`).
-- API: `app/api/tennis/sync/route.ts` — `step=matches|validate|backtest`
-  (+`variant=`), protegida con `CRON_SECRET`.
-
-### Pruebas (`tests/`)
-`tennisEngine.test.ts` (18) · `tennisEngine2.test.ts` (7) ·
-`tennisServeReturn.test.ts` (3) · `tennisFatigue.test.ts` (5) ·
-`tennisStats.test.ts` (6) · `tennisSackmann.test.ts` · `sports.test.ts`
-(aislamiento) · resto de dominios. Total **141**.
+### Fútbol — `liga-1.0` · NBA — `nba-1.0`
+Estables. Football está **congelado** salvo correcciones críticas.
 
 ---
 
-## 4. Qué ha cambiado (últimas entregas, más reciente primero)
+## 5. Accesos (dónde viven; **nunca** en el repo)
 
-0. **Sesión 2026-07-17 (2ª) — plan §6 ejecutado** (rama
-   `claude/handoff-action-plan-splrmy`):
-   - **Monte Carlo de mercados** (§6.1): `lib/tennis/monteCarlo.ts` +
-     `MarketsPanel` en `/tennis/h2h` + 7 tests. Validado y CALIBRADO contra
-     frecuencias reales (`PERFORMANCE_SIGMA=0,065`, medido; el iid puro
-     sesgaba 2-0 en −9 pp). Media de resto del circuito medida: 0,3594.
-   - **serveReturn → UI** (§6.2): índices 0-100 en perfil y detalle de partido.
-   - **Re-validación anti-overfitting** (§6.3): hecha LOCALMENTE desde CSVs
-     TML 2020-2026 (sin tocar la BD): Brier/log-loss del 2.0 mejoran a 1.1
-     también out-of-sample (0,4299/0,6177 vs 0,4319/0,6201 en 2020-23);
-     precisión empatada dentro del ruido. 2.0 se mantiene. La INGESTA de
-     2020-2023 a la BD viva sigue pendiente (requiere service key — abajo).
-   - **Backlog menor** (§6.6): tenistas en el buscador global
-     (`/api/search` + overlay), franja "Tenis · ATP" en `/dashboard`,
-     e2e Playwright del dominio (`e2e/tennis.spec.ts`), nota del registro
-     actualizada a `tennis-2.0`.
-   - Hallazgo de fuente: TML publica **`minutes` por partido** → la fatiga
-     2.0 con carga por minutos es reintenable (sigue faltando la fecha
-     exacta por partido).
-0b. **Auditoría UX/UI integral** (2026-07-17) — ver `UX_AUDIT_REPORT.md`.
-   14 mejoras verificadas en navegador real. Lo crítico: no existía
-   `prefers-reduced-motion` (WCAG 2.3.3); el texto tenue daba 2,6:1 de
-   contraste en 615 usos (corregido en una capa CSS → 4,54:1/5,45:1/7,76:1);
-   no había salto al contenido; 16 páginas y el manifest firmaban como
-   "World Cup Predictor" (marca previa al multi-deporte); tenis faltaba en
-   el breadcrumb; el dashboard anunciaba "tennis-1.0" con 2.0 en producción.
-   Además: cabecera fija en la tabla de 509 filas, esqueletos de carga en
-   tenis, y encabezado "Pos. ATP" para que el ranking honesto deje de
-   parecer roto. **Football solo recibió atributos ARIA y textos de marca.**
+| Secreto | Dónde | Notas |
+|---|---|---|
+| `SPORTS_API_KEY` | Vercel + `.env.local` | api-sports.io, **plan Pro** hasta 17-sep-2026, 7.500 req/día |
+| `FOOTBALL_API_SEASON` | Vercel (`2026`) | Único knob para cambiar de temporada |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel + `.env.local` | Recuperable vía API de gestión de Supabase |
+| `NEXT_PUBLIC_SUPABASE_*` | Vercel + `.env.local` | Públicas |
+| `CRON_SECRET` | Vercel + `.env.local` | Protege todos los `/api/sync/*` |
 
-1. **tennis-2.0 a producción** (2026-07-17): módulos `serveReturn`/`fatigue`,
-   `engine2`, ablación, promoción. Docs con la historia completa.
-2. **Detalle de partido** `/tennis/partidos/[id]` + enlaces desde resultados.
-3. **tennis-1.2 escrito** (quedó pendiente de medición por pérdida de
-   secretos; hoy medido y **rechazado**).
-4. **Fix ranking honesto**: `tennis_rankings` NO es foto semanal — son
-   observaciones por partido. El board pasó de "los 4 que jugaron la última
-   fecha" a **última posición conocida por jugador** (510 filas).
-5. **Fase 6**: `/tennis/partidos` (filtro superficie + paginación) y
-   `/tennis/h2h`.
-6. **Fase 8**: hub + ranking + perfiles + inteligencia + flip ATP a `activa`.
-7. **tennis-1.1** (cold-start) promovida; luego superada por 2.0.
+- Supabase project: `jruanwjjsygcmmvwxexh` · Vercel: `world-cup-predictor-2026`
+  (equipo `kodrefe-s-projects`, **plan Hobby** → funciones máx. **60 s**).
+- **El contenedor efímero borra `.env.local` y `node_modules` sin avisar.** Ya
+  pasó tres veces. Si falta: `npm ci` y recuperar las claves de Supabase con el
+  token de gestión (`/v1/projects/{ref}/api-keys?reveal=true`).
 
 ---
 
-## 5. Qué ha fallado y qué se intentó (lecciones — NO repetir)
+## 6. Bloqueado por fuente de datos (**no fabricar**)
 
-### Experimentos del motor rechazados con números
-- **tennis-1.2 (logElo del ranking)**: hipótesis razonable ("ratio mal
-  calibrado en extremos"), midió PEOR en las 3 métricas. Lección: el ratio
-  crudo `rank2/(rank1+rank2)` es empíricamente fuerte como factor.
-- **2.0 espec original (superficie 30 % dominante)**: el ELO por superficie
-  solo es más ruidoso que el ancla ranking+ELO. La jerarquía con respaldo
-  (superficie→global→ranking) como factor SECUNDARIO (15 %) sí funciona.
-- **Fatiga (proxy fecha-de-torneo)**: dañina. `scheduled_at` es la fecha de
-  INICIO del torneo (todas las rondas comparten fecha) — sin minutos por
-  partido no hay señal de carga útil. No reintroducir sin mejores datos.
-
-### Fallos operativos y sus fixes
-- **Reinicio del contenedor efímero** a mitad de sesión: borró `node_modules`
-  (→ `npm ci`) y **`.env.local`** (→ el usuario restauró las claves Supabase;
-  **`CRON_SECRET` sigue SIN restaurar** — "no se dejaba ver" en Vercel).
-  *Workaround activo*: los backtests se corren LOCALMENTE con la service key
-  (`npx tsx` + cargar `.env.local` a `process.env`), sin pasar por el endpoint.
-- **Tope de 1000 filas de PostgREST**: mordió dos veces (stats de ingesta, y
-  la auditoría de cobertura que primero dio "9 %" cuando era 100 %). SIEMPRE
-  paginar con `.order().range()` o `fetchAllRows`.
-- **Ranking engañoso** (ver §4.4): "última fecha" ≠ "ranking actual" en una
-  fuente por-partido. Captions de UI lo declaran.
-- **Smokes con regex ingenuos**: React inserta `<!-- -->` entre texto estático
-  y dinámico (`ATP #<!-- -->5`) — hubo una falsa alarma de "rank ausente".
-  Limpiar comentarios HTML antes de hacer match.
-- **tsx en CJS**: no admite top-level await en scripts sueltos — envolver en
-  `async function main()`.
-- **Un commit entró directo a `main`** por un checkout olvidado; se detectó y
-  se re-sincronizó la rama. Verificar `git branch --show-current` antes de
-  commitear.
-
-### Bloqueado por falta de fuente (NO fabricar)
-- **Cuotas de tenis / EV / Smart Bets tenis (Fase 9)**: requiere API de pago
-  (api-sports no cubre tenis). **Decisión de compra del dueño pendiente.**
-- **WTA / Challenger / ITF**: sin fuente verificable en TML-Database.
-- **Lesiones, clima, minutos jugados, indoor**: la fuente no los trae.
-- **Próximos partidos de TENIS**: TML-Database es histórico (resultados ya
-  jugados), no publica sorteos/fixtures. Para "próximos partidos" reales
-  hace falta OTRO proveedor de calendario. Comparativa hecha (sesión
-  2026-07-19): **tennis-api.com (matchstat)** es la candidata recomendada
-  — free tier 50 req/día, Pro US$29/mes, cubre ATP+WTA+ITF+Challenger con
-  fixtures/draws (desbloquearía WTA de paso). Alternativas: api-tennis.com
-  (solo trial, desde US$40), Sportradar/SportsDataIO (más robustas, sin
-  precio público — hablar con ventas). Mantener TML para histórico/motor.
-  **Decisión de fuente/compra del dueño pendiente.**
-
-### Próximos partidos de NBA — resuelto en código (sesión 2026-07-19)
-No era falta de fuente: API-Basketball (api-sports.io, misma clave que
-fútbol) SÍ trae partidos `NS`/scheduled. El gap era de config:
-`NBA_API_SEASON` estaba fijo en `2024-2025` y el ingest no estaba en cron.
-**Arreglado**: `currentNbaSeason()` sigue el calendario (override por env
-`NBA_API_SEASON`), ventanas de fecha del ingest derivadas del año, y
-`/api/sync/nba/ingest` + `/api/sync/nba/calibrate` añadidos al cron de
-Vercel (05:00 y 05:30). Se activa al restaurar `CRON_SECRET`. **Nota real**:
-no habrá "próximos partidos" NBA hasta que la liga publique el calendario
-2026-27 (~mediados de agosto); hasta entonces la vitrina vacía es honesta,
-no un bug. Para adelantarlo cuando salga, setear env `NBA_API_SEASON=2026-2027`.
-
-### Próximos partidos de FÚTBOL (5 ligas) — bloqueado por plan de pago
-Verificado (sesión 2026-07-19): las 5 ligas tienen SOLO la temporada
-2024-25 completa (Premier/LaLiga/SerieA 380/380, Bundesliga/Ligue1 308/308),
-último partido may-2025. Falta la 2025-26 (ya jugada) y la 2026-27. **No es
-bug de código sino límite del plan Free de API-Football (solo hasta 2024)** —
-subir el número de temporada sin plan de pago hace que la API devuelva 0.
-**Dejado listo (código, no bloqueante)**: `DEFAULT_SEASON` ahora se controla
-con la env `FOOTBALL_API_SEASON` y existe `currentFootballSeason()` (+ test).
-Tras contratar el upgrade (~19 USD/mes, ya en el roadmap), el flujo es:
-1) poner `FOOTBALL_API_SEASON=2026` en Vercel; 2) llamar una vez
-`/api/sync/leagues/ingest` (opcional `?season=2025` para backfillear la
-campaña ya jugada). La ingesta de ligas queda manual/on-demand a propósito
-(no en cron: los fixtures no cambian a diario y en Free malgastaría cuota).
-Recomendable añadir un cron semanal de `/api/sync/leagues/ingest` SOLO ya
-con el plan de pago.
-
-### Mundial → retrospectiva + goleadores (sesión 2026-07-19)
-El Mundial 2026 **terminó** (103/104 finished, la final fue el 19-jul). Se
-convirtió el hub a registro histórico: **eliminados** el Simulador what-if
-(ruta `/simulation` + tile + `TournamentPathTracker` "avance por etapas"),
-las proyecciones de goleadores y el KPI forward "Favorito al título"
-(→ "Favorito del modelo"). Campeón muestra ahora **campeón real vs lo que
-daba el modelo** (banner solo si la final está resuelta en BD). Goleadores
-es tabla FINAL sin proyección.
-**Hallazgo de datos (goleadores desactualizados)**: NO existe sync de
-`player_statistics` — se pobló A MANO vía migración `026_wc2026_players_scorers.sql`
-con datos "al 23-jun-2026 (jornada 2)". El sync de ESPN (`espn-stats.ts`)
-solo escribe `match_statistics` (nivel equipo), nunca goles por jugador. La
-UI ahora declara honestamente "datos a la última actualización". **Arreglo
-real (backlog)**: cablear una fuente de stats por jugador (ESPN summary
-scoring plays, o api-football player-stats en plan pago) o re-seed manual
-verificado — no se fabrican cifras finales (conocimiento < resultado real).
-
-### Próximo (pendiente, decisión del dueño): reforma KPIs cross-deporte + UX
-El usuario pidió (2026-07-19) revisar qué KPIs/pestañas sirven para
-ligas/NBA/tenis, estandarizar los útiles y trabajar la experiencia. Alcance
-acordado: **poda del Mundial primero (HECHO)**; la reforma cross-deporte +
-UX queda para un pase aparte. Patrón clave a estandarizar en los 3 deportes:
-página "precisión/calibración del motor" (existe en los tres), tarjeta de
-predicción de partido, tabla de ranking, y franja de próximos partidos
-(bloqueada por datos en fútbol/NBA hoy).
+| Qué | Por qué | Para desbloquear |
+|---|---|---|
+| **NBA temporada actual** | `api-basketball` sigue en plan **Free** (2022-2024) | Contratar **api-basketball aparte** — el Pro de fútbol **NO** lo cubre (verificado) |
+| **Cuotas de tenis / Smart Bets tenis** | api-sports no cubre tenis | Comprar fuente (API-Tennis, Sportradar, Tennis-Data) |
+| **WTA / Challenger / ITF** | Sin fuente verificable | Encontrar fuente |
+| Lesiones, clima, minutos, "indoor" | La fuente no los trae | — |
 
 ---
 
-## 6. Qué se planea hacer (en orden recomendado)
-
-1. ✅ **HECHO (2ª sesión 2026-07-17) — Monte Carlo de mercados**: módulo puro
-   + 7 tests + validación/calibración contra frecuencias reales + UI en H2H.
-2. ✅ **HECHO — `serveReturn.ts` cableado a la UI** (perfil + detalle).
-3. ✅ **HECHO (validación) / ⏳ PENDIENTE (ingesta)** — re-validación
-   anti-overfitting con split temporal 2020-2026 desde CSVs TML: 2.0 sin
-   señal de overfitting, se mantiene. La ingesta de 2020-2023 a la BD viva
-   sigue pendiente: requiere service key o `CRON_SECRET` (punto 4). Al
-   ingestarse, re-correr el backtest remoto (los números cambiarán a los de
-   la tabla de `TENNIS_ARCHITECTURE.md` §re-validación).
-4. **Restaurar `CRON_SECRET`** (acción del dueño en Vercel → env vars) para
-   reactivar el endpoint remoto de backtest/sync — y con él, la ingesta
-   2020-2023 (`?step=matches&year=…` por temporada).
-5. **Fase 9 Smart Bets tenis**: al confirmarse fuente de cuotas (candidatas:
-   API-Tennis, Sportradar, Tennis-Data). El schema (`tennis_smart_bets`,
-   mercados moneyline/over-under/handicap) ya existe en migración 053. El
-   Monte Carlo ya publica las probabilidades; con cuotas se calcula EV.
-6. ✅ **HECHO — backlog menor**: buscador global con tenistas; franja de
-   tenis en dashboard raíz; e2e Playwright del dominio. Queda: fatiga 2.0
-   (TML trae `minutes` por partido — reintenable con carga por minutos,
-   pero sigue sin fecha exacta por partido); WTA (sin fuente).
-
----
-
-## 7. Cómo operar (recetario de la sesión)
+## 7. Operativa
 
 ```bash
-# Gates (correr SIEMPRE antes de push)
+# Gates (SIEMPRE antes de push)
 npm run type-check && npm test && npm run lint
 NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt npm run build
 
-# E2E (sandbox)
+# E2E
 NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt \
   PW_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npx playwright test
 
-# Backtest local (sin CRON_SECRET; usa service key de .env.local)
-# — script efímero que carga .env.local a process.env e importa
-#   runTennisBacktest('ATP', { modelVersion: 'tennis-2.0' }) con npx tsx.
-#   Ver PROGRESS_REPORT 2026-07-17. Borrar el script tras usarlo.
-
-# Flujo de entrega (2ª sesión 2026-07-17: se trabajó en la rama
-# claude/handoff-action-plan-splrmy por mandato de la sesión remota;
-# el merge a main queda a criterio del dueño)
-git branch --show-current   # debe ser claude/page-data-refresh-63yioa
-# commit → push rama → checkout main → merge --ff-only → push main → volver a la rama
-# después: smoke de las URLs públicas en prod (esperar ~1-2 min el deploy)
+# Entrega: commit → push rama → checkout main → merge --ff-only → push main → volver
+# Después: esperar el deploy y hacer smoke de las URLs públicas.
 ```
 
-- `.env.local` actual: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY` (restauradas 2026-07-17). **Falta `CRON_SECRET`.**
-- Supabase project: `jruanwjjsygcmmvwxexh` · Vercel prod:
-  `world-cup-predictor-2026-flax.vercel.app`.
-- El detalle fino de decisiones del dominio tenis vive en
-  `docs/TENNIS_ARCHITECTURE.md` (incluye la ablación completa del motor).
+### Endpoints (todos con `Authorization: Bearer <CRON_SECRET>`)
+
+```
+GET /api/sync/leagues?probe=<apiFootballId>&seasons=2025,2026   # sonda de cobertura
+GET /api/sync/leagues/ingest?season=2026&league=liga_betplay    # 2 req por liga
+GET /api/sync/leagues/calibrate?league=premier_league           # acotar o da 504
+GET /api/tennis/sync?step=backtest&variant=tennis-2.0           # variants 1.0/1.1/1.2
+GET /api/sync/smart-bets                                        # ~160 s (ver §8)
+```
+
+**Regla de oro:** acotar siempre por liga. Cada liga cuesta 2 peticiones; correr
+las seis a ciegas en bucle **agota la cuota diaria** (ya pasó).
+
+---
+
+## 8. Trampas conocidas (no repetir)
+
+1. **Tope de 1.000 filas de PostgREST.** Ha mordido **cuatro veces**, la última
+   falseando las precisiones del dashboard (mostraba `518/1000` cuando lo real
+   era `1.039/2.058`). Si ves un número redondo terminado en `/1000`, es esto.
+   → Usar `count: 'exact', head: true` o `fetchAllRows`.
+2. **Límite de 60 s en Vercel Hobby.** No ampliable. Toda operación masiva debe
+   ser acotable por parámetro.
+3. **`syncSmartBetTracking` tarda ~160 s** → desacoplado de la calibración; su
+   endpoint propio **fallará solo** hasta que se optimice. *(Pendiente real.)*
+4. **React inserta `<!-- -->`** entre texto estático y dinámico (`ATP #<!-- -->5`).
+   Ha causado **dos falsas alarmas** en smokes. Limpiar comentarios antes del match.
+5. **`tsx` en scripts sueltos no admite top-level await** → envolver en `main()`.
+6. **Verificar la rama antes de commitear** (`git branch --show-current`): un
+   commit se fue directo a `main` por un checkout olvidado.
+7. **Ranking de tenis**: `tennis_rankings` **no** es foto semanal, son
+   observaciones por partido. "La última fecha" ≠ "el ranking actual".
+
+---
+
+## 9. Pendientes priorizados
+
+### Sin bloqueo (se puede hacer ya)
+1. **Optimizar `syncSmartBetTracking`** (~160 s → debe caber en 60 s). El más
+   urgente: hoy ese endpoint no puede completarse.
+2. **Borrar `TournamentPathTracker`** — componente huérfano (0 usos).
+3. **`is_active` en BD**: NBA y ATP están en `false` aunque el registro los
+   trata como activos. Cosmético (la nav usa `lib/sports.ts`), pero conviene
+   alinear.
+4. **Validación anti-overfitting de tenis-2.0**: ingestar 2020-2023 a la BD y
+   re-validar con split temporal real.
+5. **Revisar los 343 usos de `text-[10px]`** (bajo el mínimo recomendado).
+6. **`axe-core` en CI** para que la accesibilidad no vuelva a degradarse.
+
+### Requieren decisión o compra
+7. **api-basketball Pro** → NBA temporada actual.
+8. **Fuente de cuotas de tenis** → Fase 9 (Smart Bets tenis; el schema ya existe).
+9. **¿Borrar el Mundial de verdad?** Hoy está archivado (datos intactos). Si se
+   borra se pierden 91 predicciones resueltas al 83,5 % — el mejor historial
+   del motor. **Recomendación: no borrarlo.**
+
+---
+
+## 10. Cómo retomar en un chat nuevo
+
+Pega esto como primer mensaje:
+
+> Proyecto **Veredicto · Inteligencia Deportiva** (`world-cup-predictor-2026`).
+> Lee `HANDOFF.md` en la raíz: tiene objetivo, estado verificado, arquitectura,
+> historial de motores, accesos, trampas conocidas y pendientes priorizados.
+> Trabaja en la rama `claude/page-data-refresh-63yioa` y respeta las reglas
+> innegociables de la §1 (Data First; medido, no prometido; aislamiento de
+> dominios; gates antes de cada push).
+> Empieza por: **\<tu tarea\>**.
+
+Si `.env.local` o `node_modules` no existen (el contenedor los borra), ver §5.
