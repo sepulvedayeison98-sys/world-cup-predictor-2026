@@ -372,14 +372,17 @@ export default async function MatchDetailPage({ params }: Props) {
           marcadores de la probabilidad justa de Pinnacle. Solo fútbol con
           cuotas 1X2; se auto-oculta si no hay mercado. */}
       {isFootball && mvm && marketImplied && (
-        <section aria-label="Modelo vs mercado" className="card p-4">
+        <section
+          aria-label="Modelo vs mercado"
+          className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-4"
+        >
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white">Modelo vs Mercado</h3>
             <span className={cn(
-              'rounded px-2 py-0.5 text-[11px] font-bold',
-              mvm.edge > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : mvm.edge < 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-              : 'bg-zinc-800 text-zinc-400',
+              'rounded-md px-2 py-0.5 text-[11px] font-bold border',
+              mvm.edge > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : mvm.edge < 0 ? 'bg-red-500/10 text-red-400 border-red-500/20'
+              : 'bg-zinc-800 text-zinc-400 border-zinc-700',
             )}>
               {mvm.pickLabel}: {mvm.edge > 0 ? '+' : ''}{mvm.edge}pp vs mercado
             </span>

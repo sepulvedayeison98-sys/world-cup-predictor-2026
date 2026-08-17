@@ -134,11 +134,13 @@ function TeamPowerComparison({ match, homeGroupCtx, awayGroupCtx, homeFormStats,
   const aGA = aPlayed > 0 ? awayGroupCtx!.goalsAgainst / aPlayed : (awayFormStats?.avg_goals_conceded ?? null)
 
   return (
-    <div className="card p-4 space-y-4">
+    <div className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-900/40 p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <Swords className="h-4 w-4 text-violet-400" />
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-500/10">
+            <Swords className="h-3.5 w-3.5 text-violet-400" />
+          </span>
           <h3 className="text-sm font-semibold text-white">Comparación de Equipos</h3>
         </div>
         <div className="flex items-center gap-3 text-[11px]">
@@ -308,7 +310,7 @@ export function MatchAnalysisTabs({
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex border-b border-zinc-800 overflow-x-auto">
+      <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-1.5">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon
           const isActive = active === tab.id
@@ -316,11 +318,13 @@ export function MatchAnalysisTabs({
             <button
               key={tab.id}
               onClick={() => setActive(tab.id)}
+              aria-current={isActive}
               className={cn(
-                'flex shrink-0 items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
+                'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium',
+                'transition-all duration-200 ease-out active:scale-95',
                 isActive
-                  ? 'border-emerald-500 text-emerald-400'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                  ? 'bg-emerald-500/15 text-emerald-400 shadow-sm shadow-emerald-500/10'
+                  : 'text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300'
               )}
             >
               <Icon className="h-4 w-4" />
