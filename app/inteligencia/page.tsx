@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { COMPETITION_ID, LEAGUE_DISPLAY_ORDER, LEAGUE_SLUGS, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
+import { COMPETITION_ID, LEAGUE_KEY_ORDER, LEAGUE_KEY_TO_SLUG, leagueAllCompetitionIds, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { brierScore, logLoss, calibrationBuckets, BRIER_CHANCE_1X2, type CalibPrediction } from '@/lib/calibration'
 import { CalibrationCurve } from '@/components/intelligence/CalibrationCurve'
@@ -52,18 +52,21 @@ export default async function InteligenciaPage() {
   const nbaResolved = nbaPreds ?? []
   const nbaCorrect = nbaResolved.filter((p: any) => p.was_correct === true).length
 
-  // Rendimiento por liga (backtest liga-1.0)
-  const slugById = Object.fromEntries(Object.entries(LEAGUE_SLUGS).map(([slug, id]) => [id, slug]))
+  // Rendimiento por liga (backtest liga-1.0). Agrega TODAS las temporadas de
+  // cada liga: el histórico es parte de la muestra, no se descarta al empezar
+  // una campaña nueva.
   const leagues: { name: string; slug: string; correct: number; total: number }[] = []
-  for (const compId of LEAGUE_DISPLAY_ORDER) {
+  for (const leagueKey of LEAGUE_KEY_ORDER) {
+    const compIds = leagueAllCompetitionIds(leagueKey)
+    if (compIds.length === 0) continue
     const { data, error } = await supabase
       .from('predictions')
       .select('was_correct, match:matches!inner(competition_id)')
-      .eq('match.competition_id', compId)
+      .in('match.competition_id', compIds)
       .not('was_correct', 'is', null)
     if (error) console.error('[inteligencia] precisión de liga:', error.message)
     const rows = data ?? []
-    const slug = slugById[compId]
+    const slug = LEAGUE_KEY_TO_SLUG[leagueKey]
     leagues.push({
       name: LEAGUE_NAMES[slug] ?? slug,
       slug,

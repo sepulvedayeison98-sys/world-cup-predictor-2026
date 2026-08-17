@@ -6,7 +6,7 @@
  * crece este registro y la UI (selector, hubs, buscador) lo refleja.
  * Agregar un deporte/competición = agregar una entrada aquí + su hub.
  */
-import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS } from '@/lib/constants'
+import { COMPETITION_ID, LEAGUE_NAMES, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID, TENNIS_MODEL_VERSION } from '@/lib/tennis/constants'
 
@@ -55,7 +55,7 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     sport: 'futbol' as SportSlug,
     href: `/ligas/${slug}`,
     status: 'activa' as CompetitionStatus,
-    note: 'Temporada 2026-27 en agosto',
+    note: slug === 'liga-betplay' ? 'Temporada 2026' : 'Temporada 2026-27',
   })),
   {
     id: NBA_COMPETITION_ID,
@@ -95,7 +95,15 @@ export function sportOfCompetition(competitionId: string): SportSlug {
  * de baloncesto, y viceversa.
  */
 export function competitionIdsOfSport(sport: SportSlug): string[] {
-  return ACTIVE_COMPETITIONS
+  const ids = ACTIVE_COMPETITIONS
     .filter((c) => c.sport === sport && c.id !== null)
     .map((c) => c.id as string)
+  // Las ligas tienen una competición POR TEMPORADA: la lista blanca debe
+  // reconocer también las campañas anteriores, o los procesos transversales
+  // (Smart Bets, resolución de picks) dejarían de ver los partidos históricos
+  // al empezar una temporada nueva.
+  if (sport === 'futbol') {
+    for (const id of ALL_LEAGUE_COMPETITION_IDS) if (!ids.includes(id)) ids.push(id)
+  }
+  return ids
 }
