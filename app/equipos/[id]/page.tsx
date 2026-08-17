@@ -7,6 +7,7 @@ import { computeFootballTeamStats, type FbMatch } from '@/lib/footballTeamStats'
 import { competitionHref, sportOfCompetition } from '@/lib/sports'
 import { COMPETITIONS_NAV } from '@/lib/sports'
 import { Flag } from '@/components/ui/Flag'
+import { formatColDate } from '@/lib/datetime'
 import { cn } from '@/lib/utils'
 
 export const revalidate = 300
@@ -50,8 +51,10 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     .from('matches')
     .select(`
       id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time, phase, round,
-      home_team:teams!matches_home_team_id_fkey(short_name, code),
-      away_team:teams!matches_away_team_id_fkey(short_name, code)
+      home_team:teams!matches_home_team_id_fkey(short_name, code, logo_url),
+      away_team:teams!matches_away_team_id_fkey(short_name, code, logo_url),
+      predictions(home_win_probability, draw_probability, away_win_probability,
+        predicted_home_score, predicted_away_score, confidence_score)
     `)
     .eq('competition_id', t.competition_id)
     .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
@@ -66,6 +69,14 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
 
   const recent = matches
     .filter((m) => m.status === 'finished' && m.home_score != null)
+    .slice(0, 10)
+
+  // El calendario por delante. `matches` viene del más reciente al más
+  // antiguo, así que los próximos hay que darles la vuelta: se leen del
+  // más cercano al más lejano.
+  const upcoming = matches
+    .filter((m) => m.status === 'scheduled' || m.status === 'live' || m.status === 'postponed')
+    .reverse()
     .slice(0, 10)
 
   const streakLabel = stats.streak === 0 ? '—'
@@ -109,8 +120,14 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
       </div>
 
       {stats.played === 0 ? (
-        <div className="card px-6 py-10 text-center">
-          <p className="text-sm text-zinc-400">Sin partidos jugados registrados para este equipo.</p>
+        <div className="card px-6 py-5 text-center">
+          <p className="text-sm text-zinc-400">
+            Todavía no hay partidos jugados en esta temporada, así que no hay
+            récord ni forma que mostrar.
+          </p>
+          <p className="mt-1 text-xs text-zinc-600">
+            El calendario por delante sí está disponible, aquí abajo.
+          </p>
         </div>
       ) : (
         <>
@@ -194,6 +211,68 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
             </ul>
           </div>
         </>
+      )}
+
+      {/* Próximos partidos — fuera del bloque anterior a propósito: al
+          empezar una temporada no hay nada jugado, y el calendario por
+          delante es justo lo único que el equipo tiene que enseñar. */}
+      {upcoming.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-2.5">
+            <h2 className="text-sm font-bold text-white">Próximos partidos</h2>
+          </div>
+          <ul className="divide-y divide-zinc-800/60">
+            {upcoming.map((m) => {
+              const isHome = m.home_team_id === id
+              const opp = isHome ? m.away_team : m.home_team
+              const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
+              // Probabilidades desde la óptica de ESTE equipo, no del local.
+              const win  = p ? (isHome ? p.home_win_probability : p.away_win_probability) : null
+              const loss = p ? (isHome ? p.away_win_probability : p.home_win_probability) : null
+              const pct = (v: number) => `${Math.round(v * 100)}%`
+              return (
+                <li key={m.id}>
+                  <Link
+                    href={`/matches/${m.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-xs">
+                      <span className="mono w-20 shrink-0 text-[10px] text-zinc-500">
+                        {formatColDate(m.kickoff_time)}
+                      </span>
+                      <span className="text-zinc-500">{isHome ? 'vs' : '@'}</span>
+                      {opp?.logo_url
+                        ? /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={opp.logo_url} alt="" aria-hidden="true" loading="lazy" className="h-4 w-4 shrink-0 object-contain" />
+                        : <Flag code={opp?.code} />}
+                      <span className="truncate text-zinc-300">{opp?.short_name ?? opp?.code}</span>
+                      {m.status === 'postponed' && (
+                        <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
+                          Aplazado
+                        </span>
+                      )}
+                    </span>
+                    {win != null && loss != null ? (
+                      <span className="mono shrink-0 text-[11px] text-zinc-400">
+                        <span className="text-emerald-400">{pct(win)}</span>
+                        <span className="mx-1 text-zinc-700">·</span>
+                        <span className="text-amber-400">{pct(p.draw_probability)}</span>
+                        <span className="mx-1 text-zinc-700">·</span>
+                        <span className="text-red-400">{pct(loss)}</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[10px] text-zinc-600">Sin predicción</span>
+                    )}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="border-t border-zinc-800 px-4 py-2 text-[10px] text-zinc-600">
+            Probabilidades del modelo desde la óptica de {t.short_name ?? t.name}:
+            victoria · empate · derrota.
+          </p>
+        </div>
       )}
     </div>
   )
