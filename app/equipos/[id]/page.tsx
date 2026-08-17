@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MapPin, Users, Calendar } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { computeFootballTeamStats, type FbMatch } from '@/lib/footballTeamStats'
 import { competitionHref, sportOfCompetition } from '@/lib/sports'
@@ -39,7 +39,10 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
 
   const { data: team } = await supabase
     .from('teams')
-    .select('id, name, short_name, code, logo_url, elo_rating, fifa_ranking, competition_id')
+    .select(`
+      id, name, short_name, code, logo_url, elo_rating, fifa_ranking, competition_id,
+      venue_name, venue_city, venue_capacity, venue_image_url, founded_year
+    `)
     .eq('id', id)
     .maybeSingle()
   if (!team) notFound()
@@ -121,6 +124,32 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
         </div>
         {t.fifa_ranking > 0 && (
           <p className="mt-1 text-xs text-zinc-500">Ranking FIFA #{t.fifa_ranking}</p>
+        )}
+
+        {/* Ficha del club: solo lo que la fuente realmente trae. Un club
+            recién ascendido puede no tener estadio o fundación en la
+            fuente — no se rellena con nada, la fila desaparece entera. */}
+        {(t.venue_name || t.founded_year) && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+            {t.venue_name && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {t.venue_name}{t.venue_city ? ` · ${t.venue_city}` : ''}
+              </span>
+            )}
+            {t.venue_capacity && (
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                {t.venue_capacity.toLocaleString('es-ES')} aforo
+              </span>
+            )}
+            {t.founded_year && (
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Fundado en {t.founded_year}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

@@ -114,6 +114,12 @@ export async function ingestLeagues(season: number, onlyKeys?: string[]): Promis
       code: codeByApiId.get(t.id) ?? toCode(t.name, t.code, used),
       logo_url: t.logo,
       confederation: LEAGUE_CONFEDERATION[league.key] ?? 'UEFA',
+      // Vienen en la MISMA respuesta de /teams que ya se pedía: cuota cero.
+      founded_year: t.founded,
+      venue_name: t.venueName,
+      venue_city: t.venueCity,
+      venue_capacity: t.venueCapacity,
+      venue_image_url: t.venueImage,
     }))
     const { error: teamsErr } = await (supabase.from('teams') as any)
       .upsert(teamRows, { onConflict: 'competition_id,api_football_id' })

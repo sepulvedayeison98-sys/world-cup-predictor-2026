@@ -1891,12 +1891,17 @@ export type Database = {
           elo_rating: number
           fifa_ranking: number
           flag_url: string | null
+          founded_year: number | null
           group_id: string | null
           id: string
           logo_url: string | null
           name: string
           short_name: string
           updated_at: string
+          venue_capacity: number | null
+          venue_city: string | null
+          venue_image_url: string | null
+          venue_name: string | null
         }
         Insert: {
           api_football_id?: number | null
@@ -1910,12 +1915,17 @@ export type Database = {
           elo_rating?: number
           fifa_ranking?: number
           flag_url?: string | null
+          founded_year?: number | null
           group_id?: string | null
           id?: string
           logo_url?: string | null
           name: string
           short_name: string
           updated_at?: string
+          venue_capacity?: number | null
+          venue_city?: string | null
+          venue_image_url?: string | null
+          venue_name?: string | null
         }
         Update: {
           api_football_id?: number | null
@@ -1929,12 +1939,17 @@ export type Database = {
           elo_rating?: number
           fifa_ranking?: number
           flag_url?: string | null
+          founded_year?: number | null
           group_id?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           short_name?: string
           updated_at?: string
+          venue_capacity?: number | null
+          venue_city?: string | null
+          venue_image_url?: string | null
+          venue_name?: string | null
         }
         Relationships: [
           {

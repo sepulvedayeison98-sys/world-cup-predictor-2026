@@ -32,7 +32,7 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
    (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
    módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
 4. **Gates antes de cada push** — `type-check`, `test`, `lint`, `build`.
-5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **057**) +
+5. **Migraciones numeradas** en `supabase/migrations/` (siguiente: **058**) +
    registrar el chequeo en `supabase/verify_migrations.sql`.
 6. **Secretos jamás en el repo ni en el chat.** `.env.local` está gitignoreado.
 
@@ -202,6 +202,10 @@ de pruebas limpio.
 | **Ocasiones claras (big chances)** | `fixtures/statistics` no las entrega | Otra fuente (Opta/StatsBomb) |
 | Clima, minutos, "indoor" | La fuente no los trae | — |
 | **Lesiones y cuotas de liga** | Nunca se ingirieron; los endpoints existen | `injuries` y `odds` de API-Football (plan Pro ya cubre) |
+| **Plantilla de clubes** | Tabla `players` vacía en las 6 ligas (0 filas) | `/players` por equipo — cuota nueva, ~700 peticiones |
+| **Entrenador de clubes** | Solo poblado para el Mundial (48/48); 0 en clubes | `/coachs` de API-Football — cuota nueva |
+| **Presidente del club** | API-Football no lo trae | Otra fuente |
+| **Palmarés / títulos** | API-Football no tiene endpoint confiable de historial por equipo | Otra fuente |
 
 ---
 

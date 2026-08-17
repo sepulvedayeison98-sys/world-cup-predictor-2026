@@ -60,6 +60,8 @@ UNION ALL SELECT '052 feature store (prediction_features)', EXISTS(SELECT 1 FROM
 UNION ALL SELECT '053 dominio tennis (9 tablas + ATP/WTA)', (SELECT count(*)=9 FROM information_schema.tables WHERE table_name LIKE 'tennis_%') AND (SELECT bool_and(rowsecurity) FROM pg_tables WHERE tablename LIKE 'tennis_%') AND (SELECT count(*)=2 FROM competitions WHERE sport_id=3)
 UNION ALL SELECT '054 unicidad partidos tennis (tournament_id, external_id)', EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='uq_tennis_matches_tournament_external')
 UNION ALL SELECT '055 Liga BetPlay (Primera A Colombia)', EXISTS(SELECT 1 FROM competitions WHERE id='23900000-0000-4000-8000-000000000239' AND sport_id=1)
+UNION ALL SELECT '056 una competición por temporada (2026-27)', (SELECT count(*)=6 FROM competitions WHERE season IN ('2026-27','2026') AND sport_id=1)
+UNION ALL SELECT '057 estadio y fundación del equipo', (SELECT count(*)=5 FROM information_schema.columns WHERE table_name='teams' AND column_name IN ('venue_name','venue_city','venue_capacity','venue_image_url','founded_year'))
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

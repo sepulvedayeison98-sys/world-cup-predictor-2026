@@ -140,7 +140,10 @@ export async function getAccountStatus(): Promise<AccountStatus> {
 
 // ─── Fetchers crudos (los usa la validación y la ingesta) ────────────────────
 
-interface TeamEntry { team: { id: number; name: string; code: string | null; logo: string } }
+interface TeamEntry {
+  team: { id: number; name: string; code: string | null; logo: string; founded: number | null }
+  venue: { name: string | null; city: string | null; capacity: number | null; image: string | null }
+}
 interface FixtureEntry {
   fixture: {
     id: number
@@ -153,7 +156,12 @@ interface FixtureEntry {
   goals: { home: number | null; away: number | null }
 }
 
-export interface ApiFootballTeam { id: number; name: string; code: string | null; logo: string }
+export interface ApiFootballTeam {
+  id: number; name: string; code: string | null; logo: string
+  founded: number | null
+  venueName: string | null; venueCity: string | null
+  venueCapacity: number | null; venueImage: string | null
+}
 export interface ApiFootballFixture {
   id: number
   date: string
@@ -169,7 +177,19 @@ export interface ApiFootballFixture {
 
 export async function fetchLeagueTeams(leagueId: number, season: number): Promise<ApiFootballTeam[]> {
   const res = await apiFootballFetch<TeamEntry>('/teams', { league: leagueId, season })
-  return res.response.map((t) => t.team)
+  return res.response.map((t) => ({
+    id: t.team.id,
+    name: t.team.name,
+    code: t.team.code,
+    logo: t.team.logo,
+    // La fuente devuelve 0 (no null) cuando no conoce la fundación de un club.
+    // Un año 0 no es un dato: se normaliza a ausencia, igual que un string vacío.
+    founded: t.team.founded ? t.team.founded : null,
+    venueName: t.venue?.name ?? null,
+    venueCity: t.venue?.city ?? null,
+    venueCapacity: t.venue?.capacity ?? null,
+    venueImage: t.venue?.image ?? null,
+  }))
 }
 
 export async function fetchLeagueFixtures(leagueId: number, season: number): Promise<ApiFootballFixture[]> {
