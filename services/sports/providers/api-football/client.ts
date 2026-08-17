@@ -14,11 +14,28 @@
 
 import { ProviderError } from '../../core/errors'
 import { requestJson, qs } from '../../core/http'
+import { acquire, configureLimit } from '../../core/rateLimit'
 import type { Provenance } from '../../core/types'
 
 export const API_FOOTBALL = 'api-football' as const
 
 const DEFAULT_HOST = 'v3.football.api-sports.io'
+
+/**
+ * Techo de peticiones por minuto que nos imponemos.
+ *
+ * La cuota que se agota primero NO es la diaria (7.500 en Pro) sino la de
+ * por minuto: la ingesta de plantillas la disparó con la diaria casi intacta.
+ * 240/min deja margen de sobra bajo el límite del plan y hace que el trabajo
+ * más pesado de la casa —120 peticiones para las seis ligas— no la roce
+ * siquiera. Ajustable con `FOOTBALL_API_RPM` si el plan cambia.
+ */
+const REQUESTS_PER_MINUTE = ((): number => {
+  const env = Number(process.env.FOOTBALL_API_RPM)
+  return Number.isFinite(env) && env > 0 ? env : 240
+})()
+
+configureLimit(API_FOOTBALL, REQUESTS_PER_MINUTE)
 
 export interface ApiFootballEnvelope<T> {
   errors?: Record<string, string> | string[]
@@ -64,6 +81,11 @@ export async function apiFootball<T>(
 ): Promise<{ data: T[]; provenance: Provenance; paging: { current: number; total: number } }> {
   const { host, headers } = config()
   const url = `https://${host}${path}${qs(params)}`
+
+  // Espera lo justo para no rebasar el límite por minuto. Va antes del
+  // fetch a propósito: una petición rechazada por ráfaga gasta cuota diaria
+  // igual que una buena.
+  await acquire(API_FOOTBALL)
 
   const { body, provenance } = await requestJson<ApiFootballEnvelope<T>>(url, {
     provider: API_FOOTBALL,

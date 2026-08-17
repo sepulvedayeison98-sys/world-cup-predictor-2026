@@ -10,6 +10,7 @@
  */
 
 import { ProviderError, kindFromStatus, redactUrl } from './errors'
+import type { ProviderErrorKind } from './errors'
 import type { ProviderId, Provenance } from './types'
 
 export interface RequestOptions {
@@ -29,9 +30,17 @@ export interface RequestOptions {
 const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_RETRIES = 2
 
-/** Espera con backoff exponencial: 400 ms, 800 ms, 1600 ms… */
-function backoffMs(attempt: number): number {
-  return 400 * 2 ** attempt
+/**
+ * Espera antes de reintentar: 400 ms, 800 ms, 1600 ms…
+ *
+ * El límite de cuota va aparte y arranca mucho más arriba. Los límites de
+ * api-sports se miden POR MINUTO, así que esperar 400 ms y volver a pegar es
+ * garantizar el segundo rechazo — y gastar otra petición de la cuota diaria
+ * en él. Con 2 s, 4 s y 8 s el reintento cae ya fuera de la ráfaga.
+ */
+function backoffMs(attempt: number, kind: ProviderErrorKind): number {
+  const base = kind === 'rate_limit' ? 2_000 : 400
+  return base * 2 ** attempt
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -104,7 +113,7 @@ export async function requestJson<T>(
     } catch (e) {
       lastError = normalize(e, opts, url)
       if (!lastError.retryable || attempt === retries) break
-      await sleep(backoffMs(attempt))
+      await sleep(backoffMs(attempt, lastError.kind))
     } finally {
       clearTimeout(timer)
       opts.signal?.removeEventListener('abort', onAbort)

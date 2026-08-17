@@ -271,17 +271,92 @@ marcador (el país salía `null` la mitad de las veces), y el calendario de
 torneos sin rango de fechas devolvía solo el día de hoy (1 torneo en vez de 60).
 Ambos están corregidos y cubiertos por test.
 
-## 13. Lo que esta capa todavía no hace
+## 13. Ingesta de plantillas, lesiones y alineaciones
 
-Honestidad sobre el alcance:
+`services/sync/football-roster.ts` es el primer proceso de sincronización que
+consume esta capa en vez de hablar con la API directamente. Pide "la plantilla
+del equipo 33" y recibe un `DataResult`; no sabe que existe API-Football.
 
-- **Los procesos de ingesta siguen en `services/sync/`** con sus clientes
-  propios. La capa nueva no los reemplaza todavía; están pensados para migrar
-  uno a uno, empezando por el que menos riesgo tenga.
-- **La interfaz aún no consume estos servicios** salvo `/api/news`. Las páginas
-  siguen leyendo de Supabase, que es lo correcto para datos ya ingestados.
-- **Faltan datos, no código**, en varios módulos: 78 jugadores de fútbol en
-  base, 3 lesiones, 2 alineaciones. El adapter ya sabe traerlos; hace falta el
-  proceso de ingesta que los persista.
-- **Búsqueda global**: cubre equipos y tenistas. Jugadores de fútbol y NBA
-  entrarán cuando haya datos que buscar.
+```
+GET /api/sync/roster?entity=squads|injuries|lineups&league=premier_league
+```
+
+Una entidad por corrida, y por un motivo concreto: las plantillas cuestan una
+petición **por equipo** (120 para las seis ligas) y las alineaciones una **por
+partido**. Encadenarlas se comería el techo de 60 s de Vercel Hobby. El proceso
+lleva presupuesto de tiempo propio y, si se queda corto, responde
+`truncated: true` en vez de morir a medias; como todo son upserts por clave
+natural, basta con volver a llamar.
+
+**El orden importa**: `squads` antes que `injuries` y `lineups`, que
+referencian jugadores.
+
+### Lo que la migración 057 tuvo que cambiar, y por qué
+
+El esquema venía del Mundial, con 48 selecciones cargadas a mano: exigía
+dorsal, nacionalidad, fecha de nacimiento y posición exacta de cada jugador.
+API-Football no da nada de eso en el endpoint de plantillas. Cuando el esquema
+pide un dato que la fuente no tiene, solo hay dos salidas — inventarlo o
+relajar la columna. Se relajó.
+
+La decisión de más peso fue `injuries.impact_score`. Era `NOT NULL DEFAULT 5`
+y la columna **alimenta al motor**: `recalibrate.ts` suma el impacto de las
+lesiones activas por equipo. Ingestar con el valor por defecto habría metido
+decenas de cifras inventadas directamente en las predicciones. Ahora es
+nullable y se ingesta en `NULL`: la lesión se ve en la ficha porque es cierta,
+y no mueve el modelo porque su impacto no lo sabemos.
+
+En la misma línea, `position` solo se rellena para `Goalkeeper → GK`, que es la
+única equivalencia exacta. "Defender" no se convierte en "CB": el texto de la
+fuente se guarda entero en `position_raw`.
+
+### Resultado de la primera corrida (17 ago 2026)
+
+| Tabla | Antes | Después |
+|---|---|---|
+| `players` | 78 (solo Mundial) | **3.761** |
+| `injuries` | 3 | **34** (19 activas, 31 sin impacto declarado) |
+| `lineups` | 2 | **10** |
+| `lineup_players` | 32 | **211** |
+
+Tres cosas que solo aparecieron al correrlo de verdad:
+
+- **El índice único no podía ser parcial.** PostgREST resuelve el upsert con
+  `ON CONFLICT (team_id, api_football_id)` y Postgres no empareja esa cláusula
+  con un índice parcial. Fallaba con "no unique or exclusion constraint
+  matching the ON CONFLICT specification".
+- **La cuota que se agota es la de POR MINUTO, no la diaria.** Saltó con la
+  diaria casi intacta. Acotar la concurrencia no basta —cuatro peticiones de
+  200 ms dan 1.200 por minuto—, así que hay un limitador de ritmo
+  (`core/rateLimit.ts`) configurado a 240/min y ajustable con
+  `FOOTBALL_API_RPM`. El backoff de reintento para `rate_limit` sube a 2 s,
+  4 s y 8 s: con 400 ms el reintento cae dentro de la misma ráfaga y gasta
+  otra petición para que la rechacen igual.
+- **La fuente omite jugadores de la plantilla.** 11 de 31 lesionados de La
+  Liga y 19 de 179 fichas de un once no aparecían en `/players/squads`
+  (lesionados de larga duración, canteranos convocados, fichajes recién
+  inscritos). Descartarlos dejaba fuera justo las lesiones que más pesan. El
+  propio parte trae id, nombre y equipo, así que se crea la ficha mínima con
+  eso —dato de la fuente— y el resto de campos en `null`. Tras el cambio:
+  0 descartes en ambos casos.
+
+### Cobertura por liga, hoy
+
+Las lesiones de la temporada 2026-27 todavía no están en la fuente para todas
+las ligas: La Liga publica 31 partes, Premier League y Liga BetPlay ninguno.
+No es un fallo de la ingesta — es que la fuente aún no los tiene. Se verá
+crecer conforme avance la temporada.
+
+## 14. Lo que todavía no hace
+
+- **El resto de procesos de ingesta siguen en `services/sync/`** con sus
+  clientes propios. Migrarlos uno a uno, empezando por el de menos riesgo.
+- **La interfaz aún no pinta plantillas, lesiones ni alineaciones.** Los datos
+  ya están en base; falta la capa visual en el perfil de equipo y en la ficha
+  de partido.
+- **Falta enriquecer la ficha del jugador**: nacionalidad, fecha de nacimiento
+  y altura viven en otro endpoint de API-Football, no en el de plantillas.
+- **`impact_score` sigue sin fuente.** Cuantificar cuánto pesa una baja es un
+  problema de modelo, no de ingesta, y merece su propio diseño con backtest.
+- **Búsqueda global**: cubre equipos y tenistas. Ahora que hay 3.761 fichas de
+  fútbol, incluir jugadores es el siguiente paso natural.
