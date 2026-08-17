@@ -43,14 +43,19 @@ export default async function InteligenciaPage() {
   const wcLogLoss = logLoss(wcCalib)
   const wcBuckets = calibrationBuckets(wcCalib)
 
-  // Rendimiento NBA (backtest nba-1.0, moneyline — línea base 50%)
-  const { data: nbaPreds } = await supabase
+  // Rendimiento NBA (backtest nba-1.0, moneyline — línea base 50%).
+  // Por CONTEO: son ~1.300 predicciones y traer las filas las truncaba en
+  // 1.000 (tope de PostgREST), dando una precisión sobre muestra incompleta.
+  const nbaBase = () => supabase
     .from('predictions')
-    .select('was_correct, match:matches!inner(competition_id)')
+    .select('id, match:matches!inner(competition_id)', { count: 'exact', head: true })
     .eq('match.competition_id', NBA_COMPETITION_ID)
     .not('was_correct', 'is', null)
-  const nbaResolved = nbaPreds ?? []
-  const nbaCorrect = nbaResolved.filter((p: any) => p.was_correct === true).length
+  const [{ count: nbaTotal }, { count: nbaOk }] = await Promise.all([
+    nbaBase(), nbaBase().eq('was_correct', true),
+  ])
+  const nbaResolved = { length: nbaTotal ?? 0 }
+  const nbaCorrect = nbaOk ?? 0
 
   // Rendimiento por liga (backtest liga-1.0). Agrega TODAS las temporadas de
   // cada liga: el histórico es parte de la muestra, no se descarta al empezar

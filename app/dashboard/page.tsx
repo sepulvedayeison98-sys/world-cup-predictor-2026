@@ -19,6 +19,26 @@ export const metadata: Metadata = {
 // ISR 60s: el inicio se cachea y los datos vivos se refrescan solos
 export const revalidate = 60
 
+/**
+ * Precisión por CONTEO exacto (dos consultas `head`), no trayendo filas.
+ * PostgREST corta las respuestas en 1.000 filas: contar en JS lo que devuelve
+ * un select daba precisiones calculadas sobre muestras truncadas (p. ej.
+ * 518/1000 cuando lo real eran 1.039/2.058).
+ */
+async function countAccuracy(
+  supabase: any,
+  scope: (qb: any) => any,
+): Promise<{ correct: number; total: number; pct: number | null }> {
+  const base = () => scope(supabase.from('predictions')).not('was_correct', 'is', null)
+  const [{ count: total }, { count: correct }] = await Promise.all([
+    base(),
+    base().eq('was_correct', true),
+  ])
+  const t = total ?? 0
+  const c = correct ?? 0
+  return { correct: c, total: t, pct: t ? (c / t) * 100 : null }
+}
+
 type Outcome = 'home' | 'draw' | 'away'
 const OUTCOME_LABEL: Record<Outcome, string> = { home: 'Local', draw: 'Empate', away: 'Visita' }
 
@@ -48,9 +68,9 @@ export default async function HomePage() {
 
   const [
     { data: upcoming },
-    { data: ligaPreds },
-    { data: nbaPreds },
-    { data: preds30d },
+    ligas,
+    nba,
+    d30,
     { data: topBet },
     { data: lastFinished },
     { data: lastRecalib },
@@ -71,24 +91,19 @@ export default async function HomePage() {
       .lte('kickoff_time', in48h)
       .order('kickoff_time', { ascending: true })
       .limit(6),
-    // Confianza: ligas (backtest liga-1.0)
-    supabase
-      .from('predictions')
-      .select('was_correct, match:matches!inner(competition_id)')
-      .in('match.competition_id', ALL_LEAGUE_COMPETITION_IDS)
-      .not('was_correct', 'is', null),
-    // Confianza: NBA (motor nba-1.0)
-    supabase
-      .from('predictions')
-      .select('was_correct, match:matches!inner(competition_id)')
-      .eq('match.competition_id', NBA_COMPETITION_ID)
-      .not('was_correct', 'is', null),
-    // Precisión 30 días (cinta terminal, cualquier competición)
-    supabase
-      .from('predictions')
-      .select('was_correct, match:matches!inner(kickoff_time)')
-      .gte('match.kickoff_time', since30d)
-      .not('was_correct', 'is', null),
+    // Confianza: ligas y NBA por CONTEO exacto. Traer las filas y contarlas
+    // en JS truncaba la muestra en 1.000 (tope de PostgREST) y la precisión
+    // salía calculada sobre datos incompletos.
+    countAccuracy(supabase, (qb: any) => qb
+      .select('id, match:matches!inner(competition_id)', { count: 'exact', head: true })
+      .in('match.competition_id', ALL_LEAGUE_COMPETITION_IDS)),
+    countAccuracy(supabase, (qb: any) => qb
+      .select('id, match:matches!inner(competition_id)', { count: 'exact', head: true })
+      .eq('match.competition_id', NBA_COMPETITION_ID)),
+    // Precisión 30 días (cinta terminal, cualquier competición) — por conteo
+    countAccuracy(supabase, (qb: any) => qb
+      .select('id, match:matches!inner(kickoff_time)', { count: 'exact', head: true })
+      .gte('match.kickoff_time', since30d)),
     // Smart Bet destacada: mayor EV activa con partido por jugar
     supabase
       .from('value_bets')
@@ -129,14 +144,6 @@ export default async function HomePage() {
   ])
 
   // ── Confianza del motor ────────────────────────────────────
-  const acc = (rows: any[] | null) => {
-    const r = rows ?? []
-    const c = r.filter((p) => p.was_correct === true).length
-    return { correct: c, total: r.length, pct: r.length ? (c / r.length) * 100 : null }
-  }
-  const ligas = acc(ligaPreds)
-  const nba = acc(nbaPreds)
-  const d30 = acc(preds30d)
 
   // Panel multideporte: precisión medida por dominio, cada uno con su base
   const tennisBt = tennis.backtest
