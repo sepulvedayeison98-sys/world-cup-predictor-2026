@@ -222,3 +222,40 @@ test('sin mapa de siembra el motor se comporta exactamente igual que antes', () 
     [...runLeagueBacktest(matches, undefined).finalElo.entries()].sort(),
   )
 })
+
+// ── minWarmup: exponer el arranque en frío para medirlo (no cambia el
+// comportamiento por defecto de ningún llamador existente) ──
+
+test('minWarmup por defecto se comporta EXACTAMENTE igual que antes', () => {
+  const matches = Array.from({ length: 12 }, (_, i) => ({
+    id: `m${i}`, home_team_id: 'A', away_team_id: 'B',
+    home_score: i % 2, away_score: (i + 1) % 2,
+    status: 'finished', kickoff_time: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
+  })) as any[]
+
+  const sinParametro = runLeagueBacktest(matches)
+  const conDefaultExplicito = runLeagueBacktest(matches, undefined, LEAGUE_WARMUP_MATCHES)
+  assert.deepEqual(sinParametro.predictions, conDefaultExplicito.predictions)
+  assert.deepEqual(sinParametro.metrics, conDefaultExplicito.metrics)
+})
+
+test('minWarmup=0 evalúa desde el primer partido, con los partidos jugados de cada equipo', () => {
+  const matches = [
+    { id: 'm1', home_team_id: 'A', away_team_id: 'B', home_score: 1, away_score: 0,
+      status: 'finished', kickoff_time: '2026-01-01T00:00:00Z' },
+    { id: 'm2', home_team_id: 'A', away_team_id: 'B', home_score: 2, away_score: 2,
+      status: 'finished', kickoff_time: '2026-01-08T00:00:00Z' },
+  ] as any[]
+
+  // Con el calentamiento normal (5), ningún partido se evalúa todavía
+  const normal = runLeagueBacktest(matches)
+  assert.equal(normal.predictions.length, 0)
+
+  // Con minWarmup=0, los dos se evalúan — y el primero es el arranque puro
+  const sinCalentamiento = runLeagueBacktest(matches, undefined, 0)
+  assert.equal(sinCalentamiento.predictions.length, 2)
+  assert.equal(sinCalentamiento.predictions[0].home_played, 0)
+  assert.equal(sinCalentamiento.predictions[0].away_played, 0)
+  assert.equal(sinCalentamiento.predictions[1].home_played, 1)
+  assert.equal(sinCalentamiento.predictions[1].away_played, 1)
+})

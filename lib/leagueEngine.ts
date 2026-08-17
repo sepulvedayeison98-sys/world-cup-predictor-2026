@@ -52,6 +52,12 @@ export interface LeagueMatchPrediction {
   pick: Outcome
   actual: Outcome
   correct: boolean
+  /** Partidos jugados de cada equipo AL MOMENTO de esta predicción (antes de
+   *  este partido). Sirve para aislar el arranque en frío (min < calentamiento)
+   *  en un análisis posterior — el backtest normal ni siquiera llega a
+   *  generar estas filas, min_played siempre es >= al calentamiento usado. */
+  home_played: number
+  away_played: number
 }
 
 export interface TeamSeasonAggregate {
@@ -231,6 +237,15 @@ export function runLeagueBacktest(
    * inventa un pasado en la categoría.
    */
   seedElo?: Map<string, number>,
+  /**
+   * Partidos mínimos por equipo antes de EVALUAR una predicción. Con el
+   * valor por defecto (LEAGUE_WARMUP_MATCHES) el comportamiento es
+   * idéntico al de siempre. Bajarlo a 0 es SOLO para medir: expone el
+   * arranque en frío real (partidos 1..calentamiento) que el backtest
+   * normal nunca llega a puntuar — no se usa en ningún llamador de
+   * producción.
+   */
+  minWarmup: number = LEAGUE_WARMUP_MATCHES,
 ): LeagueBacktestResult {
   const finished = matches
     .filter((m) => m.status === 'finished' && m.home_score !== null && m.away_score !== null)
@@ -257,7 +272,7 @@ export function runLeagueBacktest(
     const actual: Outcome = hs > as ? 'home' : hs < as ? 'away' : 'draw'
 
     // ── 1. Predicción PRE-partido (solo si ambos pasaron el calentamiento) ──
-    if (home.played >= LEAGUE_WARMUP_MATCHES && away.played >= LEAGUE_WARMUP_MATCHES) {
+    if (home.played >= minWarmup && away.played >= minWarmup) {
       const leagueHomeAvg = matchesSeen > 0 ? sumHomeGoals / matchesSeen : PRIOR_HOME_GOALS
       const leagueAwayAvg = matchesSeen > 0 ? sumAwayGoals / matchesSeen : PRIOR_AWAY_GOALS
 
@@ -275,6 +290,7 @@ export function runLeagueBacktest(
         predicted_away_score: p.predictedAway,
         confidence_score: p.confidence,
         pick: p.pick, actual, correct: isCorrect,
+        home_played: home.played, away_played: away.played,
       })
       if (isCorrect) correct++
       brierSum += (p.home - yH) ** 2 + (p.draw - yD) ** 2 + (p.away - yA) ** 2

@@ -27,7 +27,7 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
    propio motor: una predicción sin base detrás se etiqueta como *prior de
    arranque* (`lib/predictionQuality.ts`), no se disfraza de lectura.
 2. **Medido, no prometido** — ningún cambio del motor se promueve sin backtest
-   comparativo que lo justifique. **Los rechazos se documentan** (hay cuatro).
+   comparativo que lo justifique. **Los rechazos se documentan** (hay cinco).
 3. **Aislamiento de dominios** — barreras ESLint en las cuatro direcciones
    (tenis↛fútbol, tenis↛NBA, fútbol↛tenis, NBA↛tenis). Lo compartido va a
    módulos neutros (`lib/utils`, `lib/sports`, `lib/calibration`).
@@ -169,6 +169,31 @@ donde el arranque en frío más daña**. `seasonSeedElo` y el parámetro
 `seedElo` de `runLeagueBacktest` quedan como módulo puro y probado (igual
 que `lib/tennis/fatigue.ts`) para cuando las europeas 2026-27 den un banco
 de pruebas limpio.
+
+**Siembra de ELO en el arranque en frío real — ❌ RECHAZADA (2026-08-17,
+segunda vuelta).** Pedido del usuario: usar la temporada pasada para no
+depender de varios partidos jugados. La limitación #3 de arriba señalaba
+que el rechazo previo nunca había medido el arranque en frío de verdad —
+el calentamiento de 5 partidos lo excluye de la evaluación por completo.
+Se añadió `minWarmup` a `runLeagueBacktest` (opcional, no cambia el
+comportamiento por defecto de nadie — probado) para poder puntuar
+`partidos 1..4` de cada equipo, algo que el backtest normal nunca había
+expuesto.
+
+| | Precisión | Brier |
+|---|---|---|
+| Base, arranque en frío (53 partidos) | 39,62 % | 0,6648 |
+| **k=0,75, arranque en frío** | **37,74 %** | 0,6649 |
+| Ya calentado (min≥5), referencia | 48,21 % | 0,6273 |
+
+Las cuatro condiciones de la regla pre-declarada fallan — no una, las
+cuatro. La siembra **no ayuda en el arranque en frío real; lo empeora un
+poco**. Hallazgo aparte, honesto: el arranque en frío ya es genuinamente
+más difícil de predecir que el resto de temporada (39,62 % vs 48,21 %) —
+no es un motor perezoso, es ruido real (ascendidos, pretemporada, cambios
+de plantilla) que ni el ELO heredado explica. Quinto rechazo. `minWarmup`
+queda como infraestructura de medición para el día que haya mejor
+evidencia.
 
 ---
 
