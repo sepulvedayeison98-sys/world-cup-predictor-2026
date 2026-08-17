@@ -23,6 +23,7 @@ import { cn, formatProbability } from '@/lib/utils'
 import { matchesService } from '@/services/matches.service'
 import { Flag } from '@/components/ui/Flag'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
+import { predictionWarmup, coldStartNote, coldStartBadge } from '@/lib/predictionQuality'
 import type { Match } from '@/types'
 
 // ─── Column helper ────────────────────────────────────────────
@@ -40,6 +41,13 @@ type MatchRow = Match & {
 }
 
 const col = createColumnHelper<MatchRow>()
+
+/** Partidos jugados del equipo en SU competición (join anidado de team_statistics). */
+const playedOf = (team: any): number =>
+  (Array.isArray(team?.team_statistics) ? team.team_statistics[0]?.matches_played : team?.team_statistics?.matches_played) ?? 0
+
+/** Aviso de arranque en frío: el número existe, pero no es una lectura del equipo. */
+const warmupOf = (m: MatchRow) => predictionWarmup(playedOf(m.home_team), playedOf(m.away_team))
 
 // ─── Sub-components ───────────────────────────────────────────
 
@@ -171,6 +179,12 @@ function MatchCard({ m, competitionName }: { m: MatchRow; competitionName?: stri
         ) : (
           <p className="mt-2 text-[11px] text-zinc-600">Sin análisis del modelo aún</p>
         )}
+
+        {p && coldStartNote(warmupOf(m)) && (
+          <p className="mt-1.5 text-[10px] leading-snug text-amber-400/80">
+            {coldStartNote(warmupOf(m))}
+          </p>
+        )}
       </Link>
     </li>
   )
@@ -263,12 +277,23 @@ function buildColumns(competitionNames: Map<string, string>): ColumnDef<MatchRow
       cell: ({ row }) => {
         const p = row.original.prediction
         if (!p) return <span className="text-[10px] text-zinc-600">Sin análisis</span>
+        const badge = coldStartBadge(warmupOf(row.original))
         return (
-          <ProbBar
-            home={p.home_win_probability}
-            draw={p.draw_probability}
-            away={p.away_win_probability}
-          />
+          <div className="space-y-1">
+            <ProbBar
+              home={p.home_win_probability}
+              draw={p.draw_probability}
+              away={p.away_win_probability}
+            />
+            {badge && (
+              <span
+                title={coldStartNote(warmupOf(row.original)) ?? undefined}
+                className="inline-block rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              >
+                {badge}
+              </span>
+            )}
+          </div>
         )
       },
       size: 120,

@@ -23,7 +23,9 @@ El norte: competir con SofaScore/FlashScore desde una propuesta propia —
 ### Reglas innegociables (aplican a todo)
 
 1. **Data First** — si la fuente no lo da, no existe en la UI. Nada se estima
-   ni se rellena; lo bloqueado se declara abiertamente.
+   ni se rellena; lo bloqueado se declara abiertamente. Esto incluye al
+   propio motor: una predicción sin base detrás se etiqueta como *prior de
+   arranque* (`lib/predictionQuality.ts`), no se disfraza de lectura.
 2. **Medido, no prometido** — ningún cambio del motor se promueve sin backtest
    comparativo que lo justifique. **Los rechazos se documentan** (hay cuatro).
 3. **Aislamiento de dominios** — barreras ESLint en las cuatro direcciones

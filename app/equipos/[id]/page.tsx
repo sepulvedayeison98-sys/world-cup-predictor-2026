@@ -8,6 +8,7 @@ import { competitionHref, sportOfCompetition } from '@/lib/sports'
 import { COMPETITIONS_NAV } from '@/lib/sports'
 import { Flag } from '@/components/ui/Flag'
 import { formatColDate } from '@/lib/datetime'
+import { predictionWarmup, coldStartNote } from '@/lib/predictionQuality'
 import { cn } from '@/lib/utils'
 
 export const revalidate = 300
@@ -78,6 +79,10 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     .filter((m) => m.status === 'scheduled' || m.status === 'live' || m.status === 'postponed')
     .reverse()
     .slice(0, 10)
+
+  // El calendario muestra probabilidades: si este equipo no ha calentado,
+  // esas probabilidades son el prior de la liga y hay que declararlo.
+  const avisoArranque = coldStartNote(predictionWarmup(stats.played, stats.played))
 
   const streakLabel = stats.streak === 0 ? '—'
     : stats.streak > 0 ? `${stats.streak} ${stats.streak === 1 ? 'victoria' : 'victorias'}`
@@ -268,10 +273,17 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
               )
             })}
           </ul>
-          <p className="border-t border-zinc-800 px-4 py-2 text-[10px] text-zinc-600">
-            Probabilidades del modelo desde la óptica de {t.short_name ?? t.name}:
-            victoria · empate · derrota.
-          </p>
+          <div className="border-t border-zinc-800 px-4 py-2">
+            <p className="text-[10px] text-zinc-600">
+              Probabilidades del modelo desde la óptica de {t.short_name ?? t.name}:
+              victoria · empate · derrota.
+            </p>
+            {/* Data First: si el modelo aún no tiene base, se dice — no se
+                presenta el prior de la liga como si fuera una lectura. */}
+            {avisoArranque && (
+              <p className="mt-1 text-[10px] leading-snug text-amber-400/80">{avisoArranque}</p>
+            )}
+          </div>
         </div>
       )}
     </div>

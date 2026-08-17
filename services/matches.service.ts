@@ -52,7 +52,7 @@ export const matchesService = {
     let query = supabase
       .from('matches')
       .select(
-        `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url), ${predJoin}`,
+        `*, home_team:teams!matches_home_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url,team_statistics(matches_played)), away_team:teams!matches_away_team_id_fkey(id,name,short_name,code,fifa_ranking,elo_rating,logo_url,team_statistics(matches_played)), ${predJoin}`,
         { count: 'exact' }
       )
       .in('competition_id', competitionScope(filters))
