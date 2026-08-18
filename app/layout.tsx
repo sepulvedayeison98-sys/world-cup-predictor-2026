@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { QueryProvider } from '@/components/layout/QueryProvider'
 import { MobileNavProvider } from '@/components/layout/MobileNavContext'
 import { ScrollProvider } from '@/components/layout/ScrollContext'
+import { BottomNavProvider } from '@/components/layout/BottomNavContext'
 import { MainScrollArea } from '@/components/layout/MainScrollArea'
 import { Toaster } from '@/components/ui/sonner'
 import { SITE_URL } from '@/lib/constants'
@@ -78,24 +79,26 @@ export default function RootLayout({
           <QueryProvider>
             <MobileNavProvider>
               <ScrollProvider>
-                {/* Salto al contenido (WCAG 2.4.1): invisible hasta recibir
-                    foco por teclado, entonces aparece sobre la interfaz. */}
-                <a
-                  href="#contenido"
-                  className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
-                             focus:rounded-lg focus:border focus:border-emerald-500/40 focus:bg-zinc-900
-                             focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-300"
-                >
-                  Saltar al contenido
-                </a>
-                <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
-                  <Sidebar />
-                  <div className="flex flex-1 flex-col overflow-hidden">
-                    <Topbar />
-                    <MainScrollArea>{children}</MainScrollArea>
+                <BottomNavProvider>
+                  {/* Salto al contenido (WCAG 2.4.1): invisible hasta recibir
+                      foco por teclado, entonces aparece sobre la interfaz. */}
+                  <a
+                    href="#contenido"
+                    className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
+                               focus:rounded-lg focus:border focus:border-emerald-500/40 focus:bg-zinc-900
+                               focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-300"
+                  >
+                    Saltar al contenido
+                  </a>
+                  <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
+                    <Sidebar />
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                      <Topbar />
+                      <MainScrollArea>{children}</MainScrollArea>
+                    </div>
                   </div>
-                </div>
-                <BottomNav />
+                  <BottomNav />
+                </BottomNavProvider>
               </ScrollProvider>
             </MobileNavProvider>
             <Toaster />
