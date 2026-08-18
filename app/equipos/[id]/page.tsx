@@ -9,6 +9,7 @@ import { COMPETITIONS_NAV } from '@/lib/sports'
 import { Flag } from '@/components/ui/Flag'
 import { TeamStatCard } from '@/components/teams/TeamStatCard'
 import { ClickableMatchRow, OpponentLink } from '@/components/teams/ClickableMatchRow'
+import { TeamSquad } from '@/components/teams/TeamSquad'
 import { formatColDate } from '@/lib/datetime'
 import { predictionWarmup, coldStartNote } from '@/lib/predictionQuality'
 import { cn } from '@/lib/utils'
@@ -67,26 +68,32 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
     .order('kickoff_time', { ascending: false })
     .limit(500)
 
+  // Plantilla y bajas. Van en paralelo con lo demás porque son
+  // independientes: si una falla, el resto del perfil sigue en pie.
+  //
+  // Las lesiones se filtran por `is_active`: la tabla guarda una fila por
+  // jugador y competición con el último parte, y solo interesa quién está
+  // fuera AHORA. No se pide `impact_score` a propósito — se ingesta en NULL
+  // (migración 059) porque la fuente no lo publica, y pedir una columna
+  // vacía solo invitaría a pintarla.
+  const [{ data: squadRaw }, { data: injuriesRaw }] = await Promise.all([
+    supabase
+      .from('players')
+      .select('id, name, number, position_raw, age, photo_url, nationality')
+      .eq('team_id', id)
+      .order('name'),
+    supabase
+      .from('injuries')
+      .select('player_id, reason_raw, injury_type')
+      .eq('team_id', id)
+      .eq('is_active', true),
+  ])
+
+  const squad = (squadRaw ?? []) as any[]
+  const injuries = (injuriesRaw ?? []) as any[]
+
   const matches = (matchesRaw ?? []) as any[]
   const stats = computeFootballTeamStats(matches as FbMatch[], id)
-
-  // Plantilla: solo donde ya se ingestó (Copa Libertadores por ahora — ver
-  // services/sync/libertadores-squad.ts). Vacía en cualquier otro equipo,
-  // la sección entera desaparece en vez de mostrar un bloque en blanco.
-  const { data: squadRaw } = await supabase
-    .from('players')
-    .select('id, name, number, position_raw, nationality, photo_url')
-    .eq('team_id', id)
-    .order('number', { ascending: true, nullsFirst: false })
-  const squad = (squadRaw ?? []) as any[]
-  const POSITION_LABEL: Record<string, string> = {
-    Goalkeeper: 'Porteros', Defender: 'Defensas', Midfielder: 'Mediocampistas', Attacker: 'Delanteros',
-  }
-  const POSITION_ORDER = ['Goalkeeper', 'Defender', 'Midfielder', 'Attacker']
-  const squadByPosition = POSITION_ORDER
-    .map((pos) => ({ pos, label: POSITION_LABEL[pos], players: squad.filter((p) => p.position_raw === pos) }))
-    .filter((g) => g.players.length > 0)
-  const squadUnknown = squad.filter((p) => !POSITION_ORDER.includes(p.position_raw))
 
   const compName = COMPETITIONS_NAV.find((c) => c.id === t.competition_id)?.name ?? 'Fútbol'
   const backHref = competitionHref(t.competition_id)
@@ -358,48 +365,18 @@ export default async function FootballTeamPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      {/* Plantilla: se auto-oculta si el equipo no tiene ingesta de jugadores */}
-      {squad.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-2.5">
-            <h2 className="text-sm font-bold text-white">Plantilla</h2>
-            <p className="text-[10px] text-zinc-500">{squad.length} jugadores registrados</p>
-          </div>
-          <div className="divide-y divide-zinc-800/60">
-            {squadByPosition.map((group) => (
-              <div key={group.pos} className="px-4 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.label}</h3>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                  {group.players.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 text-xs">
-                      <span className="mono w-6 shrink-0 text-right text-zinc-600">{p.number ?? '—'}</span>
-                      {p.photo_url
-                        ? /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={p.photo_url} alt="" loading="lazy" className="h-6 w-6 shrink-0 rounded-full object-cover bg-zinc-800" />
-                        : <span className="h-6 w-6 shrink-0 rounded-full bg-zinc-800" />}
-                      <span className="truncate text-zinc-300">{p.name}</span>
-                      {p.nationality && <span className="shrink-0 text-[10px] text-zinc-600">{p.nationality}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {squadUnknown.length > 0 && (
-              <div className="px-4 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Posición no disponible</h3>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                  {squadUnknown.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 text-xs">
-                      <span className="mono w-6 shrink-0 text-right text-zinc-600">{p.number ?? '—'}</span>
-                      <span className="truncate text-zinc-300">{p.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Plantilla — al final y FUERA del bloque de estadísticas: un equipo
+          recién ascendido no tiene partidos jugados pero sí tiene plantilla.
+          Va debajo del calendario porque son treinta y tantas filas y arriba
+          empujarían los partidos fuera de pantalla; las bajas, que es lo
+          urgente antes de un partido, encabezan la propia sección.
+
+          Una sola sección: el bloque en línea que traía esta página se
+          sustituyó por el componente, que conserva foto y nacionalidad y
+          añade bajas, edad y una agrupación que aguanta los cuatro formatos
+          de puesto que hay en la base. Dos plantillas en la misma ficha no
+          tendrían sentido. */}
+      {squad.length > 0 && <TeamSquad players={squad} injuries={injuries} />}
     </div>
   )
 }
