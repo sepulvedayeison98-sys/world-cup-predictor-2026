@@ -16,10 +16,15 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runLeagueBacktest, type LeagueBacktestMetrics } from '@/lib/leagueEngine'
 import { computeConfidenceLevel } from '@/lib/predictionEngine'
-import { LEAGUE_COMPETITION_IDS } from '@/lib/constants'
+import { LEAGUE_COMPETITION_IDS, LIBERTADORES_COMPETITION_ID } from '@/lib/constants'
 import { syncSmartBetTracking } from '@/services/smartBetTracking'
 
 export const LEAGUE_MODEL_VERSION = 'liga-1.0'
+// Copa Libertadores reutiliza el MISMO motor walk-forward (runLeagueBacktest
+// no asume tabla de temporada continua: solo recorre partidos en orden
+// cronológico), pero es una calibración aparte — versión de modelo propia
+// para no mezclar la métrica de precisión con la de las ligas.
+export const LIBERTADORES_MODEL_VERSION = 'copa-1.0'
 
 export interface LeagueCalibrationResult {
   key: string
@@ -28,6 +33,120 @@ export interface LeagueCalibrationResult {
   statsUpserted: number
   predictionsUpserted: number
   metrics: LeagueBacktestMetrics
+}
+
+/**
+ * Corre el backtest walk-forward sobre los partidos de UNA competición y
+ * persiste ELO, agregados de temporada y predicciones evaluadas. Compartido
+ * por `calibrateLeagues` (una liga por clave) y `calibrateLibertadores` (una
+ * sola competición, sin clave de liga).
+ *
+ * `requireRound`: las ligas excluyen partidos con `round` NULL (playoffs de
+ * descenso, fuera del backtest). Libertadores NO tiene ese filtro — sus
+ * eliminatorias (ida/vuelta) se guardan justamente con `round` NULL
+ * (services/sync/libertadores-ingest.ts), así que exigirlo dejaría fuera
+ * toda la fase de eliminación directa, que es donde más importa el ELO.
+ */
+async function calibrateCompetition(
+  supabase: ReturnType<typeof createAdminClient>,
+  label: string,
+  competitionId: string,
+  modelVersion: string,
+  requireRound: boolean,
+): Promise<Omit<LeagueCalibrationResult, 'key' | 'competitionId'> | null> {
+  let query = supabase
+    .from('matches')
+    .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
+    .eq('competition_id', competitionId)
+  if (requireRound) query = query.not('round', 'is', null)
+  const { data: matches, error: mErr } = await query
+  if (mErr) throw new Error(`matches ${label}: ${mErr.message}`)
+  if (!matches?.length) return null
+
+  const backtest = runLeagueBacktest(matches as any[])
+
+  // ── ELO final por club ───────────────────────────────────
+  // Solo equipos con partidos jugados: en pretemporada no se pisa el
+  // ELO existente con la base 1500.
+  let teamsUpdated = 0
+  for (const [teamId, elo] of backtest.finalElo) {
+    if ((backtest.teamSeason.get(teamId)?.played ?? 0) === 0) continue
+    const { error } = await (supabase.from('teams') as any)
+      .update({ elo_rating: elo })
+      .eq('id', teamId)
+      .eq('competition_id', competitionId) // cinturón y tirantes
+    if (error) throw new Error(`elo ${label}: ${error.message}`)
+    teamsUpdated++
+  }
+
+  // ── Agregados de temporada → team_statistics ─────────────
+  const statRows = [...backtest.teamSeason.entries()]
+    .filter(([, t]) => t.played > 0)
+    .map(([teamId, t]) => ({
+    team_id: teamId,
+    competition_id: competitionId,
+    matches_played: t.played,
+    goals_scored: t.goals_for,
+    goals_conceded: t.goals_against,
+    clean_sheets: t.clean_sheets,
+    avg_goals_scored: t.played ? Math.round((t.goals_for / t.played) * 100) / 100 : 0,
+    avg_goals_conceded: t.played ? Math.round((t.goals_against / t.played) * 100) / 100 : 0,
+    // Sin boxscores propios todavía: xG proxy = goles (documentado)
+    avg_xg: t.played ? Math.round((t.goals_for / t.played) * 100) / 100 : 0,
+    avg_xga: t.played ? Math.round((t.goals_against / t.played) * 100) / 100 : 0,
+    form: t.form,
+    updated_at: new Date().toISOString(),
+    }))
+  const { error: sErr } = await (supabase.from('team_statistics') as any)
+    .upsert(statRows, { onConflict: 'team_id,competition_id' })
+  if (sErr) throw new Error(`team_statistics ${label}: ${sErr.message}`)
+
+  // ── Predicciones del backtest → predictions ──────────────
+  const predRows = backtest.predictions.map((p) => ({
+    match_id: p.match_id,
+    home_win_probability: p.home_win_probability,
+    draw_probability: p.draw_probability,
+    away_win_probability: p.away_win_probability,
+    predicted_home_score: p.predicted_home_score,
+    predicted_away_score: p.predicted_away_score,
+    confidence_level: computeConfidenceLevel(p.confidence_score),
+    confidence_score: p.confidence_score,
+    model_version: modelVersion,
+    is_published: true,
+    was_correct: p.correct,
+    actual_outcome: p.actual,
+    updated_at: new Date().toISOString(),
+  }))
+  // Partidos programados/en vivo: predicción pre-partido con el estado
+  // actual del modelo (modo "en vivo").
+  const upcomingRows = backtest.upcoming.map((p) => ({
+    match_id: p.match_id,
+    home_win_probability: p.home_win_probability,
+    draw_probability: p.draw_probability,
+    away_win_probability: p.away_win_probability,
+    predicted_home_score: p.predicted_home_score,
+    predicted_away_score: p.predicted_away_score,
+    confidence_level: computeConfidenceLevel(p.confidence_score),
+    confidence_score: p.confidence_score,
+    model_version: modelVersion,
+    is_published: true,
+    was_correct: null,
+    actual_outcome: null,
+    updated_at: new Date().toISOString(),
+  }))
+
+  let predictionsUpserted = 0
+  for (const rows of [predRows, upcomingRows]) {
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200)
+      const { error } = await (supabase.from('predictions') as any)
+        .upsert(chunk, { onConflict: 'match_id' })
+      if (error) throw new Error(`predictions ${label}: ${error.message}`)
+      predictionsUpserted += chunk.length
+    }
+  }
+
+  return { teamsUpdated, statsUpserted: statRows.length, predictionsUpserted, metrics: backtest.metrics }
 }
 
 /**
@@ -47,107 +166,9 @@ export async function calibrateLeagues(onlyKeys?: string[], withSmartBets = fals
   if (entries.length === 0) throw new Error(`Ninguna liga coincide con: ${onlyKeys?.join(',')}`)
 
   for (const [key, competitionId] of entries) {
-    const { data: matches, error: mErr } = await supabase
-      .from('matches')
-      .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
-      .eq('competition_id', competitionId)
-      // Solo temporada regular: los playoffs de descenso (round NULL) no
-      // entran ni al ELO ni al backtest
-      .not('round', 'is', null)
-    if (mErr) throw new Error(`matches ${key}: ${mErr.message}`)
-    if (!matches?.length) continue
-
-    const backtest = runLeagueBacktest(matches as any[])
-
-    // ── ELO final por club ───────────────────────────────────
-    // Solo equipos con partidos jugados: en pretemporada no se pisa el
-    // ELO existente con la base 1500.
-    let teamsUpdated = 0
-    for (const [teamId, elo] of backtest.finalElo) {
-      if ((backtest.teamSeason.get(teamId)?.played ?? 0) === 0) continue
-      const { error } = await (supabase.from('teams') as any)
-        .update({ elo_rating: elo })
-        .eq('id', teamId)
-        .eq('competition_id', competitionId) // cinturón y tirantes
-      if (error) throw new Error(`elo ${key}: ${error.message}`)
-      teamsUpdated++
-    }
-
-    // ── Agregados de temporada → team_statistics ─────────────
-    const statRows = [...backtest.teamSeason.entries()]
-      .filter(([, t]) => t.played > 0)
-      .map(([teamId, t]) => ({
-      team_id: teamId,
-      competition_id: competitionId,
-      matches_played: t.played,
-      goals_scored: t.goals_for,
-      goals_conceded: t.goals_against,
-      clean_sheets: t.clean_sheets,
-      avg_goals_scored: t.played ? Math.round((t.goals_for / t.played) * 100) / 100 : 0,
-      avg_goals_conceded: t.played ? Math.round((t.goals_against / t.played) * 100) / 100 : 0,
-      // Sin boxscores de liga todavía: xG proxy = goles (documentado)
-      avg_xg: t.played ? Math.round((t.goals_for / t.played) * 100) / 100 : 0,
-      avg_xga: t.played ? Math.round((t.goals_against / t.played) * 100) / 100 : 0,
-      form: t.form,
-      updated_at: new Date().toISOString(),
-      }))
-    const { error: sErr } = await (supabase.from('team_statistics') as any)
-      .upsert(statRows, { onConflict: 'team_id,competition_id' })
-    if (sErr) throw new Error(`team_statistics ${key}: ${sErr.message}`)
-
-    // ── Predicciones del backtest → predictions ──────────────
-    const predRows = backtest.predictions.map((p) => ({
-      match_id: p.match_id,
-      home_win_probability: p.home_win_probability,
-      draw_probability: p.draw_probability,
-      away_win_probability: p.away_win_probability,
-      predicted_home_score: p.predicted_home_score,
-      predicted_away_score: p.predicted_away_score,
-      confidence_level: computeConfidenceLevel(p.confidence_score),
-      confidence_score: p.confidence_score,
-      model_version: LEAGUE_MODEL_VERSION,
-      is_published: true,
-      was_correct: p.correct,
-      actual_outcome: p.actual,
-      updated_at: new Date().toISOString(),
-    }))
-    // Partidos programados/en vivo: predicción pre-partido con el estado
-    // actual del modelo (modo "en vivo" para la temporada 2026-27).
-    const upcomingRows = backtest.upcoming.map((p) => ({
-      match_id: p.match_id,
-      home_win_probability: p.home_win_probability,
-      draw_probability: p.draw_probability,
-      away_win_probability: p.away_win_probability,
-      predicted_home_score: p.predicted_home_score,
-      predicted_away_score: p.predicted_away_score,
-      confidence_level: computeConfidenceLevel(p.confidence_score),
-      confidence_score: p.confidence_score,
-      model_version: LEAGUE_MODEL_VERSION,
-      is_published: true,
-      was_correct: null,
-      actual_outcome: null,
-      updated_at: new Date().toISOString(),
-    }))
-
-    let predictionsUpserted = 0
-    for (const rows of [predRows, upcomingRows]) {
-      for (let i = 0; i < rows.length; i += 200) {
-        const chunk = rows.slice(i, i + 200)
-        const { error } = await (supabase.from('predictions') as any)
-          .upsert(chunk, { onConflict: 'match_id' })
-        if (error) throw new Error(`predictions ${key}: ${error.message}`)
-        predictionsUpserted += chunk.length
-      }
-    }
-
-    results.push({
-      key,
-      competitionId,
-      teamsUpdated,
-      statsUpserted: statRows.length,
-      predictionsUpserted,
-      metrics: backtest.metrics,
-    })
+    const outcome = await calibrateCompetition(supabase, key, competitionId, LEAGUE_MODEL_VERSION, true)
+    if (!outcome) continue
+    results.push({ key, competitionId, ...outcome })
   }
 
   await (supabase.from('sync_logs') as any).insert({
@@ -169,4 +190,38 @@ export async function calibrateLeagues(onlyKeys?: string[], withSmartBets = fals
   if (withSmartBets) await syncSmartBetTracking()
 
   return { ok: results.length > 0, leagues: results }
+}
+
+/**
+ * Calibra Copa Libertadores con el mismo motor walk-forward de las ligas.
+ * Antes quedaba fuera: `teams.elo_rating` de sus 32 clubes se quedaba fijo
+ * en la base 1500 (libertadores-ingest.ts nunca lo toca) y las páginas de
+ * partido calculaban la predicción al vuelo, sin guardarla, cada vez.
+ *
+ * Sin `?league=`: es una sola competición, no una lista para acotar. Sin
+ * filtro de `round` (a diferencia de las ligas): sus eliminatorias
+ * (ida/vuelta) se ingestan justamente con `round` NULL, y excluirlas
+ * dejaría fuera toda la fase que más le importa al ELO.
+ */
+export async function calibrateLibertadores(): Promise<{
+  ok: boolean
+  result: LeagueCalibrationResult | null
+}> {
+  const supabase = createAdminClient()
+  const key = 'copa_libertadores'
+  const outcome = await calibrateCompetition(
+    supabase, key, LIBERTADORES_COMPETITION_ID, LIBERTADORES_MODEL_VERSION, false,
+  )
+  const result = outcome ? { key, competitionId: LIBERTADORES_COMPETITION_ID, ...outcome } : null
+
+  await (supabase.from('sync_logs') as any).insert({
+    source: 'api_football',
+    entity_type: 'libertadores_calibrate',
+    status: 'success',
+    records_processed: result?.predictionsUpserted ?? 0,
+    records_failed: 0,
+    metadata: { model_version: LIBERTADORES_MODEL_VERSION, result },
+  })
+
+  return { ok: result !== null, result }
 }
