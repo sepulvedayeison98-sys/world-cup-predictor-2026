@@ -18,8 +18,8 @@ const EASE = 'cubic-bezier(.32,.72,0,1)'
  * atajo a rutas existentes, no ítems nuevos.
  *
  * Tamaño: amplia por defecto (con etiquetas), se contrae a solo íconos
- * apenas hay scroll y vuelve a expandirse cuando se toca uno de sus
- * botones (estado en BottomNavContext).
+ * al bajar y vuelve a su tamaño normal al volver arriba (o al tocar
+ * alguno de sus botones) — estado en BottomNavContext.
  */
 const ITEMS = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },

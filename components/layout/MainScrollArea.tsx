@@ -11,7 +11,7 @@ const SCROLL_THRESHOLD = 24
 
 export function MainScrollArea({ children }: { children: React.ReactNode }) {
   const { setScrolled } = useMainScroll()
-  const { collapse } = useBottomNavState()
+  const { collapse, expand } = useBottomNavState()
   const lastRef = useRef(false)
 
   return (
@@ -23,10 +23,12 @@ export function MainScrollArea({ children }: { children: React.ReactNode }) {
         if (lastRef.current !== next) {
           lastRef.current = next
           setScrolled(next)
+          // El BottomNav se contrae al cruzar el umbral hacia abajo y
+          // vuelve a su tamaño normal al cruzarlo de nuevo hacia arriba
+          // (o al volver al inicio) — no solo con un clic.
+          if (next) collapse()
+          else expand()
         }
-        // El BottomNav se contrae apenas hay scroll (cualquier desplazamiento,
-        // no solo tras el umbral) y solo vuelve a expandirse con un clic.
-        collapse()
       }}
       className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-28 lg:pb-0"
     >
