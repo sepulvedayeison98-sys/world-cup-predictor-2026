@@ -7,9 +7,10 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { QueryProvider } from '@/components/layout/QueryProvider'
 import { MobileNavProvider } from '@/components/layout/MobileNavContext'
+import { ScrollProvider } from '@/components/layout/ScrollContext'
+import { BottomNavProvider } from '@/components/layout/BottomNavContext'
+import { MainScrollArea } from '@/components/layout/MainScrollArea'
 import { Toaster } from '@/components/ui/sonner'
-import { AutoRefresh } from '@/components/ui/AutoRefresh'
-import { SyncKeepalive } from '@/components/layout/SyncKeepalive'
 import { SITE_URL } from '@/lib/constants'
 
 const inter = Inter({
@@ -77,32 +78,28 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <QueryProvider>
             <MobileNavProvider>
-              {/* Salto al contenido (WCAG 2.4.1): invisible hasta recibir
-                  foco por teclado, entonces aparece sobre la interfaz. */}
-              <a
-                href="#contenido"
-                className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
-                           focus:rounded-lg focus:border focus:border-emerald-500/40 focus:bg-zinc-900
-                           focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-300"
-              >
-                Saltar al contenido
-              </a>
-              <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
-                <Sidebar />
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <Topbar />
-                  <main
-                    id="contenido"
-                    tabIndex={-1}
-                    className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-16 lg:pb-0"
+              <ScrollProvider>
+                <BottomNavProvider>
+                  {/* Salto al contenido (WCAG 2.4.1): invisible hasta recibir
+                      foco por teclado, entonces aparece sobre la interfaz. */}
+                  <a
+                    href="#contenido"
+                    className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
+                               focus:rounded-lg focus:border focus:border-emerald-500/40 focus:bg-zinc-900
+                               focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-300"
                   >
-                    <AutoRefresh />
-                    <SyncKeepalive />
-                    {children}
-                  </main>
-                </div>
-              </div>
-              <BottomNav />
+                    Saltar al contenido
+                  </a>
+                  <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
+                    <Sidebar />
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                      <Topbar />
+                      <MainScrollArea>{children}</MainScrollArea>
+                    </div>
+                  </div>
+                  <BottomNav />
+                </BottomNavProvider>
+              </ScrollProvider>
             </MobileNavProvider>
             <Toaster />
           </QueryProvider>

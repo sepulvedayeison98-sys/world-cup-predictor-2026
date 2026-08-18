@@ -4,8 +4,12 @@ import { useState } from 'react'
 import { Search, Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
+import { useMainScroll } from '@/components/layout/ScrollContext'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { LEAGUE_NAMES } from '@/lib/constants'
+
+/** Curva de la transición estática → flotante. */
+const EASE = 'cubic-bezier(.32,.72,0,1)'
 
 /**
  * Breadcrumb contextual (auditoría C1): el contexto lo define la ruta,
@@ -40,11 +44,19 @@ function breadcrumbOf(pathname: string): [string, string] | [string] {
 export function Topbar() {
   const pathname = usePathname()
   const { setOpen } = useMobileNav()
+  const { scrolled } = useMainScroll()
   const [searchOpen, setSearchOpen] = useState(false)
   const crumb = breadcrumbOf(pathname)
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-4 backdrop-blur-sm">
+    <header
+      className={`z-30 flex h-14 items-center justify-between transition-all duration-500 ${
+        scrolled
+          ? 'mx-3 mt-3 rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 shadow-[0_18px_40px_-20px_rgba(0,0,0,.6)] backdrop-blur-xl'
+          : 'mx-0 mt-0 rounded-none border-b border-zinc-800 bg-zinc-900/80 px-4 shadow-none backdrop-blur-sm'
+      }`}
+      style={{ transitionTimingFunction: EASE }}
+    >
       {/* Hamburguesa (movil) + breadcrumb contextual */}
       <div className="flex items-center gap-2 min-w-0">
         <button

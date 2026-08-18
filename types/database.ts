@@ -1264,54 +1264,66 @@ export type Database = {
       }
       players: {
         Row: {
+          age: number | null
+          api_football_id: number | null
           club_name: string | null
           created_at: string
-          date_of_birth: string
+          date_of_birth: string | null
           height_cm: number | null
           id: string
           market_value_euros: number | null
           name: string
-          nationality: string
-          number: number
+          nationality: string | null
+          number: number | null
           photo_url: string | null
-          position: Database["public"]["Enums"]["player_position"]
-          short_name: string
+          position: Database["public"]["Enums"]["player_position"] | null
+          position_raw: string | null
+          short_name: string | null
+          source: string | null
           status: Database["public"]["Enums"]["player_status"]
           team_id: string
           updated_at: string
           weight_kg: number | null
         }
         Insert: {
+          age?: number | null
+          api_football_id?: number | null
           club_name?: string | null
           created_at?: string
-          date_of_birth: string
+          date_of_birth?: string | null
           height_cm?: number | null
           id?: string
           market_value_euros?: number | null
           name: string
-          nationality: string
-          number: number
+          nationality?: string | null
+          number?: number | null
           photo_url?: string | null
-          position: Database["public"]["Enums"]["player_position"]
-          short_name: string
+          position?: Database["public"]["Enums"]["player_position"] | null
+          position_raw?: string | null
+          short_name?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["player_status"]
           team_id: string
           updated_at?: string
           weight_kg?: number | null
         }
         Update: {
+          age?: number | null
+          api_football_id?: number | null
           club_name?: string | null
           created_at?: string
-          date_of_birth?: string
+          date_of_birth?: string | null
           height_cm?: number | null
           id?: string
           market_value_euros?: number | null
           name?: string
-          nationality?: string
-          number?: number
+          nationality?: string | null
+          number?: number | null
           photo_url?: string | null
-          position?: Database["public"]["Enums"]["player_position"]
-          short_name?: string
+          position?: Database["public"]["Enums"]["player_position"] | null
+          position_raw?: string | null
+          short_name?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["player_status"]
           team_id?: string
           updated_at?: string
