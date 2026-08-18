@@ -3,10 +3,10 @@
 import { createContext, useContext, useState } from 'react'
 
 /**
- * Tamaño del BottomNav flotante: amplio por defecto, se contrae apenas
- * hay scroll (MainScrollArea llama a collapse()) y solo vuelve a expandirse
- * cuando el usuario toca uno de sus botones (BottomNav llama a expand()).
- * Volver arriba con scroll NO lo re-expande — es a propósito, solo el clic.
+ * Tamaño del BottomNav flotante: amplio por defecto, se contrae al cruzar
+ * el umbral de scroll hacia abajo y vuelve a su tamaño normal al cruzarlo
+ * de nuevo hacia arriba (MainScrollArea llama a collapse()/expand()), o al
+ * instante si se toca uno de sus botones (BottomNav llama a expand()).
  */
 type BottomNavState = { expanded: boolean; collapse: () => void; expand: () => void }
 
