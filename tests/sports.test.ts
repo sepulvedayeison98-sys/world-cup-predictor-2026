@@ -64,3 +64,34 @@ test('las listas por deporte particionan las competiciones sin solaparse', () =>
   const temporadasHistoricasDeLiga = ALL_LEAGUE_COMPETITION_IDS.length - Object.keys(LEAGUE_SLUGS).length
   assert.equal(total, conDatos + temporadasHistoricasDeLiga)
 })
+
+// ─── Escudos de competición ──────────────────────────────────────────────────
+
+test('todo escudo declarado en el registro existe en public/', () => {
+  // Una ruta declarada sin archivo detrás no rompe el build ni el
+  // type-check: se manifiesta como un hueco en la navegación que solo se ve
+  // mirando la página. Este test lo convierte en un fallo de `npm test`.
+  const { existsSync } = require('node:fs') as typeof import('node:fs')
+  const { join } = require('node:path') as typeof import('node:path')
+
+  const conEscudo = COMPETITIONS_NAV.filter((c) => c.logo)
+  assert.ok(conEscudo.length >= 8, 'deberían tener escudo las 7 de fútbol y la NBA')
+
+  for (const c of conEscudo) {
+    assert.ok(c.logo!.startsWith('/competiciones/'),
+      `${c.slug}: el escudo debe servirse desde /competiciones/`)
+    const file = join(__dirname, '..', 'public', c.logo!)
+    assert.ok(existsSync(file), `${c.slug}: falta el archivo ${c.logo}`)
+  }
+})
+
+test('las competiciones sin fuente de escudo lo declaran ausente, no roto', () => {
+  // ATP y WTA: ninguna de nuestras fuentes publica un escudo del circuito que
+  // podamos servir, así que van sin `logo` y caen a su icono. Si algún día
+  // aparece uno, este test es el recordatorio de dónde ponerlo.
+  for (const slug of ['atp', 'wta']) {
+    const c = COMPETITIONS_NAV.find((x) => x.slug === slug)
+    assert.ok(c, `falta ${slug} en el registro`)
+    assert.equal(c!.logo, undefined, `${slug}: sin fuente de escudo, debe ir sin logo`)
+  }
+})

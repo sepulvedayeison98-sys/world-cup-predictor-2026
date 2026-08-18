@@ -63,6 +63,21 @@ UNION ALL SELECT '055 Liga BetPlay (Primera A Colombia)', EXISTS(SELECT 1 FROM c
 UNION ALL SELECT '056 una competición por temporada (2026-27)', (SELECT count(*)=6 FROM competitions WHERE season IN ('2026-27','2026') AND sport_id=1)
 UNION ALL SELECT '057 estadio y fundación del equipo', (SELECT count(*)=5 FROM information_schema.columns WHERE table_name='teams' AND column_name IN ('venue_name','venue_city','venue_capacity','venue_image_url','founded_year'))
 UNION ALL SELECT '058 Copa Libertadores 2026', EXISTS(SELECT 1 FROM competitions WHERE id='13002026-0000-4000-8000-000000000013' AND type='continental_cup' AND sport_id=1)
+-- 059: el esquema tiene que ADMITIR los huecos que la fuente deja. Si alguna
+-- de estas columnas vuelve a ser NOT NULL, la ingesta solo puede continuar
+-- inventando datos, que es justo lo que la migración evita.
+UNION ALL SELECT '059 players ingestable (clave externa + columnas opcionales)',
+  EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='api_football_id')
+  AND EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='players_team_api_football_id_key')
+  AND (SELECT bool_and(is_nullable='YES') FROM information_schema.columns
+       WHERE table_name='players' AND column_name IN ('short_name','number','position','nationality','date_of_birth'))
+UNION ALL SELECT '059 injuries sin impacto inventado (impact_score nullable, sin default)',
+  (SELECT is_nullable='YES' AND column_default IS NULL FROM information_schema.columns
+   WHERE table_name='injuries' AND column_name='impact_score')
+  AND EXISTS(SELECT 1 FROM pg_indexes WHERE indexname='injuries_player_competition_key')
+UNION ALL SELECT '059 lineup_players admite suplentes (grid nullable)',
+  (SELECT bool_and(is_nullable='YES') FROM information_schema.columns
+   WHERE table_name='lineup_players' AND column_name IN ('position','grid_x','grid_y'))
 ORDER BY 1;
 
 -- Consistencia standings vs marcadores (debe devolver 0 filas):

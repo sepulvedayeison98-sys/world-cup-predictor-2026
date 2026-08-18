@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Trophy, Globe, Users, Activity } from 'lucide-react'
+import { Search, X, Trophy, Users, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
+import { CompetitionLogo } from '@/components/ui/CompetitionLogo'
 
 interface TeamResult {
   id: string
@@ -129,7 +130,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 >
                   {c.slug === 'mundial-2026'
                     ? <Trophy className="h-4 w-4 shrink-0 text-emerald-400" />
-                    : <Globe className="h-4 w-4 shrink-0 text-zinc-500" />}
+                    : <CompetitionLogo competition={c} size={16} />}
                   <span className="truncate font-medium">{c.name}</span>
                   {c.note && <span className="ml-auto shrink-0 text-[10px] text-zinc-500">{c.note}</span>}
                 </button>

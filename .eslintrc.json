@@ -2,6 +2,40 @@
   "extends": "next/core-web-vitals",
   "overrides": [
     {
+      "files": ["services/sports/core/**/*.ts"],
+      "excludedFiles": ["services/sports/core/registry.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@/*", "../*", "**/providers/*"],
+              "message": "Capa NEUTRA: services/sports/core solo puede depender de sí mismo (imports relativos './'). Conocer proveedores es trabajo exclusivo de core/registry.ts."
+            }
+          ]
+        }]
+      }
+    },
+    {
+      "files": ["services/sports/football/**/*.ts", "services/sports/nba/**/*.ts", "services/sports/tennis/**/*.ts", "services/sports/odds/**/*.ts", "services/sports/news/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["**/providers/*", "**/providers/**"],
+              "message": "Los servicios resuelven su proveedor por core/registry.ts. Importar un adapter directamente vuelve a acoplar la aplicación a una fuente concreta."
+            },
+            {
+              "group": [
+                "@/lib/predictionEngine", "@/lib/leagueEngine", "@/lib/nba/*",
+                "@/lib/tennis/*", "@/components/*", "@/lib/supabase/*"
+              ],
+              "message": "Barrera anti-contaminación: la capa de proveedores no conoce motores, componentes ni la base de datos. Traduce APIs externas a modelos internos y nada más."
+            }
+          ]
+        }]
+      }
+    },
+    {
       "files": ["lib/nba/**/*.ts", "components/nba/**/*.tsx", "app/nba/**/*.tsx", "services/sync/nba-*.ts", "services/nba.service.ts", "app/api/nba/**/*.ts"],
       "rules": {
         "no-restricted-imports": ["error", {
