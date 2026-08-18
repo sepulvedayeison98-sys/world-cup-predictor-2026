@@ -63,27 +63,40 @@ cp .env.example .env.local   # rellenar claves (Supabase, APIs)
 npm run dev                  # http://localhost:3000
 ```
 
-**Base de datos**: aplicar `supabase/migrations/` en orden (001 → 050;
+**Base de datos**: aplicar `supabase/migrations/` en orden (001 → 057;
 `032b` ordena entre 032 y 033). Verificar con
-`supabase/verify_migrations.sql` (43 chequeos).
+`supabase/verify_migrations.sql` (52 chequeos).
 
 **Comandos**: `npm run build` (obligatorio antes de push) ·
-`npm test` (68 unitarias) · `npm run test:e2e` (15 Playwright) ·
-`npm run lint` · `npm run type-check`.
+`npm test` (201 unitarias) · `npm run test:e2e` (15 Playwright) ·
+`npm run lint` · `npm run type-check` ·
+`npm run verify:providers` (llama a las APIs reales; consume cuota).
 
 ---
 
 ## Fuentes de datos
 
-| Fuente | Uso |
-|--------|-----|
-| ESPN (pública) | Resultados y estadísticas del Mundial |
-| The Odds API | Cuotas (Pinnacle) y value bets de fútbol |
-| API-Football (api-sports.io) | Ligas europeas: equipos, calendario, eventos |
-| API-Basketball (api-sports.io) | NBA: equipos, calendario, marcadores por cuarto |
+Toda API externa entra por la capa `services/sports/`, que la traduce a modelos
+internos antes de que nada de la aplicación la vea. La interfaz no conoce
+proveedores: cambiar de fuente es mover una variable de entorno.
+
+| Módulo | Primario | Respaldo | Coste |
+|--------|----------|----------|-------|
+| Fútbol | API-Football (Pro) | ESPN | de pago |
+| NBA | ESPN | — | gratis |
+| Tenis | ESPN (circuito actual) | Sackmann CSV (histórico) | gratis |
+| Cuotas | The Odds API | — | de pago |
+| Noticias | ESPN | — | gratis |
+
+La NBA se sirve desde ESPN y no desde api-basketball porque esa cuenta sigue en
+plan Free (100 req/día, sin temporada en curso). Detalle completo del stack, la
+política de caché y cómo cambiar de proveedor: **`docs/API_ARCHITECTURE.md`**.
 
 Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
 `CRON_SECRET`. Ninguna clave vive en el código.
+
+`npm run verify:providers` llama a las APIs de verdad y comprueba que cada
+adapter sigue funcionando hoy.
 
 ---
 
@@ -96,6 +109,9 @@ Los syncs corren por GitHub Actions y crons de Vercel, autenticados con
   modelo por calibración (fases F0-F5, aún sin implementar)
 - `docs/CACHE_STRATEGY.md` — estrategia de caché (ISR por tiers + revalidación
   por evento + cliente); capa 5 de frescura sin castigar rendimiento
+- `docs/API_ARCHITECTURE.md` — **capa de proveedores deportivos**: stack de
+  APIs y por qué cada una, modelos normalizados, caché por clase de dato,
+  taxonomía de errores, cómo cambiar de proveedor y cómo añadir un deporte
 - `docs/TENNIS_ARCHITECTURE.md` — dominio Tennis: modelo de datos aislado,
   barreras y plan de fases
 - `PROGRESS_REPORT.md` — último plan ejecutado y su estado
