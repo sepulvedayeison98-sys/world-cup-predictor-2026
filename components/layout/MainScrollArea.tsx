@@ -23,7 +23,7 @@ export function MainScrollArea({ children }: { children: React.ReactNode }) {
           setScrolled(next)
         }
       }}
-      className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-16 lg:pb-0"
+      className="flex-1 overflow-y-auto overflow-x-hidden bg-zinc-950 pb-28 lg:pb-0"
     >
       <AutoRefresh />
       <SyncKeepalive />

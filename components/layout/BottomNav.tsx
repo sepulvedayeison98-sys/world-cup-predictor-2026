@@ -7,11 +7,11 @@ import { cn } from '@/lib/utils'
 import { useMobileNav } from '@/components/layout/MobileNavContext'
 
 /**
- * Navegación inferior móvil (playbook Sofascore, mejora 6). Solo <lg:
- * en desktop manda el sidebar. Cinco destinos de máximo uso; "Más" abre el
- * drawer del sidebar (donde viven competiciones, inteligencia y ajustes).
- * La navegación raíz sigue CONGELADA: esto es un atajo a rutas existentes,
- * no ítems nuevos.
+ * Navegación inferior móvil (playbook Sofascore, mejora 6; F-nav: píldora
+ * flotante). Solo <lg: en desktop manda el sidebar. Cinco destinos de
+ * máximo uso; "Más" abre el drawer del sidebar (donde viven competiciones,
+ * inteligencia y ajustes). La navegación raíz sigue CONGELADA: esto es un
+ * atajo a rutas existentes, no ítems nuevos.
  */
 const ITEMS = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -29,7 +29,8 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación inferior"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden"
+      style={{ bottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+      className="fixed inset-x-3 z-40 flex items-center gap-0.5 rounded-full border border-zinc-800 bg-zinc-900/90 p-1.5 shadow-[0_18px_40px_-20px_rgba(0,0,0,.6)] backdrop-blur-xl lg:hidden"
     >
       {ITEMS.map(({ href, label, icon: Icon }) => {
         const active = isActive(href)
@@ -39,8 +40,8 @@ export function BottomNav() {
             href={href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
-              active ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300',
+              'flex flex-1 flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-medium transition-colors',
+              active ? 'bg-emerald-500/15 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300',
             )}
           >
             <Icon className="h-5 w-5" />
@@ -51,7 +52,7 @@ export function BottomNav() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Más secciones"
-        className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+        className="flex flex-1 flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
       >
         <Menu className="h-5 w-5" />
         <span>Más</span>
