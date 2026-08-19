@@ -3,6 +3,7 @@ import { Zap } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat, type PendingMatchRow } from '@/components/predictions/SmartBetsTrackRecord'
+import { COMPETITION_ID } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Apuestas de Valor',
@@ -54,11 +55,15 @@ export default async function ValueBetsPage() {
   const bestEdge    = bets.reduce((max, b: any) => Math.max(max, b.edge ?? 0), 0)
 
   // ── Historial de aciertos Smart Bets — 3 consultas en paralelo ──────
+  // Mundial excluido a propósito: terminó el 19 de julio y sus picks
+  // históricos solo diluirían el % de acierto y "recientes" de las
+  // competiciones que siguen activas (ligas, Libertadores).
   const [{ data: resolvedRaw }, { data: recentRaw }, { data: pendingRaw }] = await Promise.all([
     supabase
       .from('smart_bet_picks')
       .select('id, category, gradable, correct')
-      .eq('resolved', true),
+      .eq('resolved', true)
+      .neq('competition_id', COMPETITION_ID),
     supabase
       .from('smart_bet_picks')
       .select(`
@@ -69,6 +74,7 @@ export default async function ValueBetsPage() {
         )
       `)
       .eq('resolved', true)
+      .neq('competition_id', COMPETITION_ID)
       .order('resolved_at', { ascending: false })
       .limit(20),
     supabase
@@ -79,7 +85,8 @@ export default async function ValueBetsPage() {
           home_team:teams!matches_home_team_id_fkey(code),
           away_team:teams!matches_away_team_id_fkey(code))
       `)
-      .eq('resolved', false),
+      .eq('resolved', false)
+      .neq('competition_id', COMPETITION_ID),
   ])
 
   const resolved = (resolvedRaw ?? []) as any[]
