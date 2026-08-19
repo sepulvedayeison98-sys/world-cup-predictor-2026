@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncESPNResults } from '@/services/sync/espn-results'
+import { syncESPNResultsLibertadores } from '@/services/sync/espn-results-libertadores'
 import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
@@ -52,8 +53,13 @@ export async function GET() {
   }
 
   try {
-    const result = await syncESPNResults()
-    return NextResponse.json({ ok: true, updated: result.updated })
+    const [wc, lib] = await Promise.allSettled([syncESPNResults(), syncESPNResultsLibertadores()])
+    if (wc.status === 'rejected') await logSyncError('espn_api', 'matches', wc.reason, { via: 'sync/live' })
+    if (lib.status === 'rejected') await logSyncError('espn_api', 'libertadores_matches', lib.reason, { via: 'sync/live' })
+    const updated =
+      (wc.status === 'fulfilled' ? wc.value.updated : 0) +
+      (lib.status === 'fulfilled' ? lib.value.updated : 0)
+    return NextResponse.json({ ok: true, updated })
   } catch (err: any) {
     await logSyncError('espn_api', 'matches', err, { via: 'sync/live' })
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 })

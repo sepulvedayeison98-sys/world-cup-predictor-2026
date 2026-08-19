@@ -1,5 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { COMPETITION_ID } from '@/lib/constants'
+import { COMPETITION_ID, LIBERTADORES_COMPETITION_ID } from '@/lib/constants'
+
+/** Competiciones con sync de resultados en vivo vía ESPN. */
+const LIVE_SYNC_COMPETITION_IDS = [COMPETITION_ID, LIBERTADORES_COMPETITION_ID]
 
 const MIN = 60 * 1000
 
@@ -24,7 +27,7 @@ export async function getSyncWindow(): Promise<SyncWindow> {
   const { data, error } = await supabase
     .from('matches')
     .select('id, kickoff_time, status')
-    .eq('competition_id', COMPETITION_ID)
+    .in('competition_id', LIVE_SYNC_COMPETITION_IDS)
   if (error) throw error
 
   const now = Date.now()

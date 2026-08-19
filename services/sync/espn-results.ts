@@ -6,7 +6,7 @@ import { COMPETITION_ID } from '@/lib/constants'
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
 
-type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
+export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
 
 // Algunas abreviaturas de ESPN difieren del código FIFA de 3 letras
 const ESPN_ABBR_OVERRIDES: Record<string, string> = {
@@ -18,20 +18,20 @@ const ESPN_ABBR_OVERRIDES: Record<string, string> = {
   'CPV': 'CPV',   // Cabo Verde
 }
 
-interface ESPNTeam {
+export interface ESPNTeam {
   abbreviation: string
   displayName: string
   shortDisplayName?: string
 }
 
-interface ESPNCompetitor {
+export interface ESPNCompetitor {
   homeAway: 'home' | 'away'
   team: ESPNTeam
   score?: string
   shootoutScore?: string | number
 }
 
-interface ESPNStatusType {
+export interface ESPNStatusType {
   name: string      // STATUS_FINAL, STATUS_IN_PROGRESS, STATUS_SCHEDULED, STATUS_POSTPONED
   state: string     // pre | in | post
   completed: boolean
@@ -39,7 +39,7 @@ interface ESPNStatusType {
   detail?: string
 }
 
-interface ESPNCompetition {
+export interface ESPNCompetition {
   id: string
   date: string
   attendance?: number
@@ -52,7 +52,7 @@ interface ESPNCompetition {
   officials?: Array<{ displayName: string; position?: { name: string } }>
 }
 
-interface ESPNEvent {
+export interface ESPNEvent {
   id: string
   date: string
   name: string
@@ -68,7 +68,7 @@ function resolveCode(team: ESPNTeam): string | null {
   return resolveTeamCode(team.displayName) ?? resolveTeamCode(team.shortDisplayName ?? '')
 }
 
-function mapStatus(type: ESPNStatusType): MatchStatus {
+export function mapStatus(type: ESPNStatusType): MatchStatus {
   if (type.completed || type.state === 'post') return 'finished'
   if (type.state === 'in') return 'live'
   if (type.name.includes('POSTPONED') || type.name.includes('SUSPENDED')) return 'postponed'
@@ -76,14 +76,14 @@ function mapStatus(type: ESPNStatusType): MatchStatus {
   return 'scheduled'
 }
 
-function parseScore(s: string | undefined, status: MatchStatus): number | null {
+export function parseScore(s: string | undefined, status: MatchStatus): number | null {
   if (status === 'scheduled') return null
   const v = parseInt(s ?? '', 10)
   return Number.isNaN(v) ? null : v
 }
 
 /** Genera un array de fechas YYYYMMDD para ESPN: ayer, hoy, mañana */
-function buildDates(): string[] {
+export function buildDates(): string[] {
   const now = new Date()
   return [-1, 0, 1].map(offset => {
     const d = new Date(now)
@@ -92,8 +92,14 @@ function buildDates(): string[] {
   })
 }
 
-async function fetchScoreboard(dateStr: string): Promise<ESPNEvent[]> {
-  const url = `${ESPN_BASE}/scoreboard?dates=${dateStr}&limit=50`
+/**
+ * `base` es el slug de liga de ESPN, p. ej.
+ * 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world' (Mundial)
+ * o '.../soccer/conmebol.libertadores' (Copa Libertadores) — mismo formato
+ * de respuesta, cambia solo el deporte/competición en la URL.
+ */
+export async function fetchScoreboard(base: string, dateStr: string): Promise<ESPNEvent[]> {
+  const url = `${base}/scoreboard?dates=${dateStr}&limit=50`
   try {
     const res = await fetch(url, {
       cache: 'no-store',
@@ -121,7 +127,7 @@ export async function syncESPNResults(): Promise<{
 
   // Traer partidos de ayer, hoy y mañana en paralelo
   const dates = buildDates()
-  const allEvents = (await Promise.all(dates.map(fetchScoreboard))).flat()
+  const allEvents = (await Promise.all(dates.map((d) => fetchScoreboard(ESPN_BASE, d)))).flat()
 
   // Índice de partidos de la BD por par de códigos
   const { data: matches, error: mErr } = await supabase
