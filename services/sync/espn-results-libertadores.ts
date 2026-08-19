@@ -85,11 +85,21 @@ export async function syncESPNResultsLibertadores(): Promise<{
     .eq('competition_id', LIBERTADORES_COMPETITION_ID)
   if (mErr) throw mErr
 
-  const byPair = new Map<string, any>()
+  // Array por par: el mismo par de clubes puede jugarse dos veces en la
+  // misma edición (grupos + eliminatoria), a veces con el mismo local —
+  // ej. Independiente Rivadavia recibió a Fluminense tanto en la fase de
+  // grupos como en octavos. Un solo valor por clave perdía uno de los dos
+  // partidos silenciosamente y el resultado del que sí llegaba de ESPN
+  // podía terminar escrito sobre el partido equivocado.
+  const byPair = new Map<string, any[]>()
   for (const m of (matches ?? [])) {
     const hid = m.home_team?.api_football_id
     const aid = m.away_team?.api_football_id
-    if (hid && aid) byPair.set(`${hid}|${aid}`, m)
+    if (!hid || !aid) continue
+    const key = `${hid}|${aid}`
+    const list = byPair.get(key)
+    if (list) list.push(m)
+    else byPair.set(key, [m])
   }
 
   let updated = 0
@@ -107,11 +117,19 @@ export async function syncESPNResultsLibertadores(): Promise<{
 
     const homeId = ESPN_ABBR_TO_API_FOOTBALL_ID[(homeComp.team.abbreviation ?? '').toUpperCase()]
     const awayId = ESPN_ABBR_TO_API_FOOTBALL_ID[(awayComp.team.abbreviation ?? '').toUpperCase()]
-    const match = homeId && awayId ? byPair.get(`${homeId}|${awayId}`) : null
-    if (!match) {
+    const candidates = homeId && awayId ? byPair.get(`${homeId}|${awayId}`) : null
+    if (!candidates || candidates.length === 0) {
       unmatched.push(`${homeComp.team.displayName} vs ${awayComp.team.displayName}`)
       continue
     }
+    // Con revancha (grupos + eliminatoria), desambiguar por el kickoff más
+    // cercano a la fecha del evento de ESPN.
+    const eventMs = new Date(event.date ?? comp.date).getTime()
+    const match = candidates.length === 1 ? candidates[0] : candidates.reduce((best, c) => {
+      const bestDiff = Math.abs(new Date(best.kickoff_time).getTime() - eventMs)
+      const cDiff = Math.abs(new Date(c.kickoff_time).getTime() - eventMs)
+      return cDiff < bestDiff ? c : best
+    })
 
     const statusType = comp.status?.type
     if (!statusType) continue
