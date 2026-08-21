@@ -1,0 +1,59 @@
+name: Sync resultados de ligas
+
+# Mantiene al día estado y marcador de las seis ligas de fútbol.
+#
+# ── Por qué existe ────────────────────────────────────────────────────────
+# Nada refrescaba los resultados de liga entre semana:
+#
+#   · `/api/sync/auto` corre cada 15 min pero apunta a `soccer/fifa.world`,
+#     el Mundial, que terminó en julio. Llevaba días con «0 registros».
+#   · `services/sync/results.ts` pide a The Odds API los marcadores del
+#     Mundial. Mismo caso.
+#   · Lo único que escribía resultados de liga era `ingestLeagues`, y
+#     `sync-leagues.yml` lo dispara lunes y viernes.
+#
+# Un Deportivo–Elche de LaLiga que acabó 1-1 un lunes por la tarde seguía en
+# pantalla como «programado» al día siguiente, y no se habría corregido
+# hasta el viernes.
+#
+# ── Por qué en un archivo aparte ──────────────────────────────────────────
+# `sync-leagues.yml` funciona y su cadencia es otra (dos veces por semana,
+# temporada completa). Meterle ramificación por horario para colgar un job
+# cada hora es arriesgar la ingesta que ya va bien a cambio de nada.
+#
+# ── Coste ─────────────────────────────────────────────────────────────────
+# Una petición por liga y corrida: 6 × 24 = 144 al día de las 7.500 del plan.
+# El proceso solo escribe los partidos cuyo estado o marcador cambió, así que
+# la mayoría de corridas no toca la base.
+
+on:
+  schedule:
+    # Cada hora en punto. Los partidos europeos y sudamericanos caen a lo
+    # largo de todo el día, así que no hay franja que valga la pena recortar.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      hoursBack:
+        description: "Horas hacia atrás a revisar (por defecto 48)"
+        required: false
+        default: "48"
+
+jobs:
+  resultados:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refrescar estado y marcadores
+        env:
+          APP_URL: 'https://world-cup-predictor-2026-flax.vercel.app'
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          HOURS_BACK: ${{ github.event.inputs.hoursBack || '48' }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
+          # 48 h hacia atrás por defecto: cubre de sobra un fin de semana
+          # entero aunque una corrida falle, y no cuesta nada porque solo se
+          # escribe lo que cambió.
+          curl -fsS --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 \
+            "$APP_URL/api/sync/leagues/results?hoursBack=$HOURS_BACK" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            || { echo "::warning::El refresco de resultados falló tras reintentos."; exit 0; }

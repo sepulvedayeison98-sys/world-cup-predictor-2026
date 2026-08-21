@@ -1,5 +1,8 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { Check, X, Target, Clock } from 'lucide-react'
+import { Check, X, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface ResolvedPickRow {
@@ -64,17 +67,57 @@ function EffectivenessBar({ pct }: { pct: number }) {
 }
 
 /**
- * Historial de aciertos de Smart Bets AI: panel acumulativo (total
- * analizadas, aciertos, % de efectividad — global y por categoría),
- * el detalle de las resueltas (con su resultado real) y las que están
- * registradas esperando que su partido se juegue. Solo cuenta picks
- * anotados ANTES del partido — nunca reconstruidos con el resultado
- * ya conocido (misma honestidad que el resto de la plataforma).
+ * Historial de aciertos de Smart Bets AI.
+ *
+ * Arriba, el panel acumulativo (analizadas, aciertos, % global y por
+ * categoría). Debajo, dos pestañas.
+ *
+ * ── Por qué pestañas, y por qué «Pendientes» primero ─────────────────────
+ * Antes las resueltas iban arriba y las pendientes al fondo de la tarjeta.
+ * Con los datos reales eso deja lo útil enterrado: hay 781 recomendaciones
+ * esperando en 234 partidos frente a 61 ya resueltas en 14. Quien abre esta
+ * página viene a ver en qué apostar, no a repasar lo de la semana pasada.
+ *
+ * Lo resuelto no se esconde —es la prueba de que el track record es real—
+ * pero pasa a su propia pestaña. Si aún no hay nada pendiente, la pestaña
+ * de resultados se abre sola: una pestaña vacía por defecto sería absurda.
+ *
+ * Solo cuenta picks anotados ANTES del partido — nunca reconstruidos con el
+ * resultado ya conocido (misma honestidad que el resto de la plataforma).
  */
+/** Partidos pendientes que se listan antes de plegar el resto en un contador. */
+const PENDING_VISIBLE = 25
+
 export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, ungradedCount, recent, pending }: Props) {
   const pct = totalAnalyzed > 0 ? (totalCorrect / totalAnalyzed) * 100 : null
   const pendingPickCount = pending.reduce((s, m) => s + m.picks.length, 0)
   const nothingYet = totalAnalyzed === 0 && pending.length === 0
+
+  // Pendientes por defecto; si no hay ninguno, abrir directamente resultados.
+  const [tab, setTab] = useState<'pendientes' | 'resultados'>(
+    pending.length > 0 ? 'pendientes' : 'resultados',
+  )
+  const pendingShown = pending.slice(0, PENDING_VISIBLE)
+  const pendingHidden = pending.length - pendingShown.length
+
+  const TabButton = ({ id, label, count }: { id: typeof tab; label: string; count: number }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      aria-current={tab === id ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors',
+        tab === id
+          ? 'border-emerald-500 text-emerald-400'
+          : 'border-transparent text-zinc-500 hover:text-zinc-300',
+      )}
+    >
+      {label}
+      <span className={cn('mono text-[10px]', tab === id ? 'text-emerald-500/70' : 'text-zinc-600')}>
+        {count}
+      </span>
+    </button>
+  )
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -148,71 +191,94 @@ export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, 
             </div>
           )}
 
-          {/* Últimas resueltas */}
-          {recent.length > 0 && (
-            <ul className="divide-y divide-zinc-800/60">
-              {recent.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/matches/${p.match_id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-zinc-200">
-                        <span className="font-medium">{p.label}</span>
-                        <span className="ml-2 text-xs text-zinc-500">{p.home_code} vs {p.away_code}</span>
-                      </p>
-                      <p className="text-[11px] text-zinc-600">
-                        {CATEGORY_LABEL[p.category] ?? p.category} · confianza {Math.round(p.confidence)}% · {p.actual_detail}
-                      </p>
-                    </div>
-                    {p.gradable ? (
-                      p.correct ? (
-                        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
-                          <Check className="h-4 w-4" /> Acertó
+          {/* Pestañas: lo accionable primero, lo ya jugado a su propio sitio */}
+          <div className="flex border-b border-zinc-800" role="tablist">
+            <TabButton id="pendientes" label="Pendientes" count={pending.length} />
+            <TabButton id="resultados" label="Resultados" count={recent.length} />
+          </div>
+
+          {tab === 'pendientes' && (
+            pending.length === 0 ? (
+              <p className="px-4 py-8 text-center text-xs text-zinc-500">
+                No hay recomendaciones esperando resultado ahora mismo.
+              </p>
+            ) : (
+              <>
+                <ul className="divide-y divide-zinc-800/60">
+                  {pendingShown.map((m) => (
+                    <li key={m.match_id} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <Link href={`/matches/${m.match_id}`} className="text-sm font-medium text-zinc-200 hover:text-emerald-400">
+                          {m.home_code} vs {m.away_code}
+                        </Link>
+                        <span className="shrink-0 text-[11px] text-zinc-600">
+                          {new Date(m.kickoff_time).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      ) : (
-                        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-red-400">
-                          <X className="h-4 w-4" /> Falló
-                        </span>
-                      )
-                    ) : (
-                      <span className="shrink-0 text-[11px] text-zinc-600">sin datos</span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {m.picks.map((pk) => (
+                          <span key={pk.id} className="rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-400">
+                            {pk.label} <span className="text-zinc-600">· {Math.round(pk.confidence)}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {/* El recorte se declara: 234 partidos en una sola lista no
+                    se leen, pero ocultarlos sin decirlo daría una idea falsa
+                    de cuánto hay registrado. */}
+                {pendingHidden > 0 && (
+                  <p className="border-t border-zinc-800 px-4 py-2 text-[11px] text-zinc-600">
+                    Se muestran los {PENDING_VISIBLE} partidos más próximos ·
+                    {' '}{pendingHidden} más registrados por delante.
+                  </p>
+                )}
+              </>
+            )
           )}
 
-          {/* Registradas esperando resultado */}
-          {pending.length > 0 && (
-            <div className="border-t border-zinc-800">
-              <div className="flex items-center gap-1.5 px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                <Clock className="h-3 w-3" /> Registradas · esperan resultado
-              </div>
+          {tab === 'resultados' && (
+            recent.length === 0 ? (
+              <p className="px-4 py-8 text-center text-xs text-zinc-500">
+                Todavía no hay recomendaciones resueltas. Aparecerán aquí en
+                cuanto terminen los primeros partidos.
+              </p>
+            ) : (
               <ul className="divide-y divide-zinc-800/60">
-                {pending.map((m) => (
-                  <li key={m.match_id} className="px-4 py-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <Link href={`/matches/${m.match_id}`} className="text-sm font-medium text-zinc-200 hover:text-emerald-400">
-                        {m.home_code} vs {m.away_code}
-                      </Link>
-                      <span className="shrink-0 text-[11px] text-zinc-600">
-                        {new Date(m.kickoff_time).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {m.picks.map((pk) => (
-                        <span key={pk.id} className="rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-400">
-                          {pk.label} <span className="text-zinc-600">· {Math.round(pk.confidence)}%</span>
-                        </span>
-                      ))}
-                    </div>
+                {recent.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={`/matches/${p.match_id}`}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-zinc-200">
+                          <span className="font-medium">{p.label}</span>
+                          <span className="ml-2 text-xs text-zinc-500">{p.home_code} vs {p.away_code}</span>
+                        </p>
+                        <p className="text-[11px] text-zinc-600">
+                          {CATEGORY_LABEL[p.category] ?? p.category} · confianza {Math.round(p.confidence)}% · {p.actual_detail}
+                        </p>
+                      </div>
+                      {p.gradable ? (
+                        p.correct ? (
+                          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
+                            <Check className="h-4 w-4" /> Acertó
+                          </span>
+                        ) : (
+                          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-red-400">
+                            <X className="h-4 w-4" /> Falló
+                          </span>
+                        )
+                      ) : (
+                        <span className="shrink-0 text-[11px] text-zinc-600">sin datos</span>
+                      )}
+                    </Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            )
           )}
 
           <p className="border-t border-zinc-800 px-4 py-2.5 text-[11px] text-zinc-600">
