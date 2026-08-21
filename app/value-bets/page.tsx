@@ -31,12 +31,20 @@ export default async function ValueBetsPage() {
     .eq('is_active', true)
 
   const nowMs = Date.now()
-  // Incluir partidos en vivo (status='live') además de los próximos aún no comenzados
+  // Solo lo accionable: en vivo o por empezar.
+  //
+  // La ventana de «últimas 3 h» dejaba pasar partidos YA TERMINADOS —había
+  // dos activas de partidos con resultado— y una apuesta sobre algo que ya
+  // se jugó no es una oportunidad, es ruido en la cabecera. El estado manda
+  // sobre el reloj: `finished`, `postponed` y `cancelled` quedan fuera pase
+  // lo que pase.
+  const JUGADO = new Set(['finished', 'postponed', 'cancelled'])
   const upcoming = (betsRaw ?? []).filter((b: any) => {
     if (!b.match?.kickoff_time) return false
+    if (JUGADO.has(b.match.status)) return false
     return (
       b.match.status === 'live' ||
-      new Date(b.match.kickoff_time).getTime() > nowMs - 3 * 60 * 60 * 1000 // últimas 3h
+      new Date(b.match.kickoff_time).getTime() > nowMs - 3 * 60 * 60 * 1000
     )
   })
 
@@ -77,16 +85,24 @@ export default async function ValueBetsPage() {
       .neq('competition_id', COMPETITION_ID)
       .order('resolved_at', { ascending: false })
       .limit(20),
+    // `!inner` + filtro por fecha: pendiente significa que TODAVÍA SE PUEDE
+    // jugar. Sin el filtro entraban también los picks de partidos ya
+    // terminados que aún no ha calificado el proceso, y verlos bajo
+    // «Pendientes» invita a apostar sobre algo que ya pasó. De paso recorta
+    // la consulta: eran 781 filas para pintar unas pocas decenas.
     supabase
       .from('smart_bet_picks')
       .select(`
         id, match_id, market_id, label, category, confidence,
-        match:matches(kickoff_time,
+        match:matches!inner(kickoff_time,
           home_team:teams!matches_home_team_id_fkey(code),
           away_team:teams!matches_away_team_id_fkey(code))
       `)
       .eq('resolved', false)
-      .neq('competition_id', COMPETITION_ID),
+      .neq('competition_id', COMPETITION_ID)
+      .gte('match.kickoff_time', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
+      .order('kickoff_time', { referencedTable: 'matches', ascending: true })
+      .limit(400),
   ])
 
   const resolved = (resolvedRaw ?? []) as any[]
