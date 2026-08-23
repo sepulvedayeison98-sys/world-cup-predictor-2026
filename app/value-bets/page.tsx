@@ -12,6 +12,24 @@ export const metadata: Metadata = {
 // ISR: cacheado y revalidado cada 120s (sin cookies → renderizado estático)
 export const revalidate = 120
 
+/**
+ * Confianza mínima para que una recomendación se muestre.
+ *
+ * Decisión de producto: la página deja de listar el top-5 completo de cada
+ * partido y se queda solo con lo que el motor da por muy probable. Quedan
+ * 966 recomendaciones en 589 partidos, así que la selectividad no vacía la
+ * página.
+ *
+ * Advertencia honesta, medida sobre las 94 resueltas que hay: el acierto NO
+ * sube de forma limpia con la confianza — el tramo 60-69% acierta 55% y el
+ * 70-79% acierta 52%; solo el 80-89% despunta (70%). Con una muestra así de
+ * pequeña no se puede afirmar que filtrar por confianza mejore el
+ * rendimiento. Por eso, junto al umbral, la tarjeta publica el acierto
+ * histórico DE ESTE MISMO TRAMO con su tamaño de muestra: quien mira las
+ * recomendaciones filtradas ve a la vez lo que han rendido.
+ */
+const MIN_CONFIDENCE = 75
+
 export default async function ValueBetsPage() {
   const supabase = createStaticSupabaseClient()
 
@@ -69,7 +87,7 @@ export default async function ValueBetsPage() {
   const [{ data: resolvedRaw }, { data: recentRaw }, { data: pendingRaw }] = await Promise.all([
     supabase
       .from('smart_bet_picks')
-      .select('id, category, gradable, correct')
+      .select('id, category, gradable, correct, confidence')
       .eq('resolved', true)
       .neq('competition_id', COMPETITION_ID),
     supabase
@@ -137,7 +155,19 @@ export default async function ValueBetsPage() {
     entry.picks.push({ id: p.id, label: p.label, category: p.category, confidence: Number(p.confidence) })
   }
   const pendingMatches = [...pendingByMatch.values()]
+    // Un partido cuyo top-5 entero se queda por debajo del umbral desaparece
+    // de la lista: mostrarlo vacío solo ocuparía sitio.
+    .map((m) => ({ ...m, picks: m.picks.filter((pk) => pk.confidence > MIN_CONFIDENCE) }))
+    .filter((m) => m.picks.length > 0)
     .sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time))
+
+  // Rendimiento histórico del MISMO tramo que se está mostrando.
+  const highBand = gradedRows.filter((r) => Number(r.confidence) > MIN_CONFIDENCE)
+  const highBandStat = {
+    threshold: MIN_CONFIDENCE,
+    analyzed: highBand.length,
+    correct: highBand.filter((r) => r.correct === true).length,
+  }
 
   const recentPicks: ResolvedPickRow[] = ((recentRaw ?? []) as any[]).map((p) => ({
     id: p.id,
@@ -236,6 +266,7 @@ export default async function ValueBetsPage() {
         ungradedCount={ungradedCount}
         recent={recentPicks}
         pending={pendingMatches}
+        highBand={highBandStat}
       />
     </div>
   )

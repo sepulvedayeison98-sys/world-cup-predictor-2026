@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { Fragment, useMemo, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -106,6 +106,28 @@ function Stars({ level }: { level: number }) {
       ))}
     </div>
   )
+}
+
+/**
+ * Cabecera de jornada: "Domingo 23 de agosto".
+ *
+ * Los partidos de varios días llegaban en una lista plana y había que leer
+ * la fecha fila a fila para saber dónde acaba un día y empieza el siguiente
+ * — especialmente con el filtro "Próximos 7 días". Agrupar es la forma en
+ * que se lee un calendario deportivo.
+ */
+export function diaLargo(iso: string): string {
+  const t = new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota', weekday: 'long', day: 'numeric', month: 'long',
+  }).format(new Date(iso))
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** Clave de día en zona Bogotá, para comparar filas consecutivas. */
+export function claveDia(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(iso))
 }
 
 function StatusBadge({ status, kickoffTime }: { status: string; kickoffTime?: string }) {
@@ -522,6 +544,11 @@ export function MatchesTable({
     pageCount: data?.total_pages ?? 1,
   })
 
+  // La agrupación por jornada solo tiene sentido con la tabla ordenada por
+  // fecha, que es el orden por defecto. Ordenada por confianza o por liga,
+  // una cabecera de día sería falsa.
+  const agrupaPorDia = sorting.length === 0 || sorting[0]?.id === 'kickoff_time'
+
   const SortIcon = ({ col }: { col: any }) => {
     const sorted = col.getIsSorted()
     if (!col.getCanSort()) return null
@@ -562,13 +589,21 @@ export function MatchesTable({
         ) : (data?.data ?? []).length === 0 ? (
           <li className="rounded-2xl border border-zinc-800/80 bg-zinc-900 px-4 py-12 text-center"><p className="mx-auto max-w-md text-sm text-zinc-400">{emptyMessage}</p></li>
         ) : (
-          (data?.data ?? []).map((m) => (
-            <MatchCard
-              key={(m as MatchRow).id}
-              m={m as MatchRow}
-              competitionName={competitionNames.get((m as MatchRow).competition_id)}
-            />
-          ))
+          (data?.data ?? []).map((m, i, filas) => {
+            const row = m as MatchRow
+            const nuevoDia = i === 0 ||
+              claveDia((filas[i - 1] as MatchRow).kickoff_time) !== claveDia(row.kickoff_time)
+            return (
+              <Fragment key={row.id}>
+                {nuevoDia && (
+                  <li className="px-1 pt-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    {diaLargo(row.kickoff_time)}
+                  </li>
+                )}
+                <MatchCard m={row} competitionName={competitionNames.get(row.competition_id)} />
+              </Fragment>
+            )
+          })
         )}
       </ul>
 
@@ -608,9 +643,22 @@ export function MatchesTable({
                     ))}
                   </tr>
                 ))
-              : table.getRowModel().rows.map((row) => (
+              : table.getRowModel().rows.map((row, i, filas) => (
+                  <Fragment key={row.id}>
+                  {/* Solo cuando la tabla está ordenada POR FECHA: con otro
+                      criterio (confianza, liga…) una cabecera de jornada
+                      mentiría, porque las filas ya no van por días. */}
+                  {agrupaPorDia && (
+                    i === 0 ||
+                    claveDia(filas[i - 1].original.kickoff_time) !== claveDia(row.original.kickoff_time)
+                  ) && (
+                    <tr className="bg-zinc-950/70">
+                      <td colSpan={row.getVisibleCells().length} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                        {diaLargo(row.original.kickoff_time)}
+                      </td>
+                    </tr>
+                  )}
                   <tr
-                    key={row.id}
                     onClick={() => router.push(`/matches/${row.original.id}`)}
                     className={cn(
                       'cursor-pointer transition-colors hover:bg-zinc-800/60',
@@ -623,6 +671,7 @@ export function MatchesTable({
                       </td>
                     ))}
                   </tr>
+                  </Fragment>
                 ))}
 
             {!isLoading && (data?.data ?? []).length === 0 && (

@@ -37,6 +37,13 @@ export interface CategoryStat {
   correct: number
 }
 
+/** Rendimiento histórico del tramo de confianza que se está mostrando. */
+export interface HighBandStat {
+  threshold: number
+  analyzed: number
+  correct: number
+}
+
 interface Props {
   totalAnalyzed: number
   totalCorrect: number
@@ -44,6 +51,7 @@ interface Props {
   ungradedCount: number
   recent: ResolvedPickRow[]
   pending: PendingMatchRow[]
+  highBand: HighBandStat
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -88,7 +96,7 @@ function EffectivenessBar({ pct }: { pct: number }) {
 /** Partidos pendientes que se listan antes de plegar el resto en un contador. */
 const PENDING_VISIBLE = 25
 
-export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, ungradedCount, recent, pending }: Props) {
+export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, ungradedCount, recent, pending, highBand }: Props) {
   const pct = totalAnalyzed > 0 ? (totalCorrect / totalAnalyzed) * 100 : null
   const pendingPickCount = pending.reduce((s, m) => s + m.picks.length, 0)
   const nothingYet = totalAnalyzed === 0 && pending.length === 0
@@ -198,9 +206,36 @@ export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, 
           </div>
 
           {tab === 'pendientes' && (
+            <div className="border-b border-zinc-800 bg-zinc-950/40 px-4 py-2">
+              <p className="text-[11px] text-zinc-400">
+                Solo recomendaciones con más del{' '}
+                <span className="font-semibold text-emerald-400">{highBand.threshold}%</span> de probabilidad
+                según el motor.
+              </p>
+              {/* El umbral se publica junto a lo que ha rendido ESE tramo. Un
+                  filtro por confianza sugiere que lo filtrado acierta más; con
+                  la muestra que hay, eso está por demostrar y callarlo sería
+                  vender una selectividad que los datos aún no respaldan. */}
+              <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-600">
+                {highBand.analyzed > 0 ? (
+                  <>
+                    De las {highBand.analyzed} ya resueltas en este tramo acertaron{' '}
+                    {highBand.correct} ({((highBand.correct / highBand.analyzed) * 100).toFixed(0)}%).
+                    Muestra aún pequeña: no está demostrado que una confianza más alta
+                    acierte más.
+                  </>
+                ) : (
+                  <>Todavía no hay resueltas en este tramo con las que medir su acierto.</>
+                )}
+              </p>
+            </div>
+          )}
+
+          {tab === 'pendientes' && (
             pending.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-zinc-500">
-                No hay recomendaciones esperando resultado ahora mismo.
+                Ninguna recomendación supera el {highBand.threshold}% de probabilidad
+                para los partidos por jugarse.
               </p>
             ) : (
               <>
