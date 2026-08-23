@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -47,6 +47,21 @@ function ResultBadge({ p }: { p: any }) {
       {p.was_correct ? '✓ Correcto' : '✗ Incorrecto'}
     </span>
   )
+}
+
+/**
+ * ¿Empieza aquí el bloque de partidos ya jugados?
+ *
+ * La lista va ordenada «lo más próximo primero» hacia los dos lados: primero
+ * el calendario ascendiendo, después lo jugado descendiendo. Eso hace que la
+ * fecha dé un salto hacia atrás justo en la frontera (2 sep → 21 ago), lo que
+ * sin un aviso se lee como un error de orden. Se detecta por transición y no
+ * por índice fijo: al filtrar por «Correctas» o «Pendientes» la lista es
+ * homogénea, no hay transición y el separador no aparece solo.
+ */
+function empiezaLoJugado(list: any[], i: number): boolean {
+  if (i === 0) return false
+  return list[i - 1]?.was_correct === null && list[i]?.was_correct !== null
 }
 
 export function PredictionsTable({ predictions }: Props) {
@@ -105,10 +120,16 @@ export function PredictionsTable({ predictions }: Props) {
         <>
           {/* ── MÓVIL: tarjetas apiladas (sin scroll horizontal) ── */}
           <ul className="divide-y divide-zinc-800/60 md:hidden">
-            {filtered.map((p: any) => {
+            {filtered.map((p: any, i: number) => {
               const d = derive(p)
               return (
-                <li key={p.id} className={cn(p.was_correct === true && 'bg-emerald-500/5', p.was_correct === false && 'bg-red-500/5')}>
+                <Fragment key={p.id}>
+                {empiezaLoJugado(filtered, i) && (
+                  <li className="bg-zinc-950/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                    Ya jugados · del más reciente al más antiguo
+                  </li>
+                )}
+                <li className={cn(p.was_correct === true && 'bg-emerald-500/5', p.was_correct === false && 'bg-red-500/5')}>
                   <Link href={`/matches/${p.match_id}`} className="block px-4 py-3 active:bg-zinc-800/40 transition-colors">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-bold text-zinc-100">
@@ -138,6 +159,7 @@ export function PredictionsTable({ predictions }: Props) {
                     </div>
                   </Link>
                 </li>
+                </Fragment>
               )
             })}
           </ul>
@@ -157,10 +179,18 @@ export function PredictionsTable({ predictions }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p: any) => {
+                {filtered.map((p: any, i: number) => {
                   const d = derive(p)
                   return (
-                    <tr key={p.id} className={cn(p.was_correct === true && 'bg-emerald-500/5', p.was_correct === false && 'bg-red-500/5')}>
+                    <Fragment key={p.id}>
+                    {empiezaLoJugado(filtered, i) && (
+                      <tr>
+                        <td colSpan={7} className="bg-zinc-950/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                          Ya jugados · del más reciente al más antiguo
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={cn(p.was_correct === true && 'bg-emerald-500/5', p.was_correct === false && 'bg-red-500/5')}>
                       <td>
                         <Link href={`/matches/${p.match_id}`} className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-emerald-400 transition-colors">
                           <Flag code={d.m?.home_team?.code} />
@@ -207,6 +237,7 @@ export function PredictionsTable({ predictions }: Props) {
                         </Link>
                       </td>
                     </tr>
+                    </Fragment>
                   )
                 })}
               </tbody>
