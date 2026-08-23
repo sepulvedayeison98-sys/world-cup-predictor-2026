@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Stethoscope, TrendingUp } from 'lucide-react'
+import { formatColDate } from '@/lib/datetime'
 
 interface Props {
   stats: any
@@ -116,7 +117,7 @@ export function PlayerStatsPanel({ stats, injuries }: Props) {
                     <p className="text-[10px] text-zinc-500 mt-0.5">{inj.description}</p>
                   )}
                   <div className="flex gap-3 mt-1 text-[10px] text-zinc-600">
-                    <span>Reportada: {new Date(inj.reported_at).toLocaleDateString('es-CO')}</span>
+                    <span>Reportada: {formatColDate(inj.reported_at)}</span>
                     {inj.expected_return && (
                       <span>Retorno est.: {inj.expected_return}</span>
                     )}

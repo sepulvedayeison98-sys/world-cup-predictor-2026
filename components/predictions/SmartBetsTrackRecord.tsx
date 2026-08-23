@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Check, X, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatColDateTime } from '@/lib/datetime'
 
 export interface ResolvedPickRow {
   id: string
@@ -247,7 +248,7 @@ export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, 
                           {m.home_code} vs {m.away_code}
                         </Link>
                         <span className="shrink-0 text-[11px] text-zinc-600">
-                          {new Date(m.kickoff_time).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {formatColDateTime(m.kickoff_time)}
                         </span>
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
