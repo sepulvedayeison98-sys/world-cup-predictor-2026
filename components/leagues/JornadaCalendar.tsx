@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatColDate } from '@/lib/datetime'
 
 export interface JornadaMatchView {
   id: string
@@ -135,7 +136,7 @@ export function JornadaCalendar({ jornadas, initialRound }: { jornadas: JornadaV
                     </span>
                   ) : (
                     <span className="text-xs text-zinc-500">
-                      {new Date(m.kickoff_time).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                      {formatColDate(m.kickoff_time)}
                     </span>
                   )}
                 </div>

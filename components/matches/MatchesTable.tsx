@@ -14,7 +14,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import Link from 'next/link'
-import { formatColDate, formatColTime } from '@/lib/datetime'
+import { formatColDate, formatColTime, todayCol } from '@/lib/datetime'
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronLeft, ChevronRight, ExternalLink,
@@ -475,7 +475,7 @@ export function MatchesTable({
 
   // Por defecto muestra la fecha inteligente del servidor: hoy si hay
   // partidos, o la próxima fecha con actividad (Q2 — nunca abre vacía)
-  const todayStr  = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+  const todayStr  = todayCol()
   const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr
   const rangeParam = searchParams.get('range') // '7d' → ventana desde hoy, ignora dateParam
   // Convertir a ISO UTC para que Supabase filtre correctamente según zona horaria del usuario

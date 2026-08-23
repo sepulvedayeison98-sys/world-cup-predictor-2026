@@ -41,3 +41,22 @@ export function formatColFull(iso: string | Date): string {
   }).format(new Date(iso))
   return `${weekday} ${formatColDateTime(iso)}`
 }
+
+/**
+ * "Hoy" en Colombia, como `YYYY-MM-DD`.
+ *
+ * `new Date().toLocaleDateString('en-CA')` parecía equivalente y no lo es:
+ * usa la zona de QUIEN EJECUTA. Los componentes de cliente también se
+ * renderizan en el servidor, y allí la zona es UTC — así que entre las 19:00
+ * y la medianoche de Colombia el servidor ya cree que es el día siguiente.
+ * El efecto es que la página de partidos abre en la fecha de mañana justo en
+ * la franja en que se juega la liga colombiana, y los partidos de la noche
+ * desaparecen de "hoy".
+ *
+ * Al fijar la zona, cliente y servidor coinciden siempre.
+ */
+export function todayCol(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}

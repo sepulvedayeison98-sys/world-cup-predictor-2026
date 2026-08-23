@@ -9,6 +9,7 @@ import { getFavorites, FAVORITES_EVENT, type FavoriteTeam } from '@/lib/favorite
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import { Flag } from '@/components/ui/Flag'
+import { formatColDateTime } from '@/lib/datetime'
 
 interface StripMatch {
   id: string
@@ -115,9 +116,7 @@ export function MyTeamsStrip() {
                         {match.status === 'live' ? (
                           <span className="font-bold text-emerald-400">● EN VIVO</span>
                         ) : (
-                          new Date(match.kickoff_time).toLocaleString('es-CO', {
-                            timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                          })
+                          formatColDateTime(match.kickoff_time)
                         )}
                       </p>
                       {p && (

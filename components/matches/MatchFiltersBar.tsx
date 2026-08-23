@@ -4,6 +4,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useState } from 'react'
 import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, CalendarRange } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { todayCol } from '@/lib/datetime'
 
 interface Competition { id: string; name: string }
 interface Team  { id: string; name: string; short_name: string; code: string; competition_id?: string }
@@ -41,7 +42,7 @@ export function MatchFiltersBar({ competitions, teams, defaultDate }: Props) {
     : teams
 
   // Fecha local en formato YYYY-MM-DD
-  const todayStr = new Date().toLocaleDateString('en-CA')
+  const todayStr = todayCol()
   // Q2: sin fecha en la URL, cae en la fecha por defecto del servidor
   // (hoy si hay partidos; si no, la próxima fecha con actividad)
   const dateParam = searchParams.get('date') ?? defaultDate ?? todayStr

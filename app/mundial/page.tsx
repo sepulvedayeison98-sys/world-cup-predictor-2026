@@ -6,6 +6,7 @@ import { COMPETITION_ID, PHASE_LABELS } from '@/lib/constants'
 import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
 import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
 import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
+import { formatColDateTime } from '@/lib/datetime'
 
 export const metadata: Metadata = {
   title: 'Mundial 2026',
@@ -180,7 +181,7 @@ export default async function MundialHubPage() {
                             {m.home_team?.name} <span className="text-zinc-500">vs</span> {m.away_team?.name}
                           </p>
                           <p className="text-xs text-zinc-500">
-                            {PHASE_LABELS[m.phase] ?? m.phase} · {new Date(m.kickoff_time).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            {PHASE_LABELS[m.phase] ?? m.phase} · {formatColDateTime(m.kickoff_time)}
                           </p>
                         </div>
                         {p && (
