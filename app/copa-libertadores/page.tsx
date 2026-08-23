@@ -63,6 +63,23 @@ export default async function CopaLibertadoresPage() {
       {/* Eliminatorias: octavos en adelante, ida/vuelta salvo la final */}
       {byPhase.size > 0 && (
         <div className="flex flex-col gap-4">
+          {/* Por qué aquí no hay predicciones, dicho antes de que se note.
+              Un hueco sin explicar se lee como un fallo; el motivo real es
+              que el motor no da la talla en esta fase y preferimos callar a
+              publicar un número que sabemos malo. */}
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
+            <p className="text-xs text-amber-400">
+              El motor no publica predicciones de eliminatoria.
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+              Medido sobre los 15 partidos de eliminación directa ya jugados en esta
+              edición, acierta el <span className="mono font-semibold">13%</span> — por
+              debajo del <span className="mono">33%</span> del azar. El modelo asume una
+              liga continua y aplica ventaja de local a todos los partidos, y en una
+              ida y vuelta esa ventaja no existe: de esos 15 partidos solo 2 los ganó
+              el equipo de casa. La fase de grupos sí tiene predicciones publicadas.
+            </p>
+          </div>
           {Array.from(byPhase.entries()).map(([phase, ties]) => (
             <div key={phase} className="card overflow-hidden">
               <div className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-2.5">

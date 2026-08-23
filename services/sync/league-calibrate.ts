@@ -32,6 +32,8 @@ export interface LeagueCalibrationResult {
   teamsUpdated: number
   statsUpserted: number
   predictionsUpserted: number
+  /** Calculadas pero NO publicadas por no superar la puerta de calidad. */
+  withheld: number
   metrics: LeagueBacktestMetrics
 }
 
@@ -53,10 +55,16 @@ async function calibrateCompetition(
   competitionId: string,
   modelVersion: string,
   requireRound: boolean,
+  /**
+   * Qué predicciones se PUBLICAN. Se calculan y guardan todas —el histórico
+   * hace falta para medir— pero solo se publican las que el motor sostiene.
+   * Por defecto, todas: las ligas no cambian de comportamiento.
+   */
+  shouldPublish: (m: { round: number | null }) => boolean = () => true,
 ): Promise<Omit<LeagueCalibrationResult, 'key' | 'competitionId'> | null> {
   let query = supabase
     .from('matches')
-    .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time')
+    .select('id, home_team_id, away_team_id, home_score, away_score, status, kickoff_time, round')
     .eq('competition_id', competitionId)
   if (requireRound) query = query.not('round', 'is', null)
   const { data: matches, error: mErr } = await query
@@ -64,6 +72,14 @@ async function calibrateCompetition(
   if (!matches?.length) return null
 
   const backtest = runLeagueBacktest(matches as any[])
+
+  // Fase por partido: en Libertadores la eliminatoria se ingesta con
+  // `round` NULL, así que es lo que distingue grupos de ida/vuelta.
+  const byId = new Map((matches as any[]).map((m) => [m.id, m]))
+  const publica = (matchId: string) => {
+    const m = byId.get(matchId)
+    return m ? shouldPublish(m) : true
+  }
 
   // ── ELO final por club ───────────────────────────────────
   // Solo equipos con partidos jugados: en pretemporada no se pisa el
@@ -112,7 +128,7 @@ async function calibrateCompetition(
     confidence_level: computeConfidenceLevel(p.confidence_score),
     confidence_score: p.confidence_score,
     model_version: modelVersion,
-    is_published: true,
+    is_published: publica(p.match_id),
     was_correct: p.correct,
     actual_outcome: p.actual,
     updated_at: new Date().toISOString(),
@@ -129,7 +145,7 @@ async function calibrateCompetition(
     confidence_level: computeConfidenceLevel(p.confidence_score),
     confidence_score: p.confidence_score,
     model_version: modelVersion,
-    is_published: true,
+    is_published: publica(p.match_id),
     was_correct: null,
     actual_outcome: null,
     updated_at: new Date().toISOString(),
@@ -146,7 +162,11 @@ async function calibrateCompetition(
     }
   }
 
-  return { teamsUpdated, statsUpserted: statRows.length, predictionsUpserted, metrics: backtest.metrics }
+  const withheld = [...predRows, ...upcomingRows].filter((r) => !r.is_published).length
+  return {
+    teamsUpdated, statsUpserted: statRows.length, predictionsUpserted, withheld,
+    metrics: backtest.metrics,
+  }
 }
 
 /**
@@ -209,8 +229,28 @@ export async function calibrateLibertadores(): Promise<{
 }> {
   const supabase = createAdminClient()
   const key = 'copa_libertadores'
+  // Se calcula TODO el histórico —hace falta para medir y para el ELO— pero
+  // solo se publica la fase de grupos.
+  //
+  // Medido sobre los 111 partidos jugados de la edición 2026:
+  //
+  //             modelo   siempre local   azar
+  //   grupos      44-47%      —           33%
+  //   eliminat.   13%        13%          33%
+  //
+  // En eliminatoria a doble partido el motor acierta 13 de cada 100, con
+  // cualquier calentamiento que se le ponga. No es ruido de muestra: es que
+  // `runLeagueBacktest` modela una liga continua y aplica +60 puntos de ELO
+  // de localía a todos los partidos, y en una ida/vuelta esa ventaja no
+  // existe — de los 15 partidos de eliminatoria solo 2 los ganó el local.
+  //
+  // Publicar un 13% junto a la línea base de 33% que la propia plataforma
+  // declara sería exactamente lo que la regla "medido, no prometido"
+  // prohíbe. Las predicciones de eliminatoria se guardan sin publicar hasta
+  // que exista un modelo de copa que supere la línea base y lo demuestre.
   const outcome = await calibrateCompetition(
     supabase, key, LIBERTADORES_COMPETITION_ID, LIBERTADORES_MODEL_VERSION, false,
+    (m) => m.round !== null,
   )
   const result = outcome ? { key, competitionId: LIBERTADORES_COMPETITION_ID, ...outcome } : null
 
