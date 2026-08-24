@@ -1,12 +1,19 @@
-name: Simulacion Monte Carlo
+name: Simulacion Monte Carlo (Mundial, archivado)
 
-# Corre la simulacion Monte Carlo del torneo cada 6 horas y guarda
-# las probabilidades por equipo/fase. Resiliente: reintenta ante errores
-# transitorios. Requiere los secrets del repo: APP_URL y CRON_SECRET.
+# DETENIDO — la simulación Monte Carlo proyecta el CUADRO del Mundial 2026
+# (probabilidad de título por selección, avance por fase) y el torneo se
+# archivó. Con los 104 partidos jugados la simulación no tiene nada que
+# proyectar: reescribía las mismas 11.328 filas de tournament_simulations
+# cada 6 horas para un campeón que ya se conoce.
+#
+# Las páginas que la consumían (/champion, /simulation) se archivaron con el
+# torneo y redirigen a /mundial.
+#
+# Sin `schedule:` no vuelve a dispararse solo. El archivo se conserva —y con
+# él lib/simulationEngine.ts y /api/simulate— porque el siguiente torneo de
+# formato copa lo necesita tal cual.
 
 on:
-  schedule:
-    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:

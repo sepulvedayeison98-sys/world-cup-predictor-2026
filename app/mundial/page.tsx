@@ -1,50 +1,59 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Trophy, GitBranch, Users, Crosshair, Calendar, Grid3X3, Activity } from 'lucide-react'
+import { Archive, Check, X } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { COMPETITION_ID, PHASE_LABELS } from '@/lib/constants'
-import { ChampionStripWidget } from '@/components/dashboard/ChampionStripWidget'
-import { TopScorersStripWidget } from '@/components/dashboard/TopScorersStripWidget'
-import { KnockoutBracketWidget } from '@/components/dashboard/KnockoutBracketWidget'
-import { formatColDateTime } from '@/lib/datetime'
+import { computeMundialReport, type ReportPrediction } from '@/lib/mundialReport'
+import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Mundial 2026',
+  title: 'Mundial 2026 — archivo',
+  description:
+    'Archivo del Mundial FIFA 2026: el balance congelado del modelo sobre las 91 predicciones resueltas del torneo. Competición retirada, datos conservados.',
+  // El torneo sale del índice: no es contenido vivo y competía por atención
+  // con las competiciones en curso.
+  robots: { index: false, follow: false },
 }
 
-export const revalidate = 120
-
 /**
- * Hub del Mundial 2026 (auditoría T2): el torneo deja de ser el universo
- * y se convierte en la primera competición de la casa. Los widgets del
- * torneo (campeón, goleadores, cuadro, camino) viven AQUÍ, no en el
- * inicio global.
+ * Página de ARCHIVO del Mundial 2026 — el único lugar del sitio donde queda
+ * rastro del torneo.
+ *
+ * ── Por qué existe una página y no cero ───────────────────────────────────
+ * Archivar es dejar de mostrar y de actualizar, no borrar. Las 91
+ * predicciones resueltas son historial verificable del motor y los enlaces
+ * que ya circulan tienen que llegar a algo. Esta página los recibe, declara
+ * que la competición está archivada y enseña el balance congelado.
+ *
+ * ── Qué absorbió ──────────────────────────────────────────────────────────
+ * Antes el torneo ocupaba nueve rutas (/mundial, /mundial/balance,
+ * /mundial/rankings, /bracket, /champion, /groups, /scorers, /players,
+ * /simulation). Todas redirigen aquí (ver next.config.ts). El balance —lo
+ * que estaba en /mundial/balance— se trajo íntegro porque es lo único que
+ * sigue significando algo: el resto eran vistas de un torneo en marcha.
+ *
+ * ── Congelada a propósito ─────────────────────────────────────────────────
+ * `revalidate = false`: los datos no cambian nunca más. Ningún cron escribe
+ * en esta competición y `recalibrate` salta los partidos jugados desde el
+ * commit que congeló las predicciones.
  */
-export default async function MundialHubPage() {
+export const revalidate = false
+
+export default async function MundialArchivoPage() {
   const supabase = createStaticSupabaseClient()
 
-  // Última corrida de simulación (para campeón y proyección de goleadores)
-  const { data: latestSimRun } = await supabase
-    .from('tournament_simulations')
-    .select('simulation_run_id')
-    .eq('competition_id', COMPETITION_ID)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const latestRunId = (latestSimRun as any)?.simulation_run_id
-
-  const [
-    { data: preds },
-    { count: played },
-    { data: nextMatches },
-    { data: simulations },
-    { data: teams },
-    { data: statsRaw },
-    { data: knockoutMatches },
-  ] = await Promise.all([
+  const [{ data: raw }, { count: played }] = await Promise.all([
     supabase
       .from('predictions')
-      .select('was_correct, match:matches!inner(competition_id)')
+      .select(`
+        match_id, was_correct, home_win_probability, draw_probability, away_win_probability,
+        confidence_score,
+        match:matches!inner(
+          competition_id, phase, home_score, away_score, kickoff_time,
+          home_team:teams!matches_home_team_id_fkey(name, short_name),
+          away_team:teams!matches_away_team_id_fkey(name, short_name)
+        )
+      `)
       .eq('match.competition_id', COMPETITION_ID)
       .not('was_correct', 'is', null),
     supabase
@@ -52,181 +61,169 @@ export default async function MundialHubPage() {
       .select('*', { count: 'exact', head: true })
       .eq('competition_id', COMPETITION_ID)
       .eq('status', 'finished'),
-    supabase
-      .from('matches')
-      .select(`
-        id, phase, kickoff_time, status,
-        home_team:teams!matches_home_team_id_fkey(name, code),
-        away_team:teams!matches_away_team_id_fkey(name, code),
-        predictions(home_win_probability, draw_probability, away_win_probability)
-      `)
-      .eq('competition_id', COMPETITION_ID)
-      .in('status', ['scheduled', 'live'])
-      .order('kickoff_time', { ascending: true })
-      .limit(4),
-    latestRunId
-      ? supabase
-          .from('tournament_simulations')
-          .select('team_id, winner_prob')
-          .eq('competition_id', COMPETITION_ID)
-          .eq('simulation_run_id', latestRunId)
-          .order('winner_prob', { ascending: false })
-          .limit(8)
-      : Promise.resolve({ data: [] as any[] }),
-    supabase.from('teams').select('id, name, short_name, code, confederation').eq('competition_id', COMPETITION_ID),
-    supabase
-      .from('player_statistics')
-      .select(`
-        player_id, goals, matches_played,
-        player:players(id, name, short_name, team_id,
-          team:teams(id, code, confederation))
-      `)
-      .eq('competition_id', COMPETITION_ID)
-      .gt('matches_played', 0)
-      .order('goals', { ascending: false })
-      .limit(10),
-    supabase
-      .from('matches')
-      .select(`
-        id, phase, kickoff_time, status, home_score, away_score,
-        home_team:teams!matches_home_team_id_fkey(code, short_name, elo_rating),
-        away_team:teams!matches_away_team_id_fkey(code, short_name, elo_rating),
-        predictions(home_win_probability, draw_probability, away_win_probability)
-      `)
-      .eq('competition_id', COMPETITION_ID)
-      .in('phase', ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'])
-      .order('kickoff_time', { ascending: true })
-      .limit(32),
   ])
 
-  const resolved = preds ?? []
-  const correct = resolved.filter((p: any) => p.was_correct === true).length
-  const accuracy = resolved.length ? ((correct / resolved.length) * 100).toFixed(1) : null
+  const preds: ReportPrediction[] = (raw ?? []).map((p: any) => ({
+    match_id: p.match_id,
+    was_correct: p.was_correct,
+    home_win_probability: Number(p.home_win_probability),
+    draw_probability: Number(p.draw_probability),
+    away_win_probability: Number(p.away_win_probability),
+    confidence_score: p.confidence_score,
+    phase: p.match?.phase ?? null,
+    home_name: p.match?.home_team?.short_name ?? p.match?.home_team?.name ?? 'Local',
+    away_name: p.match?.away_team?.short_name ?? p.match?.away_team?.name ?? 'Visita',
+    home_score: p.match?.home_score ?? null,
+    away_score: p.match?.away_score ?? null,
+    kickoff_time: p.match?.kickoff_time ?? '',
+  }))
 
-  // Campeón: equipos enriquecidos
-  const teamsMap = new Map((teams ?? []).map((t: any) => [t.id, t]))
-  const championData = (simulations ?? [])
-    .map((s: any) => ({ ...s, team: teamsMap.get(s.team_id) }))
-    .filter((s: any) => s.team)
-  const favorite = championData[0]
-
-  // Goleadores: últimos datos disponibles de la fuente (sin proyección)
-  const scorersData = (statsRaw ?? []) as any[]
-
-  const currentPhase = (nextMatches?.[0] as any)?.phase as string | undefined
-  const phaseLabel = (currentPhase && PHASE_LABELS[currentPhase]) ?? 'Torneo'
-
-  const kpis = [
-    { label: 'Precisión del motor', value: accuracy ? `${accuracy}%` : '—', sub: `${correct}/${resolved.length} · azar 33%` },
-    { label: 'Partidos jugados', value: `${played ?? 0}/104`, sub: 'de todo el torneo' },
-    { label: 'Favorito del modelo', value: favorite?.team?.name ?? '—', sub: favorite ? `máx. ${Number(favorite.winner_prob).toFixed(1)}% de título en simulaciones` : 'sin simulaciones' },
-  ]
-
-  const sections = [
-    { href: '/bracket', label: 'Eliminatorias', desc: 'Cuadro final del torneo y cómo lo veía el modelo', icon: GitBranch },
-    { href: '/mundial/rankings', label: 'Ranking ELO', desc: 'Las 48 selecciones según el modelo vs ranking FIFA', icon: Trophy },
-    { href: '/mundial/balance', label: 'Balance del modelo', desc: 'Cómo le fue al motor: precisión, calibración, aciertos y fallos', icon: Activity },
-    { href: '/champion', label: 'Campeón', desc: 'Lo que proyectó el modelo para el título', icon: Trophy },
-    { href: '/groups', label: 'Grupos', desc: 'Clasificación final de la fase de grupos', icon: Grid3X3 },
-    { href: '/scorers', label: 'Goleadores', desc: 'Tabla de anotadores con los últimos datos disponibles', icon: Crosshair },
-    { href: '/players', label: 'Jugadores', desc: 'Planteles y estado físico', icon: Users },
-    { href: '/matches', label: 'Partidos', desc: 'Agenda completa con predicciones y resultados', icon: Calendar },
-  ]
+  const r = computeMundialReport(preds)
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+  const outcomeLabel = (p: ReportPrediction) => {
+    const h = p.home_win_probability, d = p.draw_probability, a = p.away_win_probability
+    return h >= d && h >= a ? `${p.home_name} gana` : a >= d ? `${p.away_name} gana` : 'Empate'
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-4 lg:p-6">
+    <div className="flex flex-col gap-5 p-4 lg:p-6">
       <div>
-        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
-          Fútbol · Selecciones · {phaseLabel}
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+          <Archive className="h-3 w-3" /> Competición archivada
         </span>
-        <h1 className="mt-1 text-2xl font-bold text-white">Mundial 2026</h1>
-        <p className="text-sm text-zinc-400">
-          México · Estados Unidos · Canadá — la final se juega el 19 de julio.
+        <h1 className="mt-2 text-2xl font-bold text-white">Mundial 2026</h1>
+        <p className="max-w-2xl text-sm text-zinc-400">
+          El torneo terminó el 19 de julio de 2026 y quedó archivado: ya no se
+          actualiza ni aparece en la navegación, el buscador ni los contadores
+          de la plataforma. Sus datos se conservan intactos y este es su
+          balance congelado.
         </p>
       </div>
 
-      {/* Estado vital del torneo */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{k.label}</p>
-            <p className="mt-1 truncate text-xl font-bold text-white mono">{k.value}</p>
-            <p className="text-xs text-zinc-500">{k.sub}</p>
+      {r.total === 0 ? (
+        <div className="card px-6 py-10 text-center">
+          <p className="text-sm text-zinc-400">No quedan predicciones resueltas del torneo.</p>
+        </div>
+      ) : (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="kpi-card">
+              <p className="text-[11px] text-zinc-500">Precisión 1X2</p>
+              <p className="text-2xl font-bold mono text-emerald-400">{r.accuracy != null ? pct(r.accuracy) : '—'}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="text-[11px] text-zinc-500">Aciertos</p>
+              <p className="text-2xl font-bold mono text-white">{r.correct}/{r.total}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="text-[11px] text-zinc-500">Azar 1X2</p>
+              <p className="text-2xl font-bold mono text-zinc-400">{pct(r.chanceBaseline)}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="text-[11px] text-zinc-500">Partidos jugados</p>
+              <p className="text-2xl font-bold mono text-zinc-300">{played ?? 0}/104</p>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Campeón + goleadores (antes en el dashboard global) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChampionStripWidget simulations={championData} />
-        <TopScorersStripWidget scorers={scorersData} />
-      </div>
+          {/* Precisión por fase */}
+          <div className="card p-4">
+            <h2 className="mb-3 text-sm font-bold text-white">Precisión por fase</h2>
+            <div className="space-y-2">
+              {r.byPhase.map((ph) => (
+                <div key={ph.phase} className="flex items-center gap-3">
+                  <span className="w-40 shrink-0 text-xs text-zinc-400">{PHASE_LABELS[ph.phase] ?? ph.phase}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="h-full bg-emerald-500" style={{ width: `${ph.accuracy * 100}%` }} />
+                  </div>
+                  <span className="w-20 shrink-0 text-right text-xs mono text-zinc-300">
+                    {(ph.accuracy * 100).toFixed(0)}% · {ph.correct}/{ph.total}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Próximos partidos del torneo */}
-        <div className="lg:col-span-2">
-          {(nextMatches?.length ?? 0) > 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-              <div className="border-b border-zinc-800 px-4 py-3">
-                <h2 className="text-sm font-bold text-white">Próximos partidos</h2>
-              </div>
-              <ul className="divide-y divide-zinc-800/60">
-                {(nextMatches as any[]).map((m) => {
-                  const p = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
-                  return (
-                    <li key={m.id}>
-                      <Link href={`/matches/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-200">
-                            {m.home_team?.name} <span className="text-zinc-500">vs</span> {m.away_team?.name}
-                          </p>
-                          <p className="text-xs text-zinc-500">
-                            {PHASE_LABELS[m.phase] ?? m.phase} · {formatColDateTime(m.kickoff_time)}
-                          </p>
-                        </div>
-                        {p && (
-                          <span className="shrink-0 text-xs mono text-zinc-400">
-                            {Math.round(p.home_win_probability * 100)}·{Math.round(p.draw_probability * 100)}·{Math.round(p.away_win_probability * 100)}%
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  )
-                })}
+          {/* Mejores aciertos y peores fallos */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="card p-4">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+                <Check className="h-4 w-4 text-emerald-400" /> Mejores aciertos
+              </h2>
+              <ul className="space-y-2">
+                {r.bestCalls.map((p) => (
+                  <li key={p.match_id} className="flex items-center justify-between gap-2 px-1.5 py-1 text-xs">
+                    <span className="truncate text-zinc-300">{p.home_name} {p.home_score}–{p.away_score} {p.away_name}</span>
+                    <span className="shrink-0 text-[11px] text-emerald-400">{outcomeLabel(p)} · {pct(Math.max(p.home_win_probability, p.draw_probability, p.away_win_probability))}</span>
+                  </li>
+                ))}
               </ul>
             </div>
-          ) : (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-8 text-center">
-              <p className="text-sm font-medium text-zinc-300">El torneo ha concluido</p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Revisa el cuadro final, el campeón y la retrospectiva del motor.
-              </p>
+            <div className="card p-4">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+                <X className="h-4 w-4 text-red-400" /> Fallos más sonados
+              </h2>
+              {r.worstMisses.length === 0 ? (
+                <p className="text-xs text-zinc-500">Sin fallos de alta convicción.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {r.worstMisses.map((p) => (
+                    <li key={p.match_id} className="flex items-center justify-between gap-2 px-1.5 py-1 text-xs">
+                      <span className="truncate text-zinc-300">{p.home_name} {p.home_score}–{p.away_score} {p.away_name}</span>
+                      <span className="shrink-0 text-[11px] text-red-400">dio {outcomeLabel(p)} · {pct(Math.max(p.home_win_probability, p.draw_probability, p.away_win_probability))}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Cuadro eliminatorio compacto */}
-        <KnockoutBracketWidget matches={(knockoutMatches ?? []) as any[]} />
-      </div>
-
-      {/* Secciones del torneo */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {sections.map(({ href, label, desc, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="group rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-800/60"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <Icon className="h-4 w-4 text-emerald-400" />
-              </div>
-              <p className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{label}</p>
+          {/* Calibración */}
+          <div className="card overflow-hidden">
+            <div className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-2.5">
+              <h2 className="text-sm font-bold text-white">Calibración</h2>
+              <p className="text-[11px] text-zinc-500">Un modelo calibrado acierta ~X% cuando dice X%.</p>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-zinc-500">{desc}</p>
-          </Link>
-        ))}
-      </div>
+            <div className="overflow-x-auto">
+              <table className="w-full data-table">
+                <thead>
+                  <tr className="border-b border-zinc-800">
+                    <th className="text-left">Prob. del favorito</th>
+                    <th className="text-center">Partidos</th>
+                    <th className="text-center">Esperado</th>
+                    <th className="text-center">Real</th>
+                    <th className="text-right">Desviación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.calibration.filter((b) => b.total > 0).map((b) => {
+                    const dev = b.hitRate - b.expectedRate
+                    return (
+                      <tr key={b.label}>
+                        <td className="text-zinc-300">{b.label}</td>
+                        <td className="text-center mono text-zinc-400">{b.total}</td>
+                        <td className="text-center mono text-zinc-500">{pct(b.expectedRate)}</td>
+                        <td className="text-center mono text-zinc-200">{pct(b.hitRate)}</td>
+                        <td className={cn('text-right mono', Math.abs(dev) <= 0.05 ? 'text-emerald-400' : 'text-amber-400')}>
+                          {dev >= 0 ? '+' : ''}{(dev * 100).toFixed(1)}pts
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-zinc-600">
+            Cifras calificadas en su momento, con su línea base (azar 1X2 =
+            33,3%). No cuentan en los contadores de la plataforma: esos miden
+            solo lo que se cubre hoy. La metodología, aplicada a las
+            competiciones en curso, está en{' '}
+            <Link href="/inteligencia" className="text-emerald-500 hover:text-emerald-400">Inteligencia</Link>.
+          </p>
+        </>
+      )}
     </div>
   )
 }

@@ -6,14 +6,13 @@
 // el sidebar, dashboard y predicciones para evitar desincronización.
 export const MODEL_VERSION = '1.2.0'
 
-// Competición activa (Mundial FIFA 2026). Fuente única de verdad: antes
-// estaba copiado como literal en ~10 archivos.
+// Mundial FIFA 2026 — competición ARCHIVADA (ver lib/sports.ts). Se conserva
+// como constante porque sus filas siguen en la base y hay que poder
+// referirlas: la página de archivo /mundial, la exclusión de los procesos
+// transversales y los servicios de sync inactivos. Fuera de eso, nada
+// debería filtrar por este id.
 export const COMPETITION_ID =
   process.env.NEXT_PUBLIC_COMPETITION_ID ?? 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-
-// Fecha oficial FIFA de la final del Mundial 2026 (respaldo del countdown
-// del dashboard mientras el sync no cree la fila con los finalistas).
-export const WC_FINAL_DATE = '2026-07-19'
 
 // URL pública del sitio (SEO: sitemap, robots, metadata canónica).
 export const SITE_URL =

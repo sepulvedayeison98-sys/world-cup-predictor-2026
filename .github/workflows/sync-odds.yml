@@ -1,13 +1,23 @@
-name: Sync cuotas + recalibracion
+name: Sync cuotas + recalibracion (Mundial, archivado)
 
-# Cada 4 horas: ingesta cuotas de Pinnacle (via The Odds API) y recalibra
-# las predicciones con el consenso de mercado.
-# Cuota API gratuita: 500 req/mes → cada 4h = ~180 req/mes, dentro del limite.
-# Requiere secrets: APP_URL, CRON_SECRET.
+# DETENIDO — el Mundial 2026 se archivó y las dos llamadas de este workflow
+# solo trabajaban sobre él:
+#
+#   · /api/sync/odds        → services/sync/odds.ts está fijado al Mundial en
+#     dos sitios: ODDS_API_SPORT cae por defecto en 'soccer_fifa_world_cup' y
+#     la consulta filtra .eq('competition_id', COMPETITION_ID). Las últimas
+#     cuotas que trajo son del 19 de julio.
+#   · /api/sync/recalibrate → services/sync/recalibrate.ts recorre solo los
+#     partidos del Mundial. Con los 104 terminados, cada corrida recorría las
+#     filas y salía sin escribir nada (el guard de partido jugado).
+#
+# Sin `schedule:` no vuelve a dispararse solo. Se conserva el
+# `workflow_dispatch` y el archivo entero para no perder el punto de partida
+# de la decisión pendiente: llevar el detector de cuotas a las ligas en curso
+# exige mapear cada una a su clave de deporte en The Odds API y confirmar la
+# cuota de la cuenta. Cuando se haga, esto vuelve a tener un cron.
 
 on:
-  schedule:
-    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 jobs:

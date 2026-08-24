@@ -174,11 +174,7 @@ export default async function PredictionsPage() {
         Referencias: elegir al azar acierta ~33% · apostar siempre por el local ~44%.
         Los contadores cubren todas las temporadas de liga y la Libertadores;
         la tabla muestra los {UPCOMING_SHOWN} próximos partidos y los {RECENT_SHOWN} últimos
-        jugados de las competiciones en curso.{' '}
-        <Link href="/mundial/balance" className="text-zinc-500 underline decoration-zinc-700 underline-offset-2 hover:text-zinc-300">
-          El balance del Mundial 2026
-        </Link>{' '}
-        se conserva aparte.
+        jugados de las competiciones en curso.
       </p>
 
       <PredictionsTable predictions={ordered} />

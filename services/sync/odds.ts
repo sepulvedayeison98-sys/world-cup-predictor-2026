@@ -6,6 +6,17 @@ import { COMPETITION_ID } from '@/lib/constants'
 
 
 /**
+ * INACTIVO — fijado al Mundial 2026, que está archivado. `ODDS_API_SPORT` cae
+ * por defecto en 'soccer_fifa_world_cup' y la consulta filtra por
+ * `COMPETITION_ID`; con el torneo archivado no hay partido al que pedirle
+ * cuota. Su cron se detuvo (ver .github/workflows/sync-odds.yml).
+ *
+ * Se conserva porque llevar el detector de valor a las ligas en curso parte
+ * de aquí: hay que mapear cada liga a su clave de deporte en The Odds API y
+ * sustituir el filtro por la lista blanca de competiciones activas.
+ */
+
+/**
  * Overround típico de Pinnacle por tipo de mercado.
  * Pinnacle opera con ~2-3% de margen, el más bajo del mercado.
  * Dividir la prob. implícita por este valor da la prob. justa real.

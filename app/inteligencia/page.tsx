@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { COMPETITION_ID, LEAGUE_KEY_ORDER, LEAGUE_KEY_TO_SLUG, leagueAllCompetitionIds, LEAGUE_NAMES, MODEL_VERSION } from '@/lib/constants'
+import { fetchAllRows } from '@/lib/fetchAll'
+import { LEAGUE_KEY_ORDER, LEAGUE_KEY_TO_SLUG, leagueAllCompetitionIds, LEAGUE_NAMES, MODEL_VERSION, LIBERTADORES_COMPETITION_ID, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
 import { brierScore, logLoss, calibrationBuckets, BRIER_CHANCE_1X2, type CalibPrediction } from '@/lib/calibration'
 import { CalibrationCurve } from '@/components/intelligence/CalibrationCurve'
@@ -22,26 +23,33 @@ export const revalidate = 300
 export default async function InteligenciaPage() {
   const supabase = createStaticSupabaseClient()
 
-  // Rendimiento del Mundial (resueltas) — con probabilidades y resultado real
-  // para calcular calibración (Brier, log-loss, curva). Solo datos reales.
-  const { data: wcPreds } = await supabase
-    .from('predictions')
-    .select('was_correct, home_win_probability, draw_probability, away_win_probability, actual_outcome, match:matches!inner(competition_id)')
-    .eq('match.competition_id', COMPETITION_ID)
-    .not('was_correct', 'is', null)
-  const wcResolved = wcPreds ?? []
-  const wcCorrect = wcResolved.filter((p: any) => p.was_correct === true).length
-
-  // Métricas de calibración del Mundial (vitrina de confianza)
-  const wcCalib: CalibPrediction[] = wcResolved.map((p: any) => ({
+  // Calibración sobre el FÚTBOL DE CLUBES en curso: las seis ligas y la
+  // Libertadores. Antes esta vitrina se calculaba sobre las 91 predicciones
+  // del Mundial; el torneo se archivó y medir la confianza del motor con una
+  // competición que ya no se cubre decía poco. La muestra de clubes es además
+  // ~23 veces mayor.
+  //
+  // fetchAllRows y no un select suelto: son >2.000 filas y el tope de 1.000
+  // de PostgREST truncaba la muestra en silencio.
+  const CLUBES_IDS = [...ALL_LEAGUE_COMPETITION_IDS, LIBERTADORES_COMPETITION_ID]
+  const clubPreds = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('predictions')
+      .select('was_correct, home_win_probability, draw_probability, away_win_probability, actual_outcome, match:matches!inner(competition_id)')
+      .in('match.competition_id', CLUBES_IDS)
+      .not('was_correct', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, to) as any,
+  )
+  const clubCalib: CalibPrediction[] = clubPreds.map((p: any) => ({
     home: Number(p.home_win_probability),
     draw: Number(p.draw_probability),
     away: Number(p.away_win_probability),
     outcome: p.actual_outcome ?? null,
   }))
-  const wcBrier = brierScore(wcCalib)
-  const wcLogLoss = logLoss(wcCalib)
-  const wcBuckets = calibrationBuckets(wcCalib)
+  const clubBrier = brierScore(clubCalib)
+  const clubLogLoss = logLoss(clubCalib)
+  const clubBuckets = calibrationBuckets(clubCalib)
 
   // Rendimiento NBA (backtest nba-1.0, moneyline — línea base 50%).
   // Por CONTEO: son ~1.300 predicciones y traer las filas las truncaba en
@@ -98,15 +106,10 @@ export default async function InteligenciaPage() {
       </div>
 
       {/* Precisión viva */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <div className="rounded-xl border border-emerald-500/30 bg-zinc-900 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Mundial 2026 · v{MODEL_VERSION}</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-400 mono">{pct(wcCorrect, wcResolved.length)}%</p>
-          <p className="text-xs text-zinc-500">{wcCorrect}/{wcResolved.length} · azar 33%</p>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Ligas · liga-1.0</p>
-          <p className="mt-1 text-3xl font-bold text-white mono">{pct(ligaTotals.c, ligaTotals.t)}%</p>
+          <p className="mt-1 text-3xl font-bold text-emerald-400 mono">{pct(ligaTotals.c, ligaTotals.t)}%</p>
           <p className="text-xs text-zinc-500">{ligaTotals.c}/{ligaTotals.t} · azar 33%</p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -137,14 +140,6 @@ export default async function InteligenciaPage() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-zinc-800/60">
-                <td className="px-4 py-2.5 font-medium text-zinc-200">
-                  <Link href="/mundial" className="hover:text-emerald-400">Mundial 2026</Link>
-                </td>
-                <td className="px-3 py-2.5 text-center text-zinc-400 mono">{wcResolved.length}</td>
-                <td className="px-3 py-2.5 text-center text-zinc-400 mono">{wcCorrect}</td>
-                <td className="px-3 py-2.5 text-center font-bold text-emerald-400 mono">{pct(wcCorrect, wcResolved.length)}%</td>
-              </tr>
               {leagues.map((l) => (
                 <tr key={l.slug} className="border-b border-zinc-800/60">
                   <td className="px-4 py-2.5 font-medium text-zinc-200">
@@ -175,13 +170,14 @@ export default async function InteligenciaPage() {
         </p>
       </div>
 
-      {/* Calibración del modelo (Mundial) — ¿el 60% es de verdad 60%? */}
+      {/* Calibración del modelo — ¿el 60% es de verdad 60%? */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
         <div className="border-b border-zinc-800 px-4 py-3">
-          <h2 className="text-sm font-bold text-white">Calibración del modelo · Mundial 2026</h2>
+          <h2 className="text-sm font-bold text-white">Calibración del modelo · fútbol de clubes</h2>
           <p className="text-[11px] text-zinc-500">
             No basta con acertar: cuando el modelo dice 60%, ¿ocurre el 60% de las
-            veces? Sobre {wcCalib.filter((p) => p.outcome).length} predicciones resueltas.
+            veces? Sobre {clubCalib.filter((p) => p.outcome).length} predicciones
+            resueltas de las seis ligas y la Libertadores.
           </p>
         </div>
 
@@ -189,28 +185,28 @@ export default async function InteligenciaPage() {
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
           <div className="kpi-card">
             <p className="text-[11px] text-zinc-500">Brier score</p>
-            <p className={cn('text-2xl font-bold mono', wcBrier != null && wcBrier < BRIER_CHANCE_1X2 ? 'text-emerald-400' : 'text-zinc-300')}>
-              {wcBrier != null ? wcBrier.toFixed(3) : '—'}
+            <p className={cn('text-2xl font-bold mono', clubBrier != null && clubBrier < BRIER_CHANCE_1X2 ? 'text-emerald-400' : 'text-zinc-300')}>
+              {clubBrier != null ? clubBrier.toFixed(3) : '—'}
             </p>
             <p className="text-[10px] text-zinc-600">azar 1X2 = {BRIER_CHANCE_1X2.toFixed(3)} · menor es mejor</p>
           </div>
           <div className="kpi-card">
             <p className="text-[11px] text-zinc-500">Ventaja vs azar</p>
             <p className="text-2xl font-bold mono text-emerald-400">
-              {wcBrier != null ? `${(((BRIER_CHANCE_1X2 - wcBrier) / BRIER_CHANCE_1X2) * 100).toFixed(0)}%` : '—'}
+              {clubBrier != null ? `${(((BRIER_CHANCE_1X2 - clubBrier) / BRIER_CHANCE_1X2) * 100).toFixed(0)}%` : '—'}
             </p>
             <p className="text-[10px] text-zinc-600">mejora del Brier sobre el azar</p>
           </div>
           <div className="kpi-card">
             <p className="text-[11px] text-zinc-500">Log-loss</p>
-            <p className="text-2xl font-bold mono text-zinc-300">{wcLogLoss != null ? wcLogLoss.toFixed(3) : '—'}</p>
+            <p className="text-2xl font-bold mono text-zinc-300">{clubLogLoss != null ? clubLogLoss.toFixed(3) : '—'}</p>
             <p className="text-[10px] text-zinc-600">penaliza la sobreconfianza</p>
           </div>
         </div>
 
         {/* Curva + tabla por tramo */}
         <div className="grid grid-cols-1 gap-4 border-t border-zinc-800 p-4 lg:grid-cols-2">
-          <CalibrationCurve buckets={wcBuckets} />
+          <CalibrationCurve buckets={clubBuckets} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -223,7 +219,7 @@ export default async function InteligenciaPage() {
                 </tr>
               </thead>
               <tbody>
-                {wcBuckets.filter((b) => b.total > 0).map((b) => {
+                {clubBuckets.filter((b) => b.total > 0).map((b) => {
                   const dev = b.observed - b.midpoint
                   return (
                     <tr key={b.label} className="border-b border-zinc-800/60">
@@ -249,7 +245,7 @@ export default async function InteligenciaPage() {
           <h2 className="text-sm font-bold text-white">Cómo predice el motor</h2>
           <div className="mt-3 space-y-3 text-sm leading-relaxed text-zinc-400">
             <p>
-              <span className="font-semibold text-zinc-200">Mundial (v{MODEL_VERSION}):</span>{' '}
+              <span className="font-semibold text-zinc-200">Fútbol (v{MODEL_VERSION}):</span>{' '}
               modelo híbrido de 5 factores — xG y capacidad ofensiva/defensiva (40%),
               ELO (25%), forma reciente (15%), mercado de cuotas de-vigueado (10%) y
               noticias/lesiones (10%). Las probabilidades 1X2 y los marcadores salen

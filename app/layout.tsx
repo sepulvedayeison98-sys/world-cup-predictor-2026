@@ -28,7 +28,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   // SEO (playbook Sofascore, QW1): URLs canónicas y OG absolutas.
   // Identidad: la casa es "Veredicto · Inteligencia Deportiva" y es
-  // multi-deporte — el Mundial es su primera competición, no su nombre.
+  // multi-deporte. El Mundial fue su primera competición y está archivado;
+  // ni la descripción ni las palabras clave lo nombran, porque anunciarlo
+  // atraería a quien busca un torneo que aquí ya no se cubre.
   metadataBase: new URL(SITE_URL),
   title: {
     default: 'Veredicto · Inteligencia Deportiva',
@@ -37,10 +39,11 @@ export const metadata: Metadata = {
     template: '%s | Veredicto',
   },
   description:
-    'Predicción e inteligencia deportiva con métricas medidas: Mundial 2026, grandes ligas, NBA y tenis ATP.',
+    'Predicción e inteligencia deportiva con métricas medidas: grandes ligas europeas, Liga BetPlay, Copa Libertadores, NBA y tenis ATP.',
   keywords: [
-    'predicciones deportivas', 'inteligencia deportiva', 'mundial 2026',
-    'NBA', 'tenis ATP', 'análisis de datos deportivos',
+    'predicciones deportivas', 'inteligencia deportiva', 'grandes ligas',
+    'Liga BetPlay', 'Copa Libertadores', 'NBA', 'tenis ATP',
+    'análisis de datos deportivos',
   ],
   manifest: '/manifest.webmanifest',
   applicationName: 'Veredicto',

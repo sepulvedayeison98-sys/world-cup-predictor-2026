@@ -20,12 +20,23 @@ test('la raíz redirige al inicio global y renderiza los bloques núcleo', async
   expect(overflow).toBeLessThanOrEqual(1)
 })
 
-test('hub del Mundial: estado vital, widgets del torneo y secciones', async ({ page }) => {
+test('archivo del Mundial: se declara archivado y conserva el balance', async ({ page }) => {
   await page.goto('/mundial')
   await expect(page.getByRole('heading', { name: 'Mundial 2026' })).toBeVisible()
-  await expect(page.getByText('Favorito del modelo')).toBeVisible()
-  await expect(page.getByText('Precisión del motor')).toBeVisible()
-  await expect(page.getByRole('link', { name: /Eliminatorias/ }).first()).toBeVisible()
+  await expect(page.getByText('Competición archivada')).toBeVisible()
+  // Lo único que sobrevive del torneo es su balance congelado
+  await expect(page.getByText('Precisión 1X2')).toBeVisible()
+  await expect(page.getByText('Precisión por fase')).toBeVisible()
+})
+
+test('archivo del Mundial: las rutas del torneo redirigen al archivo', async ({ page }) => {
+  // Nueve rutas se consolidaron en /mundial. Redirigen en vez de dar 404
+  // porque estas URLs ya circulan.
+  for (const ruta of ['/bracket', '/champion', '/groups', '/scorers', '/simulation',
+                      '/players', '/mundial/balance', '/mundial/rankings']) {
+    await page.goto(ruta)
+    await expect(page).toHaveURL(/\/mundial$/)
+  }
 })
 
 test('inteligencia: precisión verificable con líneas base y metodología', async ({ page }) => {
@@ -37,7 +48,7 @@ test('inteligencia: precisión verificable con líneas base y metodología', asy
 })
 
 test('detalle de partido: 4 pestañas fusionadas con secciones internas', async ({ page, request }) => {
-  // Un partido real del Mundial vía la API pública (ids estables en BD)
+  // Un partido real de una competición viva vía la API pública
   const res = await request.get('/api/predictions')
   const body = await res.json()
   const matchId = body?.data?.[0]?.match_id
@@ -212,22 +223,17 @@ test('ligas: detalle con calendario por jornada y modelo', async ({ page }) => {
   await expect(page.locator('li').filter({ hasText: '-' }).first()).toBeVisible()
 })
 
-test('mundial: ranking ELO con las 48 selecciones y contraste FIFA', async ({ page }) => {
-  await page.goto('/mundial/rankings')
-  await expect(page.getByRole('heading', { name: 'Ranking ELO' })).toBeVisible()
-  await expect(page.locator('tbody tr')).toHaveCount(48)
-  // Contraste con FIFA y fase alcanzada presentes en la cabecera
-  await expect(page.locator('th', { hasText: 'FIFA' })).toBeVisible()
-  await expect(page.locator('th', { hasText: 'Fase' })).toBeVisible()
-})
-
-test('seo: sitemap dinámico con partidos y robots.txt', async ({ request }) => {
+test('seo: sitemap dinámico con partidos, sin rutas archivadas, y robots.txt', async ({ request }) => {
   const sitemap = await request.get('/sitemap.xml')
   expect(sitemap.status()).toBe(200)
   const xml = await sitemap.text()
   expect(xml).toContain('<urlset')
   expect(xml).toContain('/matches/')
-  expect(xml).toContain('/mundial/rankings')
+  expect(xml).toContain('/ligas/')
+  // El Mundial está archivado: anunciarlo en el sitemap y marcarlo noindex
+  // en la propia página serían instrucciones contradictorias.
+  expect(xml).not.toContain('/mundial')
+  expect(xml).not.toContain('/bracket')
 
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
@@ -241,14 +247,6 @@ test('móvil: bottom nav con destinos principales', async ({ page }) => {
   for (const label of ['Inicio', 'Partidos', 'Smart Bets', 'Más']) {
     await expect(nav.getByText(label, { exact: true })).toBeVisible()
   }
-})
-
-test('mundial: balance del modelo con precisión y calibración', async ({ page }) => {
-  await page.goto('/mundial/balance')
-  await expect(page.getByRole('heading', { name: 'Cómo le fue al modelo' })).toBeVisible()
-  // Con partidos resueltos del torneo, deben verse KPIs y calibración
-  await expect(page.getByText('Precisión 1X2')).toBeVisible()
-  await expect(page.getByText('Precisión por fase')).toBeVisible()
 })
 
 test('ligas: equipo clicable → perfil con récord y forma', async ({ page }) => {

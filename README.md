@@ -1,10 +1,17 @@
 # Veredicto · Inteligencia Deportiva
 
-Plataforma pública de análisis y predicción multi-deporte: **Mundial FIFA
-2026**, las **5 grandes ligas europeas** (Premier, La Liga, Serie A,
-Bundesliga, Ligue 1) y la **NBA**. Estética de terminal financiera
-(TradingView/Bloomberg), honestidad estadística como principio: toda
-precisión se publica con su línea base y ningún dato se fabrica.
+Plataforma pública de análisis y predicción multi-deporte: las **5 grandes
+ligas europeas** (Premier, La Liga, Serie A, Bundesliga, Ligue 1), la **Liga
+BetPlay**, la **Copa Libertadores**, la **NBA** y el **circuito ATP**.
+Estética de terminal financiera (TradingView/Bloomberg), honestidad
+estadística como principio: toda precisión se publica con su línea base y
+ningún dato se fabrica.
+
+El **Mundial FIFA 2026** fue la primera competición de la casa y está
+**archivado**: terminó el 19 de julio de 2026 y desde entonces no se muestra
+ni se actualiza. Sus datos siguen intactos en la base y su balance congelado
+vive en `/mundial`, fuera de la navegación y del índice de buscadores. Ver
+`lib/sports.ts` (estado `archivada`) y `tests/archivedCompetitions.test.ts`.
 
 **🌐 En vivo:** https://world-cup-predictor-2026-flax.vercel.app
 

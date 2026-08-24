@@ -4,6 +4,13 @@ import { syncESPNMatchStats } from './espn-stats'
 import { runPostResultChain, type PostResultChainResult } from './post-result'
 import { COMPETITION_ID } from '@/lib/constants'
 
+/**
+ * INACTIVO — apunta al calendario `fifa.world` de ESPN, el del Mundial 2026,
+ * que está archivado. Salió de /api/sync/auto y de /api/sync/live al
+ * archivarse: llevaba desde el 19 de julio consultando 104 partidos
+ * terminados cada 15 minutos. Su gemelo vivo es
+ * services/sync/espn-results-libertadores.ts.
+ */
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
 
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'

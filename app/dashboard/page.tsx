@@ -6,7 +6,7 @@ import { TerminalHeader } from '@/components/dashboard/TerminalHeader'
 import { MyTeamsStrip } from '@/components/dashboard/MyTeamsStrip'
 import { ProbBar1X2 } from '@/components/predictions/ProbBar1X2'
 import { MODEL_VERSION, PHASE_LABELS, LEAGUE_DISPLAY_ORDER, ALL_LEAGUE_COMPETITION_IDS } from '@/lib/constants'
-import { ACTIVE_COMPETITIONS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
+import { ACTIVE_COMPETITIONS, ARCHIVED_COMPETITION_IDS, COMPETITIONS_NAV, competitionHref } from '@/lib/sports'
 import { CompetitionLogo } from '@/components/ui/CompetitionLogo'
 import { fetchTennisDashboardStrip } from '@/services/tennis/queries'
 import { NBA_COMPETITION_ID } from '@/lib/nba/constants'
@@ -55,13 +55,23 @@ function fmtDate(iso: string, opts: Intl.DateTimeFormatOptions): string {
 /**
  * Inicio global: responde en orden — ¿qué pasa hoy?, ¿qué dice el motor?,
  * ¿puedo confiar? Centrado en las competiciones EN CURSO (ligas de fútbol,
- * NBA, tenis). El Mundial 2026 terminó y pasó a histórico: sus métricas
- * siguen verificables en /inteligencia y /mundial/balance, pero ya no
- * ocupan el inicio.
+ * NBA, tenis). El Mundial 2026 está archivado y no aparece aquí en ninguna
+ * forma: ni en los contadores, ni en las tarjetas, ni en la actividad.
  */
 export default async function HomePage() {
   const supabase = createStaticSupabaseClient()
   const now = Date.now()
+  /**
+   * Filtro de archivo para las consultas que barren TODAS las competiciones
+   * (próximos, últimos resueltos, en vivo, precisión a 30 días). Que hoy no
+   * devuelvan nada del Mundial es una casualidad del calendario —terminó el
+   * 19 de julio y ya cae fuera de la ventana de 30 días—, no una garantía.
+   * El archivo tiene que sostenerse por regla, no por fecha.
+   */
+  const sinArchivadas = <T,>(qb: T): T =>
+    (ARCHIVED_COMPETITION_IDS.length > 0
+      ? (qb as any).not('competition_id', 'in', `(${ARCHIVED_COMPETITION_IDS.join(',')})`)
+      : qb) as T
   const in48h = new Date(now + 48 * 3600_000).toISOString()
   const in72h = new Date(now + 72 * 3600_000).toISOString()
   const since3h = new Date(now - 3 * 3600_000).toISOString()
@@ -78,8 +88,8 @@ export default async function HomePage() {
     { count: liveCount },
     tennis,
   ] = await Promise.all([
-    // Próximos partidos: cualquier competición, próximas 48 h (o en vivo)
-    supabase
+    // Próximos partidos: cualquier competición viva, próximas 48 h (o en vivo)
+    sinArchivadas(supabase
       .from('matches')
       .select(`
         id, kickoff_time, status, phase, competition_id,
@@ -91,7 +101,7 @@ export default async function HomePage() {
       .gte('kickoff_time', since3h)
       .lte('kickoff_time', in48h)
       .order('kickoff_time', { ascending: true })
-      .limit(6),
+      .limit(6)),
     // Confianza: ligas y NBA por CONTEO exacto. Traer las filas y contarlas
     // en JS truncaba la muestra en 1.000 (tope de PostgREST) y la precisión
     // salía calculada sobre datos incompletos.
@@ -101,10 +111,15 @@ export default async function HomePage() {
     countAccuracy(supabase, (qb: any) => qb
       .select('id, match:matches!inner(competition_id)', { count: 'exact', head: true })
       .eq('match.competition_id', NBA_COMPETITION_ID)),
-    // Precisión 30 días (cinta terminal, cualquier competición) — por conteo
-    countAccuracy(supabase, (qb: any) => qb
-      .select('id, match:matches!inner(kickoff_time)', { count: 'exact', head: true })
-      .gte('match.kickoff_time', since30d)),
+    // Precisión 30 días (cinta terminal, cualquier competición viva) — por conteo
+    countAccuracy(supabase, (qb: any) => {
+      const q = qb
+        .select('id, match:matches!inner(kickoff_time, competition_id)', { count: 'exact', head: true })
+        .gte('match.kickoff_time', since30d)
+      return ARCHIVED_COMPETITION_IDS.length > 0
+        ? q.not('match.competition_id', 'in', `(${ARCHIVED_COMPETITION_IDS.join(',')})`)
+        : q
+    }),
     // Smart Bet destacada: mayor EV activa con partido por jugar
     supabase
       .from('value_bets')
@@ -118,8 +133,8 @@ export default async function HomePage() {
       .gte('match.kickoff_time', since3h)
       .order('expected_value', { ascending: false })
       .limit(1),
-    // Actividad: últimos resueltos (cualquier competición)
-    supabase
+    // Actividad: últimos resueltos (cualquier competición viva)
+    sinArchivadas(supabase
       .from('matches')
       .select(`
         id, kickoff_time, home_score, away_score, competition_id,
@@ -129,17 +144,17 @@ export default async function HomePage() {
       `)
       .eq('status', 'finished')
       .order('kickoff_time', { ascending: false })
-      .limit(3),
+      .limit(3)),
     // Actividad: última recalibración del motor
     supabase
       .from('predictions')
       .select('updated_at')
       .order('updated_at', { ascending: false })
       .limit(1),
-    supabase
+    sinArchivadas(supabase
       .from('matches')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'live'),
+      .eq('status', 'live')),
     // Tenis: franja del dominio (top del ranking + medición del motor)
     fetchTennisDashboardStrip('ATP').catch(() => ({ top: [], backtest: null })),
   ])
@@ -321,9 +336,9 @@ export default async function HomePage() {
           ) : (
             <div className="mt-3 space-y-2">
               <p className="text-sm text-zinc-500">
-                El Mundial concluyó. El pick del día regresa cuando arranquen las
-                ligas europeas (agosto) o la temporada NBA. Mientras tanto, el
-                motor de tenis ATP está activo con su análisis de partidos.
+                No hay ningún partido con predicción en las próximas 72 horas.
+                El pick del día vuelve con la siguiente jornada; mientras tanto,
+                el motor de tenis ATP sigue activo.
               </p>
               <Link href="/tennis/h2h" className="inline-block text-xs font-semibold text-lime-400 hover:text-lime-300">
                 Simular un cara a cara ATP →

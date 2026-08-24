@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
-import { COMPETITION_ID } from '@/lib/constants'
-import { competitionHref, sportOfCompetition } from '@/lib/sports'
+import { ARCHIVED_COMPETITION_IDS, competitionHref, sportOfCompetition } from '@/lib/sports'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,11 +21,19 @@ export async function GET(req: NextRequest) {
 
   const supabase = createStaticSupabaseClient()
   const [{ data, error }, { data: tennisData, error: tennisError }] = await Promise.all([
-    supabase
-      .from('teams')
-      .select('id, name, code, competition_id, logo_url')
-      .ilike('name', `%${safe}%`)
-      .limit(12),
+    // Las competiciones archivadas quedan fuera: buscar "Colombia" devolvía
+    // la selección del Mundial —archivado— por delante de los clubes en
+    // curso, y el resultado llevaba a una agenda que ya no se actualiza.
+    (() => {
+      const q = supabase
+        .from('teams')
+        .select('id, name, code, competition_id, logo_url')
+        .ilike('name', `%${safe}%`)
+        .limit(12)
+      return ARCHIVED_COMPETITION_IDS.length > 0
+        ? q.not('competition_id', 'in', `(${ARCHIVED_COMPETITION_IDS.join(',')})`)
+        : q
+    })(),
     (supabase as any)
       .from('tennis_players')
       .select('id, name, country_code, tour')
@@ -65,12 +72,10 @@ export async function GET(req: NextRequest) {
     // Antes todo club caía en el hub de su liga y el perfil de equipo —que ya
     // existe— quedaba inalcanzable desde el buscador. Ahora cada resultado
     // lleva a SU ficha: buscar "Manchester United" debe abrir el United, no
-    // la Premier League. El Mundial conserva su agenda filtrada porque una
-    // selección no tiene perfil de club equivalente.
+    // la Premier League.
     const sport = sportOfCompetition(t.competition_id)
     const href =
-      t.competition_id === COMPETITION_ID ? `/matches?team=${t.id}`
-      : sport === 'baloncesto' ? `/nba/equipos/${t.id}`
+      sport === 'baloncesto' ? `/nba/equipos/${t.id}`
       : sport === 'futbol' ? `/equipos/${t.id}`
       : competitionHref(t.competition_id)
 
@@ -80,8 +85,7 @@ export async function GET(req: NextRequest) {
       code: t.code,
       logo_url: t.logo_url,
       href,
-      context: COMPETITION_NAMES[t.competition_id]
-        ?? (t.competition_id === COMPETITION_ID ? 'Mundial 2026' : 'Equipo'),
+      context: COMPETITION_NAMES[t.competition_id] ?? 'Equipo',
     }
   })
 
