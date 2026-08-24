@@ -59,12 +59,28 @@ export async function recalibratePredictions(): Promise<{
 
   for (const m of (matches ?? [])) {
     const pred = Array.isArray(m.predictions) ? m.predictions[0] : m.predictions
-    // Partidos SIN predicción guardada: se inserta solo si aún no se juegan
-    // (crear predicciones para partidos ya terminados sería "predecir el
-    // pasado" y contaminaría la métrica de precisión). Con la fila guardada,
-    // el sync de cuotas puede generar value bets contra Pinnacle.
+    // Un partido ya jugado NO se vuelve a predecir. Ni se inserta ni se
+    // actualiza.
+    //
+    // La versión anterior de este guard —`if (!pred?.id && !isUpcoming)`—
+    // solo bloqueaba el INSERT. Con la fila ya creada caía al UPDATE de
+    // abajo y reescribía las probabilidades de un partido terminado con el
+    // estado ACTUAL del modelo: ELO de hoy, lesiones de hoy, cuotas de hoy.
+    // La intención estaba escrita —"predecir el pasado contaminaría la
+    // métrica"— pero la condición se quedaba a medias.
+    //
+    // El efecto medido en el Mundial: sus 91 predicciones se reescribían a
+    // diario un mes después de que el torneo acabara (última escritura el
+    // 23 de agosto para partidos del 19 de julio). `was_correct` conserva la
+    // calificación original, así que la fila acababa mostrando las
+    // probabilidades de hoy junto al acierto de entonces — y en 7 casos se
+    // contradicen abiertamente: un 0-2 con 54% al visitante marcado como
+    // fallo.
+    //
+    // Congelar en el pitido inicial es lo único compatible con publicar una
+    // precisión: lo que se midió tiene que seguir siendo lo que se enseña.
     const isUpcoming = m.status === 'scheduled' || m.status === 'live'
-    if (!pred?.id && !isUpcoming) continue
+    if (!isUpcoming) continue
 
     const hStats = m.home_team?.team_statistics?.[0]
     const aStats = m.away_team?.team_statistics?.[0]
