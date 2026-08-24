@@ -4,6 +4,10 @@ import { COMPETITION_ID } from '@/lib/constants'
 
 
 /**
+ * INACTIVO — cubre solo el Mundial 2026, archivado. Nada lo programa: los
+ * resultados de las competiciones vivas los traen services/sync/league-results.ts
+ * (ligas, cada hora) y services/sync/espn-results-libertadores.ts.
+ *
  * Sync de resultados/estado desde The Odds API (endpoint /scores).
  *
  * Se usa The Odds API en vez de API-Football porque el plan gratuito de

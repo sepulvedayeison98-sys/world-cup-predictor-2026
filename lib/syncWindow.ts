@@ -1,8 +1,14 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { COMPETITION_ID, LIBERTADORES_COMPETITION_ID } from '@/lib/constants'
+import { LIBERTADORES_COMPETITION_ID } from '@/lib/constants'
 
-/** Competiciones con sync de resultados en vivo vía ESPN. */
-const LIVE_SYNC_COMPETITION_IDS = [COMPETITION_ID, LIBERTADORES_COMPETITION_ID]
+/**
+ * Competiciones con sync de resultados en vivo vía ESPN.
+ *
+ * El Mundial salió de esta lista al archivarse: llevaba desde el 19 de julio
+ * sin un solo partido que sincronizar y su única función era mantener viva
+ * una consulta de 104 filas cada 15 minutos.
+ */
+const LIVE_SYNC_COMPETITION_IDS = [LIBERTADORES_COMPETITION_ID]
 
 const MIN = 60 * 1000
 

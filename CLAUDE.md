@@ -6,8 +6,15 @@ Para el contexto completo del proyecto, lee `CLAUDE_CONTEXT.md`.
 ## Qué es
 
 Veredicto · Inteligencia Deportiva: plataforma web pública multi-deporte
-de predicción — Mundial FIFA 2026, 5 grandes ligas europeas y NBA.
-Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
+de predicción — 5 grandes ligas europeas, Liga BetPlay, Copa Libertadores,
+NBA y ATP. Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin
+autenticación.
+
+El Mundial FIFA 2026 está **archivado** (`status: 'archivada'` en
+`lib/sports.ts`): fuera de navegación, buscador, sitemap, contadores y
+sincronizaciones. Datos intactos en la base; página de archivo en `/mundial`.
+No lo reintroduzcas en ninguna consulta ni contador — `tests/archivedCompetitions.test.ts`
+falla si vuelve.
 
 ## Comandos
 
@@ -52,7 +59,7 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 
 ## Identificadores clave
 
-- Mundial: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- Mundial (ARCHIVADO): `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
 - NBA: `12000000-0000-4000-8000-000000000012` (ver `lib/nba/constants.ts`)
 - Ligas: Premier `39000000-0000-4000-8000-000000000039`,
   La Liga `14000000-0000-4000-8000-000000000140` (ver `lib/constants.ts`)
@@ -62,7 +69,10 @@ Next.js 15 + TypeScript + Tailwind + Supabase. Acceso libre, sin autenticación.
 ## Regla de oro multi-competición
 
 Toda query a `matches`, `teams`, `team_statistics` o `predictions` DEBE
-filtrar por competición (directo o con `matches!inner`). Conviven Mundial,
-amistosos, ligas de clubes y NBA en las mismas tablas. Las tablas grandes
-(NBA ~1.314 partidos) superan el tope de 1000 filas de PostgREST: usar
-`fetchAllRows` de `lib/fetchAll.ts`.
+filtrar por competición (directo o con `matches!inner`). Conviven ligas de
+clubes, Libertadores, NBA y el Mundial archivado en las mismas tablas. Una
+consulta que barra TODAS las competiciones debe además excluir las
+archivadas con `ARCHIVED_COMPETITION_IDS` (`lib/sports.ts`) — que hoy no
+devuelvan nada del Mundial suele ser casualidad del calendario, no una
+garantía. Las tablas grandes (NBA ~1.314 partidos) superan el tope de 1000
+filas de PostgREST: usar `fetchAllRows` de `lib/fetchAll.ts`.

@@ -7,6 +7,12 @@ const KNOCKOUT_PHASES = new Set(['round_of_32','round_of_16','quarter_final','se
 
 
 /**
+ * INACTIVO — solo recorre el Mundial 2026, que está archivado. Ningún cron lo
+ * dispara desde entonces (ver .github/workflows/sync-odds.yml). Se conserva
+ * porque es la única implementación del modelo híbrido aplicado a un torneo
+ * de selecciones, y el guard de partido jugado que lleva dentro es la
+ * corrección que hay que preservar si vuelve a usarse.
+ *
  * Recalcula la prediccion de TODOS los partidos de la competicion con el
  * modelo hibrido de 5 factores (xG 40%, ELO 25%, forma 15%, mercado 10%,
  * noticias/lesiones 10% — ver lib/predictionEngine.ts). El mercado entra

@@ -38,6 +38,34 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]
   },
+  /**
+   * Rutas del Mundial 2026, archivado. El torneo ocupaba nueve rutas de
+   * primer nivel; todas se consolidaron en /mundial, que es ahora su página
+   * de archivo. Redirigir en vez de devolver 404 porque estas URLs ya
+   * circulan —enlaces, marcadores, el índice de los buscadores— y un 404 las
+   * rompe sin decir nada; el redirect las lleva al balance congelado.
+   *
+   * `permanent: false` (307) a propósito: el archivo es "por ahora". Un 308
+   * lo cachea el navegador para siempre y desarchivar dejaría a los usuarios
+   * atrapados en el redirect antiguo.
+   *
+   * /players/[id] NO está aquí: el perfil de jugador sigue vivo, ahora al
+   * servicio de las plantillas de liga. Solo se archivó el índice /players,
+   * que era la plantilla del Mundial.
+   */
+  async redirects() {
+    const archivadas = [
+      '/mundial/balance',
+      '/mundial/rankings',
+      '/bracket',
+      '/champion',
+      '/groups',
+      '/scorers',
+      '/players',
+      '/simulation',
+    ]
+    return archivadas.map((source) => ({ source, destination: '/mundial', permanent: false }))
+  },
 }
 
 export default nextConfig

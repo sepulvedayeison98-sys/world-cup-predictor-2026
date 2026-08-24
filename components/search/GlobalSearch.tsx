@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Trophy, Users, Activity } from 'lucide-react'
+import { Search, X, Users, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTIVE_COMPETITIONS } from '@/lib/sports'
 import { CompetitionLogo } from '@/components/ui/CompetitionLogo'
@@ -128,9 +128,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                   onClick={() => go(c.href)}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none"
                 >
-                  {c.slug === 'mundial-2026'
-                    ? <Trophy className="h-4 w-4 shrink-0 text-emerald-400" />
-                    : <CompetitionLogo competition={c} size={16} />}
+                  <CompetitionLogo competition={c} size={16} />
                   <span className="truncate font-medium">{c.name}</span>
                   {c.note && <span className="ml-auto shrink-0 text-[10px] text-zinc-500">{c.note}</span>}
                 </button>

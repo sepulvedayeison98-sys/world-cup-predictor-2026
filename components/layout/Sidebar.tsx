@@ -127,8 +127,10 @@ export function Sidebar() {
               Pronto: {UPCOMING.map((c) => c.name).join(' · ')}
             </p>
           )}
-          {/* Competiciones terminadas: fuera de la navegación principal, pero
-              alcanzables — sus métricas siguen siendo historial del motor. */}
+          {/* Competiciones terminadas hace poco: fuera de la navegación
+              principal, pero alcanzables — sus métricas siguen contando como
+              historial del motor. Las ARCHIVADAS no aparecen aquí: archivar
+              es salir del sitio, no bajar de sección. */}
           {HISTORIC.length > 0 && (
             <p className={cn('px-3 pt-1 text-[10px] leading-relaxed text-zinc-600', collapsed && 'lg:hidden')}>
               Histórico:{' '}

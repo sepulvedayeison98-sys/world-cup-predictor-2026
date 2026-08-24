@@ -14,11 +14,16 @@ export type SportSlug = 'futbol' | 'baloncesto' | 'tenis'
 /**
  * 'activa'        → se está jugando: va en la navegación principal.
  * 'proximamente'  → prometida, sin datos todavía: se muestra como promesa.
- * 'historica'     → terminada: sus datos y métricas se CONSERVAN (son el
- *                   historial verificable del motor) pero deja de ocupar la
- *                   navegación principal. No se borra nada.
+ * 'historica'     → terminada hace poco: fuera de la navegación principal
+ *                   pero todavía enlazada y contando en las métricas vivas.
+ * 'archivada'     → retirada. No aparece en NINGUNA parte del sitio: ni
+ *                   navegación, ni buscador, ni sitemap, ni contadores. No la
+ *                   toca ningún proceso de sincronización. Sus filas siguen
+ *                   INTACTAS en la base: archivar es dejar de mostrar y de
+ *                   actualizar, nunca borrar. Queda una sola página de
+ *                   archivo, alcanzable por URL, con el balance congelado.
  */
-export type CompetitionStatus = 'activa' | 'proximamente' | 'historica'
+export type CompetitionStatus = 'activa' | 'proximamente' | 'historica' | 'archivada'
 
 export interface CompetitionEntry {
   /** competition_id en la BD (null si aún no existe) */
@@ -87,11 +92,13 @@ export const COMPETITIONS_NAV: CompetitionEntry[] = [
     name: 'Mundial 2026',
     sport: 'futbol',
     href: '/mundial',
-    // Terminado el 19 de julio de 2026. Pasa a histórico: la plataforma se
-    // centra en las ligas en curso, pero sus 91 predicciones resueltas
-    // siguen contando como historial del motor (ver /mundial/balance).
-    status: 'historica',
-    note: 'Torneo finalizado',
+    // Terminado el 19 de julio de 2026 y ARCHIVADO: deja de consultarse y de
+    // actualizarse. Fuera de la navegación, del buscador, del sitemap y de
+    // los contadores; ningún cron lo toca. Sus 104 partidos, 48 selecciones y
+    // 91 predicciones siguen en la base sin tocar, y /mundial los enseña
+    // congelados. Volver a activarlo es cambiar esta línea.
+    status: 'archivada',
+    note: 'Archivado',
   },
   ...Object.entries(LEAGUE_SLUGS).map(([slug, id]) => ({
     id,
@@ -141,6 +148,22 @@ export const ACTIVE_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === '
 /** Competiciones terminadas: fuera de la navegación, dentro del historial. */
 export const HISTORIC_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'historica')
 
+/**
+ * Competiciones retiradas del sitio. Su única presencia es la página de
+ * archivo; nada más debe enseñarlas ni sincronizarlas.
+ */
+export const ARCHIVED_COMPETITIONS = COMPETITIONS_NAV.filter((c) => c.status === 'archivada')
+
+/** IDs archivados — la lista negra de todo lo que consulta o sincroniza. */
+export const ARCHIVED_COMPETITION_IDS = ARCHIVED_COMPETITIONS
+  .filter((c) => c.id !== null)
+  .map((c) => c.id as string)
+
+/** ¿Esta competición está archivada? */
+export function isArchivedCompetition(competitionId: string | null | undefined): boolean {
+  return competitionId != null && ARCHIVED_COMPETITION_IDS.includes(competitionId)
+}
+
 /** Hub de una competición a partir de su competition_id de la BD. */
 export function competitionHref(competitionId: string): string {
   return COMPETITIONS_NAV.find((c) => c.id === competitionId)?.href ?? '/ligas'
@@ -173,9 +196,17 @@ export function competitionIdsOfSport(sport: SportSlug): string[] {
   // Incluye las ACTIVAS y las HISTÓRICAS: esta lista responde "¿qué
   // competiciones son de este deporte?" (barrera de seguridad), no "¿cuáles
   // se muestran en la navegación" — eso es ACTIVE_COMPETITIONS. Un torneo
-  // terminado sigue siendo fútbol y sus datos deben poder resolverse.
+  // terminado hace poco sigue siendo fútbol y sus datos deben resolverse.
+  //
+  // Las ARCHIVADAS quedan fuera a propósito: archivar es dejar de procesar.
+  // Consecuencia medida al archivar el Mundial: de los 115 picks resueltos de
+  // Smart Bets, 40 eran suyos, y el historial publicado pasa de 53,0%
+  // (61/115) a 48,0% (36/75). La cifra baja porque la muestra cambia, no
+  // porque el motor empeore — y es la honesta: mide lo que la plataforma
+  // cubre hoy.
   const ids = COMPETITIONS_NAV
-    .filter((c) => c.sport === sport && c.id !== null && c.status !== 'proximamente')
+    .filter((c) => c.sport === sport && c.id !== null
+      && c.status !== 'proximamente' && c.status !== 'archivada')
     .map((c) => c.id as string)
   // Las ligas tienen una competición POR TEMPORADA: la lista blanca debe
   // reconocer también las campañas anteriores, o los procesos transversales

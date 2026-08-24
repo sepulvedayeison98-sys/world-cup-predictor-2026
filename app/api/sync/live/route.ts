@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { syncESPNResults } from '@/services/sync/espn-results'
 import { syncESPNResultsLibertadores } from '@/services/sync/espn-results-libertadores'
+import { ARCHIVED_COMPETITION_IDS } from '@/lib/sports'
 import { logSyncError } from '@/lib/syncLog'
 
 export const runtime = 'nodejs'
@@ -29,13 +29,16 @@ export async function GET() {
 
   // ¿Hay algún partido realmente en ventana de juego? Si no, no tiene sentido.
   const nowMs = Date.now()
-  const { data: windowRows } = await supabase
+  const ventana = supabase
     .from('matches')
     .select('kickoff_time, status')
     .in('status', ['live', 'scheduled'])
     .gte('kickoff_time', new Date(nowMs - 210 * 60 * 1000).toISOString())  // prórroga+penales pueden superar 160 min
     .lte('kickoff_time', new Date(nowMs + 15 * 60 * 1000).toISOString())
     .limit(1)
+  const { data: windowRows } = await (ARCHIVED_COMPETITION_IDS.length > 0
+    ? ventana.not('competition_id', 'in', `(${ARCHIVED_COMPETITION_IDS.join(',')})`)
+    : ventana)
   if (!windowRows || windowRows.length === 0) {
     return NextResponse.json({ ok: true, skipped: 'sin-partidos-en-ventana' })
   }
@@ -53,12 +56,10 @@ export async function GET() {
   }
 
   try {
-    const [wc, lib] = await Promise.allSettled([syncESPNResults(), syncESPNResultsLibertadores()])
-    if (wc.status === 'rejected') await logSyncError('espn_api', 'matches', wc.reason, { via: 'sync/live' })
+    // Solo Libertadores: el Mundial se archivó y dejó de sincronizarse.
+    const [lib] = await Promise.allSettled([syncESPNResultsLibertadores()])
     if (lib.status === 'rejected') await logSyncError('espn_api', 'libertadores_matches', lib.reason, { via: 'sync/live' })
-    const updated =
-      (wc.status === 'fulfilled' ? wc.value.updated : 0) +
-      (lib.status === 'fulfilled' ? lib.value.updated : 0)
+    const updated = lib.status === 'fulfilled' ? lib.value.updated : 0
     return NextResponse.json({ ok: true, updated })
   } catch (err: any) {
     await logSyncError('espn_api', 'matches', err, { via: 'sync/live' })

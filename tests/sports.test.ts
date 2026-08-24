@@ -11,21 +11,24 @@ import { COMPETITION_ID, LEAGUE_SLUGS, ALL_LEAGUE_COMPETITION_IDS, LIBERTADORES_
 import { NBA_COMPETITION_ID } from '../lib/nba/constants'
 import { ATP_COMPETITION_ID, WTA_COMPETITION_ID } from '../lib/tennis/constants'
 
-test('aislamiento: la lista de fútbol incluye Mundial y todas las ligas, nunca NBA ni tenis', () => {
+test('aislamiento: la lista de fútbol incluye las ligas y la Libertadores, nunca NBA ni tenis', () => {
   const futbol = competitionIdsOfSport('futbol')
-  assert.ok(futbol.includes(COMPETITION_ID), 'debe incluir el Mundial')
   for (const id of Object.values(LEAGUE_SLUGS)) {
     assert.ok(futbol.includes(id), `debe incluir la liga ${id}`)
   }
   assert.ok(!futbol.includes(NBA_COMPETITION_ID), 'JAMÁS debe incluir la NBA')
   assert.ok(!futbol.includes(ATP_COMPETITION_ID), 'JAMÁS debe incluir el tenis')
-  // Mundial + Copa Libertadores + TODAS las competiciones de liga (una por
-  // liga y temporada): la lista blanca debe cubrir también las campañas
-  // históricas, o los procesos transversales dejarían de ver esos partidos
-  // al cambiar de temporada. Se deriva del registro: añadir una liga o
-  // temporada no rompe el test.
+  // El Mundial NO está: se archivó, y archivar es salir de los procesos
+  // transversales además de salir del sitio (ver archivedCompetitions.test.ts).
+  assert.ok(!futbol.includes(COMPETITION_ID),
+    'el Mundial está archivado: no debe procesarse')
+  // Copa Libertadores + TODAS las competiciones de liga (una por liga y
+  // temporada): la lista blanca debe cubrir también las campañas históricas,
+  // o los procesos transversales dejarían de ver esos partidos al cambiar de
+  // temporada. Se deriva del registro: añadir una liga o temporada no rompe
+  // el test.
   assert.ok(futbol.includes(LIBERTADORES_COMPETITION_ID), 'debe incluir Copa Libertadores')
-  assert.equal(futbol.length, 2 + ALL_LEAGUE_COMPETITION_IDS.length)
+  assert.equal(futbol.length, 1 + ALL_LEAGUE_COMPETITION_IDS.length)
   for (const id of ALL_LEAGUE_COMPETITION_IDS) {
     assert.ok(futbol.includes(id), `debe incluir la competición de liga ${id}`)
   }
@@ -56,13 +59,15 @@ test('las listas por deporte particionan las competiciones sin solaparse', () =>
   for (const id of basket) assert.ok(!futbol.has(id), 'sin solape fútbol/baloncesto')
   for (const id of tenis) assert.ok(!futbol.has(id), 'sin solape fútbol/tenis')
   for (const id of tenis) assert.ok(!basket.has(id), 'sin solape baloncesto/tenis')
-  // ...y que juntas cubran TODO lo que tiene datos: competiciones activas o
-  // históricas del registro (no las 'proximamente', que aún no existen) más
-  // las temporadas anteriores de cada liga.
+  // ...y que juntas cubran TODO lo que se procesa: competiciones activas o
+  // históricas del registro más las temporadas anteriores de cada liga. Fuera
+  // quedan las 'proximamente' (aún no existen) y las 'archivada' (existen
+  // pero ya no se tocan).
   const total = futbol.size + basket.size + tenis.size
-  const conDatos = COMPETITIONS_NAV.filter((c) => c.id && c.status !== 'proximamente').length
+  const procesables = COMPETITIONS_NAV.filter(
+    (c) => c.id && c.status !== 'proximamente' && c.status !== 'archivada').length
   const temporadasHistoricasDeLiga = ALL_LEAGUE_COMPETITION_IDS.length - Object.keys(LEAGUE_SLUGS).length
-  assert.equal(total, conDatos + temporadasHistoricasDeLiga)
+  assert.equal(total, procesables + temporadasHistoricasDeLiga)
 })
 
 // ─── Escudos de competición ──────────────────────────────────────────────────

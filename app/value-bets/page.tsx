@@ -3,7 +3,7 @@ import { Zap } from 'lucide-react'
 import { createStaticSupabaseClient } from '@/lib/supabase/static'
 import { ValueBetsFullTable } from '@/components/predictions/ValueBetsFullTable'
 import { SmartBetsTrackRecord, type ResolvedPickRow, type CategoryStat, type PendingMatchRow } from '@/components/predictions/SmartBetsTrackRecord'
-import { COMPETITION_ID } from '@/lib/constants'
+import { ARCHIVED_COMPETITION_IDS } from '@/lib/sports'
 
 export const metadata: Metadata = {
   title: 'Apuestas de Valor',
@@ -88,16 +88,24 @@ export default async function ValueBetsPage() {
   const bestEdge    = bets.reduce((max, b: any) => Math.max(max, b.edge ?? 0), 0)
 
   // ── Historial de aciertos Smart Bets — 3 consultas en paralelo ──────
-  // Mundial excluido a propósito: terminó el 19 de julio y sus picks
-  // históricos solo diluirían el % de acierto y "recientes" de las
-  // competiciones que siguen activas (ligas, Libertadores).
+  // Las competiciones ARCHIVADAS quedan fuera: sus picks no se califican ni
+  // se actualizan, y contarlos mezclaría el historial de lo que la
+  // plataforma cubre hoy con el de un torneo retirado. Medido al archivar el
+  // Mundial: 40 de los 115 picks resueltos eran suyos, y el histórico pasa
+  // de 53,0% (61/115) a 48,0% (36/75). Baja porque cambia la muestra.
+  //
+  // Se deriva del registro y no del id suelto: archivar otra competición no
+  // debe exigir tocar esta página.
+  const fueraDeArchivo = <T,>(qb: T): T =>
+    (ARCHIVED_COMPETITION_IDS.length > 0
+      ? (qb as any).not('competition_id', 'in', `(${ARCHIVED_COMPETITION_IDS.join(',')})`)
+      : qb) as T
   const [{ data: resolvedRaw }, { data: recentRaw }, { data: pendingRaw }] = await Promise.all([
-    supabase
+    fueraDeArchivo(supabase
       .from('smart_bet_picks')
       .select('id, category, gradable, correct, confidence')
-      .eq('resolved', true)
-      .neq('competition_id', COMPETITION_ID),
-    supabase
+      .eq('resolved', true)),
+    fueraDeArchivo(supabase
       .from('smart_bet_picks')
       .select(`
         id, match_id, market_id, category, label, rank, confidence, gradable, correct, actual_detail, resolved_at,
@@ -106,8 +114,7 @@ export default async function ValueBetsPage() {
           away_team:teams!matches_away_team_id_fkey(name, code)
         )
       `)
-      .eq('resolved', true)
-      .neq('competition_id', COMPETITION_ID)
+      .eq('resolved', true))
       .order('resolved_at', { ascending: false })
       .limit(20),
     // `!inner` + filtro por fecha: pendiente significa que TODAVÍA SE PUEDE
@@ -115,7 +122,7 @@ export default async function ValueBetsPage() {
     // terminados que aún no ha calificado el proceso, y verlos bajo
     // «Pendientes» invita a apostar sobre algo que ya pasó. De paso recorta
     // la consulta: eran 781 filas para pintar unas pocas decenas.
-    supabase
+    fueraDeArchivo(supabase
       .from('smart_bet_picks')
       .select(`
         id, match_id, market_id, label, category, confidence,
@@ -123,8 +130,7 @@ export default async function ValueBetsPage() {
           home_team:teams!matches_home_team_id_fkey(code),
           away_team:teams!matches_away_team_id_fkey(code))
       `)
-      .eq('resolved', false)
-      .neq('competition_id', COMPETITION_ID)
+      .eq('resolved', false))
       // Ventana de fechas, NO `order` + `limit`.
       //
       // PostgREST no ordena las filas de arriba por una columna de la tabla

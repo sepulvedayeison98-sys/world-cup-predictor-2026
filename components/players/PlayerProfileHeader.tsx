@@ -34,10 +34,19 @@ export function PlayerProfileHeader({ player, stats }: Props) {
 
   return (
     <div className="card overflow-hidden">
+      {/* Vuelta al EQUIPO y no a un listado global: el índice /players era la
+          plantilla del Mundial y se archivó con él. El perfil sigue sirviendo
+          a los jugadores de las ligas, cuyo contexto natural es su club. */}
       <div className="border-b border-zinc-800 px-4 py-2.5">
-        <Link href="/players" className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" /> Volver a Jugadores
-        </Link>
+        {player.team?.id ? (
+          <Link href={`/equipos/${player.team.id}`} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> {player.team.name ?? 'Volver al equipo'}
+          </Link>
+        ) : (
+          <Link href="/matches" className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> Volver a Partidos
+          </Link>
+        )}
       </div>
 
       <div className="p-6">

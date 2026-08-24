@@ -18,7 +18,7 @@ const EASE = 'cubic-bezier(.32,.72,0,1)'
  */
 function breadcrumbOf(pathname: string): [string, string] | [string] {
   if (pathname === '/' || pathname.startsWith('/dashboard')) return ['Inicio']
-  if (pathname.startsWith('/mundial')) return ['Competiciones', 'Mundial 2026']
+  if (pathname.startsWith('/mundial')) return ['Archivo', 'Mundial 2026']
   if (pathname.startsWith('/ligas/')) {
     const slug = pathname.split('/')[2]
     return ['Competiciones', LEAGUE_NAMES[slug] ?? 'Liga']
@@ -26,18 +26,16 @@ function breadcrumbOf(pathname: string): [string, string] | [string] {
   if (pathname.startsWith('/ligas')) return ['Competiciones', 'Ligas']
   if (pathname.startsWith('/nba')) return ['Competiciones', 'NBA']
   if (pathname.startsWith('/tennis')) return ['Competiciones', 'ATP Tour']
-  // Secciones del Mundial que conservan sus rutas (compatibilidad)
-  if (pathname.startsWith('/champion')) return ['Mundial 2026', 'Campeón']
-  if (pathname.startsWith('/bracket')) return ['Mundial 2026', 'Eliminatorias']
-  if (pathname.startsWith('/groups')) return ['Mundial 2026', 'Grupos']
-  if (pathname.startsWith('/scorers')) return ['Mundial 2026', 'Goleadores']
-  if (pathname.startsWith('/players')) return ['Mundial 2026', 'Jugadores']
+  // /champion, /bracket, /groups, /scorers y el índice /players se
+  // archivaron con el Mundial y redirigen a /mundial (ver next.config.ts):
+  // ya no llega ningún pathname suyo hasta aquí. Sobrevive /players/[id],
+  // que hoy sirve a las plantillas de liga.
+  if (pathname.startsWith('/players/')) return ['Análisis', 'Jugador']
   if (pathname.startsWith('/matches')) return ['Análisis', 'Partidos']
   if (pathname.startsWith('/predictions')) return ['Análisis', 'Predicciones']
   if (pathname.startsWith('/value-bets')) return ['Análisis', 'Smart Bets']
   if (pathname.startsWith('/inteligencia')) return ['Análisis', 'Inteligencia']
   if (pathname.startsWith('/settings')) return ['Configuración']
-  if (pathname.startsWith('/admin')) return ['Administración']
   return ['Veredicto']
 }
 
