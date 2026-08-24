@@ -169,6 +169,44 @@ export default async function ValueBetsPage() {
     correct: highBand.filter((r) => r.correct === true).length,
   }
 
+  // Categorías cuya CONFIANZA NO SE CUMPLE.
+  //
+  // Un umbral por confianza no protege de una categoría mal calibrada: al
+  // contrario, la concentra. Hoy «portería» promete 85 de media y acierta el
+  // 11% (1 de 9), y aun así pone 695 de las recomendaciones que pasan el
+  // filtro. «Goles» promete 86 y cumple 46.
+  //
+  // Se avisa por la BRECHA entre lo prometido y lo cumplido, no por un
+  // acierto bajo a secas: lo que engaña no es que una categoría sea difícil,
+  // es que diga 85 y entregue 11. El aviso lleva siempre su tamaño de
+  // muestra para que se lea con la reserva que merece.
+  const MIN_MUESTRA = 5
+  const BRECHA_ALERTA = 30
+  const pendientesPorCategoria = new Map<string, { n: number; sumConf: number }>()
+  for (const m of pendingMatches) {
+    for (const pk of m.picks) {
+      const e = pendientesPorCategoria.get(pk.category) ?? { n: 0, sumConf: 0 }
+      e.n++; e.sumConf += pk.confidence
+      pendientesPorCategoria.set(pk.category, e)
+    }
+  }
+  const categoryWarnings = byCategory
+    .flatMap((c) => {
+      const pend = pendientesPorCategoria.get(c.category)
+      if (!pend || c.analyzed < MIN_MUESTRA) return []
+      const medido = (c.correct / c.analyzed) * 100
+      const prometido = pend.sumConf / pend.n
+      if (prometido - medido < BRECHA_ALERTA) return []
+      return [{
+        category: c.category,
+        analyzed: c.analyzed,
+        pct: Math.round(medido),
+        claimed: Math.round(prometido),
+        pending: pend.n,
+      }]
+    })
+    .sort((a, b) => b.pending - a.pending)
+
   const recentPicks: ResolvedPickRow[] = ((recentRaw ?? []) as any[]).map((p) => ({
     id: p.id,
     match_id: p.match_id,
@@ -267,6 +305,7 @@ export default async function ValueBetsPage() {
         recent={recentPicks}
         pending={pendingMatches}
         highBand={highBandStat}
+        categoryWarnings={categoryWarnings}
       />
     </div>
   )

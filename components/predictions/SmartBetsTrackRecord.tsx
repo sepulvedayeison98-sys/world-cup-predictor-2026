@@ -38,6 +38,23 @@ export interface CategoryStat {
   correct: number
 }
 
+/**
+ * Categoría que aparece mucho entre las recomendaciones y mide mal.
+ * Un umbral por confianza no protege de esto: hoy «portería» pone 695
+ * recomendaciones por encima del 75% con confianza media de 85 y un acierto
+ * histórico del 20%. Filtrar por confianza CONCENTRA la peor categoría en vez
+ * de descartarla, así que el aviso tiene que estar donde se leen los picks.
+ */
+export interface CategoryWarning {
+  category: string
+  analyzed: number
+  /** Acierto medido, en %. */
+  pct: number
+  /** Confianza media que declara en las recomendaciones listadas, en %. */
+  claimed: number
+  pending: number
+}
+
 /** Rendimiento histórico del tramo de confianza que se está mostrando. */
 export interface HighBandStat {
   threshold: number
@@ -53,6 +70,7 @@ interface Props {
   recent: ResolvedPickRow[]
   pending: PendingMatchRow[]
   highBand: HighBandStat
+  categoryWarnings: CategoryWarning[]
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -97,7 +115,7 @@ function EffectivenessBar({ pct }: { pct: number }) {
 /** Partidos pendientes que se listan antes de plegar el resto en un contador. */
 const PENDING_VISIBLE = 25
 
-export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, ungradedCount, recent, pending, highBand }: Props) {
+export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, ungradedCount, recent, pending, highBand, categoryWarnings }: Props) {
   const pct = totalAnalyzed > 0 ? (totalCorrect / totalAnalyzed) * 100 : null
   const pendingPickCount = pending.reduce((s, m) => s + m.picks.length, 0)
   const nothingYet = totalAnalyzed === 0 && pending.length === 0
@@ -229,6 +247,15 @@ export function SmartBetsTrackRecord({ totalAnalyzed, totalCorrect, byCategory, 
                   <>Todavía no hay resueltas en este tramo con las que medir su acierto.</>
                 )}
               </p>
+              {categoryWarnings.map((c) => (
+                <p key={c.category} className="mt-1.5 text-[11px] leading-relaxed text-amber-400/90">
+                  ⚠ <span className="font-semibold">{CATEGORY_LABEL[c.category] ?? c.category}</span>:{' '}
+                  {c.pending} de las listadas. Prometen{' '}
+                  <span className="mono">{c.claimed}%</span> de media y esta categoría
+                  acierta el <span className="mono font-semibold">{c.pct}%</span>{' '}
+                  ({c.analyzed} resueltas). Filtrar por confianza no lo corrige.
+                </p>
+              ))}
             </div>
           )}
 
