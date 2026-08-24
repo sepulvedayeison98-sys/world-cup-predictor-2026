@@ -30,6 +30,13 @@ export const revalidate = 120
  */
 const MIN_CONFIDENCE = 75
 
+/**
+ * Días por delante que se piden de recomendaciones pendientes. Medido: 14
+ * días son 392 picks en 96 partidos — lejos del tope de 1.000 filas de
+ * PostgREST y de sobra para llenar los 25 partidos que se listan.
+ */
+const PENDING_WINDOW_DAYS = 14
+
 export default async function ValueBetsPage() {
   const supabase = createStaticSupabaseClient()
 
@@ -118,9 +125,17 @@ export default async function ValueBetsPage() {
       `)
       .eq('resolved', false)
       .neq('competition_id', COMPETITION_ID)
+      // Ventana de fechas, NO `order` + `limit`.
+      //
+      // PostgREST no ordena las filas de arriba por una columna de la tabla
+      // embebida, así que `order(kickoff_time, referencedTable: 'matches')`
+      // seguido de `limit(400)` devolvía 400 picks CUALESQUIERA de los ~1.600
+      // pendientes. El partido de hoy podía no estar entre ellos — y no
+      // estaba: la lista abría el 26 de agosto mientras el Junior–Once Caldas
+      // de esa misma noche faltaba. El filtro sobre la embebida sí manda, y
+      // ordenar es cosa del cliente, más abajo.
       .gte('match.kickoff_time', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
-      .order('kickoff_time', { referencedTable: 'matches', ascending: true })
-      .limit(400),
+      .lte('match.kickoff_time', new Date(Date.now() + PENDING_WINDOW_DAYS * 86_400_000).toISOString()),
   ])
 
   const resolved = (resolvedRaw ?? []) as any[]
