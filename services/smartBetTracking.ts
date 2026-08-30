@@ -113,7 +113,7 @@ async function fetchOddsByMatch(supabase: any, matchIds: string[]) {
 
 export async function snapshotScheduledPicks(
   competitionIds?: string[],
-): Promise<{ matchesSnapshotted: number; picksStored: number; picksFailed: number }> {
+): Promise<{ matchesSnapshotted: number; picksStored: number; picksFailed: number; picksRemoved: number }> {
   const supabase = createAdminClient()
   const scope = resolveCompetitionScope({ competitionIds })
 
@@ -126,7 +126,7 @@ export async function snapshotScheduledPicks(
       .order('id', { ascending: true }) // orden estable: paginar sin orden repite y pierde filas
       .range(from, to),
   )
-  if (scheduled.length === 0) return { matchesSnapshotted: 0, picksStored: 0, picksFailed: 0 }
+  if (scheduled.length === 0) return { matchesSnapshotted: 0, picksStored: 0, picksFailed: 0, picksRemoved: 0 }
 
   const teamIds = [
     ...new Set(scheduled.flatMap((m: any) => [m.home_team_id, m.away_team_id]).filter(Boolean)),
@@ -148,10 +148,15 @@ export async function snapshotScheduledPicks(
 
   const snapshotAt = new Date().toISOString()
   const picks: any[] = []
+  // Partidos que esta corrida SÍ ha vuelto a evaluar. Solo de estos se puede
+  // limpiar lo viejo: un partido saltado (sin predicción publicada) conserva
+  // lo que tuviera.
+  const evaluated = new Set<string>()
 
   for (const m of scheduled as any[]) {
     const prediction = Array.isArray(m.predictions) ? (m.predictions[0] ?? null) : (m.predictions ?? null)
     if (!prediction?.is_published) continue
+    evaluated.add(m.id)
 
     const recs = computeSmartBets(
       prediction,
@@ -186,19 +191,54 @@ export async function snapshotScheduledPicks(
   let picksStored = 0
   let picksFailed = 0
   const snapshotted = new Set<string>()
+  const failedMatches = new Set<string>()
   for (const batch of chunk(picks, BATCH)) {
     const { error } = await (supabase.from('smart_bet_picks') as any)
       .upsert(batch, { onConflict: 'match_id,market_id' })
     if (error) {
       picksFailed += batch.length
       console.error('[smartBetTracking] upsert de picks falló:', error.message)
+      for (const p of batch) failedMatches.add(p.match_id)
     } else {
       picksStored += batch.length
       for (const p of batch) snapshotted.add(p.match_id)
     }
   }
 
-  return { matchesSnapshotted: snapshotted.size, picksStored, picksFailed }
+  // ── Barrido de los mercados que se cayeron del top-5 ───────────────────
+  //
+  // El upsert va por (match_id, market_id): refresca lo que sigue estando y
+  // AÑADE lo nuevo, pero no borra nada. Un mercado que hoy ya no entra en el
+  // top-5 conservaba su fila para siempre, así que la tabla acumulaba la
+  // UNIÓN de todos los top-5 que se hubieran calculado alguna vez.
+  //
+  // Medido antes de este barrido: un Deportivo Cali con 6 picks pendientes,
+  // tres del 24 de agosto y tres del 30, y los rangos repetidos (dos rank 2,
+  // dos rank 3). Smart Bets enseñaba los seis; la ficha del partido, que
+  // recalcula al abrirse, enseñaba solo los de hoy. De ahí que las dos
+  // pestañas no coincidieran.
+  //
+  // El criterio de borrado es la marca de tiempo: dentro de los partidos que
+  // esta corrida volvió a evaluar, toda fila SIN CALIFICAR que no se haya
+  // refrescado ahora sobra. Dos protecciones:
+  //   · `resolved = false` — un pick ya calificado es historial y no se toca
+  //     jamás, aunque el mercado haya dejado de recomendarse.
+  //   · se excluyen los partidos cuyo upsert falló, para no dejarlos sin
+  //     picks al borrar lo viejo sin haber podido escribir lo nuevo.
+  const limpiables = [...evaluated].filter((id) => !failedMatches.has(id))
+  let picksRemoved = 0
+  for (const ids of chunk(limpiables, BATCH)) {
+    const { count, error } = await supabase
+      .from('smart_bet_picks')
+      .delete({ count: 'exact' })
+      .in('match_id', ids)
+      .eq('resolved', false)
+      .lt('snapshot_at', snapshotAt)
+    if (error) console.error('[smartBetTracking] barrido de picks obsoletos falló:', error.message)
+    else picksRemoved += count ?? 0
+  }
+
+  return { matchesSnapshotted: snapshotted.size, picksStored, picksFailed, picksRemoved }
 }
 
 export async function resolvePendingPicks(
