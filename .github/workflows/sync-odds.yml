@@ -1,23 +1,31 @@
-name: Sync cuotas + recalibracion (Mundial, archivado)
+name: Sync cuotas (Pinnacle vía The Odds API)
 
-# DETENIDO — el Mundial 2026 se archivó y las dos llamadas de este workflow
-# solo trabajaban sobre él:
+# Trae las cuotas de Pinnacle de las competiciones EN CURSO y recalcula las
+# value bets. Reactivado tras sacar services/sync/odds.ts del Mundial.
 #
-#   · /api/sync/odds        → services/sync/odds.ts está fijado al Mundial en
-#     dos sitios: ODDS_API_SPORT cae por defecto en 'soccer_fifa_world_cup' y
-#     la consulta filtra .eq('competition_id', COMPETITION_ID). Las últimas
-#     cuotas que trajo son del 19 de julio.
-#   · /api/sync/recalibrate → services/sync/recalibrate.ts recorre solo los
-#     partidos del Mundial. Con los 104 terminados, cada corrida recorría las
-#     filas y salía sin escribir nada (el guard de partido jugado).
+# ── Cadencia y coste ──────────────────────────────────────────────────────
+# Cada llamada a /odds cuesta (regiones × mercados) = 1 × 2 = 2 créditos, y
+# el plan gratuito son 500 al mes. El sync solo pide las competiciones con
+# partido dentro de las próximas 72 h, así que el gasto depende del
+# calendario: un día sin fútbol cuesta 0 y un sábado con las siete puede
+# costar 14.
 #
-# Sin `schedule:` no vuelve a dispararse solo. Se conserva el
-# `workflow_dispatch` y el archivo entero para no perder el punto de partida
-# de la decisión pendiente: llevar el detector de cuotas a las ligas en curso
-# exige mapear cada una a su clave de deporte en The Odds API y confirmar la
-# cuota de la cuenta. Cuando se haga, esto vuelve a tener un cron.
+# Cuatro corridas al día es el techo prudente mientras no sepamos el plan
+# real de la cuenta: en el peor caso —las siete competiciones con partido
+# todos los días— serían 56 créditos diarios, que se pasarían de 500. Por eso
+# el propio sync lee `x-requests-remaining` de la respuesta y se detiene si
+# baja de ODDS_MIN_CREDITS (25 por defecto), dejándolo anotado en sync_logs.
+# Con los créditos reales a la vista se ajusta esta cadencia.
+#
+# La recalibración ya NO se encadena aquí: recalibrate.ts sigue fijado al
+# Mundial archivado y no tiene nada que hacer.
+#
+# Requiere los secrets del repo: CRON_SECRET. La clave de The Odds API
+# (ODDS_API_KEY) vive en Vercel.
 
 on:
+  schedule:
+    - cron: "15 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -31,10 +39,6 @@ jobs:
         run: |
           set -uo pipefail
           CRON_SECRET="$(printf %s "$CRON_SECRET" | tr -d '[:space:]')"
-          AUTH="Authorization: Bearer $CRON_SECRET"
           curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 180 \
-            "$APP_URL/api/sync/odds" -H "$AUTH" \
-            || { echo "::warning::Sync de cuotas fallo tras reintentos."; exit 0; }
-          curl -fsS --retry 3 --retry-delay 12 --retry-all-errors --max-time 120 \
-            "$APP_URL/api/sync/recalibrate" -H "$AUTH" \
-            || { echo "::warning::Recalibracion fallo tras reintentos."; exit 0; }
+            "$APP_URL/api/sync/odds" -H "Authorization: Bearer $CRON_SECRET" \
+            || { echo "::warning::Sync de cuotas falló tras reintentos."; exit 0; }

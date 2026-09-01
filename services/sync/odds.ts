@@ -1,19 +1,32 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { resolveTeamCode } from '@/lib/teamMapping'
 import { buildValueBet, isStrongValueBet, type OddsMarket } from '@/lib/valueBets'
 import { computeMovements } from '@/lib/marketMovement'
-import { COMPETITION_ID } from '@/lib/constants'
-
+import { oddsSportByCompetition, buildTeamIndex, matchTeam } from '@/lib/oddsSports'
 
 /**
- * INACTIVO — fijado al Mundial 2026, que está archivado. `ODDS_API_SPORT` cae
- * por defecto en 'soccer_fifa_world_cup' y la consulta filtra por
- * `COMPETITION_ID`; con el torneo archivado no hay partido al que pedirle
- * cuota. Su cron se detuvo (ver .github/workflows/sync-odds.yml).
+ * Ingesta de cuotas de Pinnacle (vía The Odds API) y detección de value bets
+ * para las competiciones EN CURSO.
  *
- * Se conserva porque llevar el detector de valor a las ligas en curso parte
- * de aquí: hay que mapear cada liga a su clave de deporte en The Odds API y
- * sustituir el filtro por la lista blanca de competiciones activas.
+ * ── De dónde viene ────────────────────────────────────────────────────────
+ * Estaba fijado al Mundial 2026 en dos sitios: `ODDS_API_SPORT` caía por
+ * defecto en 'soccer_fifa_world_cup' y la consulta filtraba por su
+ * `competition_id`. Con el torneo archivado el proceso corría en verde y
+ * devolvía cero eventos, así que /value-bets llevaba desde el 19 de julio
+ * vacío mientras la página anunciaba "detección activa". La última cuota de
+ * la base es de ese día.
+ *
+ * ── Cómo se acota el gasto ────────────────────────────────────────────────
+ * Cada llamada a /odds cuesta (regiones × mercados) = 2 créditos, y el plan
+ * gratuito son 500 al mes. Siete competiciones en cada corrida serían
+ * insostenibles, así que:
+ *
+ *   · solo se piden las competiciones con algún partido programado dentro de
+ *     la ventana (`ODDS_WINDOW_HOURS`, 72 h por defecto);
+ *   · /v4/sports —que no consume cuota— valida antes las claves y descarta
+ *     las que estén fuera de temporada;
+ *   · los créditos restantes se LEEN de la cabecera `x-requests-remaining`,
+ *     no se estiman, y si bajan de `ODDS_MIN_CREDITS` la corrida se detiene
+ *     y lo declara en vez de agotar la cuota en silencio.
  */
 
 /**
@@ -85,63 +98,124 @@ function mapToMarket(
 
 export async function syncOdds(): Promise<{
   ok: boolean; events: number; oddsRecorded: number; valueBets: number; unmatched: string[]
+  sportsQueried: string[]; sportsSkipped: string[]; creditsRemaining: number | null
+  creditsUsed: number | null; stoppedOnCredits: boolean
 }> {
   const started  = Date.now()
   const supabase = createAdminClient()
   const apiKey   = process.env.ODDS_API_KEY
-  const sport    = process.env.ODDS_API_SPORT || 'soccer_fifa_world_cup'
   if (!apiKey) throw new Error('Falta ODDS_API_KEY en el entorno.')
 
-  // ── Cargar partidos de la BD ─────────────────────────────────────────────────
-  const { data: matches, error: mErr } = await supabase
+  const windowHours = Number(process.env.ODDS_WINDOW_HOURS ?? 72)
+  const minCredits  = Number(process.env.ODDS_MIN_CREDITS ?? 25)
+
+  // ── Qué competiciones tienen partido próximo ────────────────────────────────
+  // Pedir cuotas de una liga sin partidos a la vista es gastar créditos para
+  // recibir una lista vacía.
+  const sportByCompetition = oddsSportByCompetition()
+  const hasta = new Date(Date.now() + windowHours * 3600_000).toISOString()
+  const { data: proximos, error: pErr } = await supabase
     .from('matches')
-    .select(`
-      id,
-      home_team:teams!matches_home_team_id_fkey(code),
-      away_team:teams!matches_away_team_id_fkey(code),
-      predictions(id, home_win_probability, draw_probability, away_win_probability,
-                  predicted_home_score, predicted_away_score)
-    `)
-    .eq('competition_id', COMPETITION_ID)
-  if (mErr) throw mErr
+    .select('competition_id')
+    .eq('status', 'scheduled')
+    .in('competition_id', [...sportByCompetition.keys()])
+    .lte('kickoff_time', hasta)
+    .gte('kickoff_time', new Date().toISOString())
+  if (pErr) throw pErr
+  const competicionesEnVentana = [...new Set((proximos ?? []).map((m: any) => m.competition_id))]
 
-  const byPair = new Map<string, { matchId: string; prediction: any }>()
-  for (const m of (matches ?? [])) {
-    const hc = m.home_team?.code, ac = m.away_team?.code
-    if (hc && ac) byPair.set(`${hc}|${ac}`, {
-      matchId: m.id,
-      prediction: Array.isArray(m.predictions) ? m.predictions[0] : m.predictions,
-    })
-  }
-
-  // ── Fetch Pinnacle desde The Odds API ────────────────────────────────────────
-  // bookmakers=pinnacle: solo pide Pinnacle para conservar créditos de la API.
-  const url = [
-    `https://api.the-odds-api.com/v4/sports/${sport}/odds`,
-    `?apiKey=${apiKey}`,
-    `&regions=eu`,
-    // btts no está soportado en el endpoint masivo /odds de The Odds API
-    // (solo por evento individual) — pedirlo devuelve 422 INVALID_MARKET.
-    `&markets=h2h,totals`,
-    `&bookmakers=pinnacle`,
-    `&oddsFormat=decimal`,
-  ].join('')
-
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`The Odds API ${res.status}: ${await res.text()}`)
-  const events = (await res.json()) as OddsApiEvent[]
+  // ── Validar las claves de deporte (endpoint gratuito, no gasta cuota) ───────
+  const sportsRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports?apiKey=${apiKey}`, { cache: 'no-store' },
+  )
+  if (!sportsRes.ok) throw new Error(`The Odds API /sports ${sportsRes.status}: ${await sportsRes.text()}`)
+  const activos = new Set(((await sportsRes.json()) as any[]).map((s) => s.key))
 
   const now          = new Date().toISOString()
   const oddsRows:     any[] = []
   const valueBetRows: any[] = []
   const unmatched:    string[] = []
   const affectedMatchIds = new Set<string>()
+  const sportsQueried: string[] = []
+  const sportsSkipped: string[] = []
+  let events = 0
+  let creditsRemaining: number | null = null
+  let creditsUsed: number | null = null
+  let stoppedOnCredits = false
 
-  for (const ev of events) {
-    const homeCode = resolveTeamCode(ev.home_team)
-    const awayCode = resolveTeamCode(ev.away_team)
-    const match    = homeCode && awayCode ? byPair.get(`${homeCode}|${awayCode}`) : undefined
-    if (!match) { unmatched.push(`${ev.home_team} vs ${ev.away_team}`); continue }
+  for (const competitionId of competicionesEnVentana) {
+    const sport = sportByCompetition.get(competitionId)
+    if (!sport) continue
+    if (!activos.has(sport)) { sportsSkipped.push(`${sport} (fuera de temporada o clave desconocida)`); continue }
+    if (creditsRemaining !== null && creditsRemaining < minCredits) {
+      sportsSkipped.push(`${sport} (créditos por debajo de ${minCredits})`)
+      stoppedOnCredits = true
+      continue
+    }
+
+    // Partidos e índice de equipos de ESTA competición. El emparejamiento va
+    // por nombre normalizado: lib/teamMapping.ts solo cubre las selecciones
+    // del Mundial y no sirve para clubes.
+    const [{ data: matches, error: mErr }, { data: teams, error: tErr }] = await Promise.all([
+      supabase
+        .from('matches')
+        .select(`
+          id, home_team_id, away_team_id,
+          predictions(id, home_win_probability, draw_probability, away_win_probability,
+                      predicted_home_score, predicted_away_score)
+        `)
+        .eq('competition_id', competitionId)
+        .eq('status', 'scheduled'),
+      supabase.from('teams').select('id, name, short_name').eq('competition_id', competitionId),
+    ])
+    if (mErr) throw mErr
+    if (tErr) throw tErr
+
+    const teamIndex = buildTeamIndex((teams ?? []) as any[])
+    const byPair = new Map<string, { matchId: string; prediction: any }>()
+    for (const m of (matches ?? []) as any[]) {
+      if (m.home_team_id && m.away_team_id) {
+        byPair.set(`${m.home_team_id}|${m.away_team_id}`, {
+          matchId: m.id,
+          prediction: Array.isArray(m.predictions) ? m.predictions[0] : m.predictions,
+        })
+      }
+    }
+
+    // bookmakers=pinnacle: solo pide Pinnacle para conservar créditos.
+    const url = [
+      `https://api.the-odds-api.com/v4/sports/${sport}/odds`,
+      `?apiKey=${apiKey}`,
+      `&regions=eu`,
+      // btts no está soportado en el endpoint masivo /odds de The Odds API
+      // (solo por evento individual) — pedirlo devuelve 422 INVALID_MARKET.
+      `&markets=h2h,totals`,
+      `&bookmakers=pinnacle`,
+      `&oddsFormat=decimal`,
+    ].join('')
+
+    const res = await fetch(url, { cache: 'no-store' })
+    // Los créditos se leen de la respuesta ANTES de mirar si fue bien: un 422
+    // también consume, y el número real es lo que decide si seguimos.
+    const rem = res.headers.get('x-requests-remaining')
+    const use = res.headers.get('x-requests-used')
+    if (rem !== null) creditsRemaining = Number(rem)
+    if (use !== null) creditsUsed = Number(use)
+    if (!res.ok) {
+      // Un deporte que falla no debe tumbar a los demás: se anota y se sigue.
+      sportsSkipped.push(`${sport} (HTTP ${res.status})`)
+      continue
+    }
+    sportsQueried.push(sport)
+
+    const sportEvents = (await res.json()) as OddsApiEvent[]
+    events += sportEvents.length
+
+    for (const ev of sportEvents) {
+    const homeId = matchTeam(teamIndex, ev.home_team)
+    const awayId = matchTeam(teamIndex, ev.away_team)
+    const match  = homeId && awayId ? byPair.get(`${homeId}|${awayId}`) : undefined
+    if (!match) { unmatched.push(`${sport}: ${ev.home_team} vs ${ev.away_team}`); continue }
 
     const pinnacle = ev.bookmakers.find(bk => bk.key === 'pinnacle')
     if (!pinnacle) continue
@@ -212,7 +286,8 @@ export async function syncOdds(): Promise<{
         }
       }
     }
-  }
+    } // fin del bucle de eventos de este deporte
+  } // fin del bucle de competiciones
 
   // ── Reemplazo por swap: insertar primero, borrar lo viejo después ────────────
   // Antes se borraba y luego se insertaba: si el proceso moría entre ambos pasos
@@ -309,15 +384,25 @@ export async function syncOdds(): Promise<{
     status: 'success',
     records_processed: oddsRows.length,
     records_failed: 0,
-    metadata: { events: events.length, value_bets: valueBetRows.length, unmatched, oddsCleaned },
+    metadata: {
+      events, value_bets: valueBetRows.length, unmatched, oddsCleaned,
+      sports_queried: sportsQueried, sports_skipped: sportsSkipped,
+      credits_remaining: creditsRemaining, credits_used: creditsUsed,
+      stopped_on_credits: stoppedOnCredits,
+    },
     duration_ms: Date.now() - started,
   })
 
   return {
     ok: true,
-    events:        events.length,
+    events,
     oddsRecorded:  oddsRows.length,
     valueBets:     valueBetRows.length,
     unmatched,
+    sportsQueried,
+    sportsSkipped,
+    creditsRemaining,
+    creditsUsed,
+    stoppedOnCredits,
   }
 }

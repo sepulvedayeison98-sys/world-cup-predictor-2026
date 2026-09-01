@@ -55,6 +55,24 @@ export default async function ValueBetsPage() {
     `)
     .eq('is_active', true)
 
+  // ¿Hay cuotas frescas con las que comparar?
+  //
+  // Sin esto la página no distinguía dos situaciones opuestas: que el
+  // detector mirara el mercado y no encontrara valor, o que no hubiera
+  // mercado ninguno que mirar. Enseñaba "detección activa" y "el mercado no
+  // ofrece valor" en los dos casos. Estuvo así desde el 19 de julio, con la
+  // ingesta de cuotas fijada al Mundial archivado y cero cuotas nuevas: un
+  // dato falso sostenido durante seis semanas.
+  const { data: ultimaCuota } = await supabase
+    .from('odds')
+    .select('recorded_at')
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+  const cuotaMasReciente = (ultimaCuota?.[0] as any)?.recorded_at as string | undefined
+  const HORAS_FRESCA = 24
+  const hayMercado = cuotaMasReciente != null
+    && Date.now() - new Date(cuotaMasReciente).getTime() < HORAS_FRESCA * 3600_000
+
   const nowMs = Date.now()
   // Solo lo accionable: en vivo o por empezar.
   //
@@ -261,10 +279,19 @@ export default async function ValueBetsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Detección activa</span>
-        </div>
+        {/* El estado del detector se declara, no se decora: sin cuotas
+            frescas no hay nada detectando y el distintivo lo dice. */}
+        {hayMercado ? (
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Detección activa</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/5 px-3 py-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Sin cuotas conectadas</span>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -299,7 +326,31 @@ export default async function ValueBetsPage() {
         </p>
       </div>
 
-      {bets.length === 0 ? (
+      {bets.length === 0 && !hayMercado ? (
+        /* Sin cuotas no se puede afirmar que el mercado no ofrezca valor:
+           no se ha mirado. Se dice lo que pasa y desde cuándo. */
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-zinc-300">
+            No hay cuotas con las que comparar
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-xs text-zinc-500">
+            Una apuesta de valor sale de enfrentar el modelo a la línea justa de
+            Pinnacle. Sin cuotas recientes no hay comparación posible, así que
+            esta sección no está diciendo que el mercado no ofrezca valor: está
+            diciendo que todavía no lo ha mirado.
+            {cuotaMasReciente && (
+              <> La última cuota registrada es del{' '}
+                {new Date(cuotaMasReciente).toLocaleDateString('es-CO', {
+                  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Bogota',
+                })}.
+              </>
+            )}
+          </p>
+          <a href="/predictions" className="mt-4 inline-block text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+            Ver predicciones del motor →
+          </a>
+        </div>
+      ) : bets.length === 0 ? (
         /* Q8: el mercado sin valor no es un error — es información */
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-10 text-center">
           <p className="text-sm font-medium text-zinc-300">
