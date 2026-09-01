@@ -122,15 +122,33 @@ test('el buscador no devuelve equipos de competiciones archivadas', () => {
 
 test('ningún cron programado toca una competición archivada', () => {
   const dir = join(ROOT, '.github', 'workflows')
-  // Estos workflows solo servían al Mundial: se les quitó el `schedule:` y
-  // conservan `workflow_dispatch` para poder correrlos a mano.
-  for (const wf of ['sync-odds.yml', 'run-simulation.yml']) {
+  // run-simulation.yml proyectaba el campeón del Mundial: sin `schedule:`,
+  // solo a mano.
+  //
+  // sync-odds.yml estuvo en esta lista y salió: dejó de trabajar sobre el
+  // torneo cuando services/sync/odds.ts pasó a recorrer las competiciones en
+  // curso, así que volver a programarlo es correcto. Lo que sigue vigilado es
+  // que no vuelva a apuntar al Mundial — eso lo cubre el assert de abajo
+  // sobre COMPETITION_ID.
+  for (const wf of ['run-simulation.yml']) {
     const src = readFileSync(join(dir, wf), 'utf8')
     assert.doesNotMatch(src, /^\s+schedule:/m,
       `${wf} sigue programado y su trabajo es sobre una competición archivada`)
     assert.match(src, /workflow_dispatch:/,
       `${wf} debe seguir siendo lanzable a mano`)
   }
+  // La ingesta de cuotas puede correr programada, pero jamás sobre el archivo.
+  //
+  // Se mira el CÓDIGO, no los comentarios: la cabecera del archivo explica de
+  // dónde viene el proceso y nombra ahí la clave vieja a propósito. Un test
+  // que prohíba mencionarla obligaría a borrar la explicación del fallo.
+  const oddsCodigo = leer('services/sync/odds.ts')
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // comentarios de bloque
+    .replace(/^\s*\/\/.*$/gm, '')       // comentarios de línea
+  assert.doesNotMatch(oddsCodigo, /\bCOMPETITION_ID\b/,
+    'la ingesta de cuotas no debe volver a fijarse a la competición archivada')
+  assert.doesNotMatch(oddsCodigo, /soccer_fifa_world_cup/,
+    'la clave de deporte del Mundial no debe reaparecer en la ingesta de cuotas')
   // El sync de resultados en vivo sigue corriendo, pero ya no por el Mundial.
   assert.doesNotMatch(leer('lib/syncWindow.ts'), /\bCOMPETITION_ID\b/,
     'la ventana de sync en vivo no debe incluir la competición archivada')
